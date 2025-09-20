@@ -220,4 +220,7 @@ __marimo__/
 .idea/
 
 # Artifacts
+generated_image.pngsamples/
 generated_image.png
+uploads/
+samples/
