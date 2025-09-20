@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "nanoapiclient"
+version = "0.1.0"
+description = ""
+authors = ["Lene Preuss <lene.preuss@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pillow = "^11.3.0"
+google-genai = "^1.38.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
