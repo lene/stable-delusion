@@ -1,14 +1,16 @@
-import pytest
 import os
-from unittest.mock import patch, MagicMock
-from PIL import Image
-import requests
-
 import sys
-sys.path.append('nano_api')
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import pytest
+import requests
+from PIL import Image
+
+from nano_api.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
 from nano_api.upscale import upscale_image
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+
+sys.path.append('nano_api')
 
 
 class TestUpscaleImage:
@@ -28,30 +30,32 @@ class TestUpscaleImage:
         }
         mock_post.return_value = mock_response
 
-        # Mock PIL Image operations
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = b'test_image_data'
-
+        # Mock Path.read_bytes and PIL Image operations
+        with patch.object(Path, 'read_bytes', return_value=b'test_image_data'):
             with patch('nano_api.upscale.Image.open') as mock_image_open:
                 mock_image = MagicMock(spec=Image.Image)
                 mock_image_open.return_value = mock_image
 
-                with patch('nano_api.upscale.base64.b64encode',
-                          return_value=b'dGVzdCBkYXRh'):
+                with patch(
+                        'nano_api.upscale.base64.b64encode', return_value=b'dGVzdCBkYXRh'
+                ):
                     with patch('nano_api.upscale.base64.b64decode') as mock_decode:
                         mock_decode.return_value = b'decoded_image_data'
 
-                        result = upscale_image('test.jpg', 'test-project',
-                                             'us-central1', 'x2')
+                        result = upscale_image(
+                            Path('test.jpg'), 'test-project', 'us-central1', 'x2'
+                        )
 
                         # Verify API call
                         mock_post.assert_called_once()
                         call_args = mock_post.call_args
 
                         # Check URL format
-                        expected_url = ("https://us-central1-aiplatform.googleapis.com"
-                                      "/v1/projects/test-project/locations/us-central1"
-                                      "/publishers/google/models/imagegeneration@002:predict")
+                        expected_url = (
+                            "https://us-central1-aiplatform.googleapis.com"
+                            "/v1/projects/test-project/locations/us-central1"
+                            "/publishers/google/models/imagegeneration@002:predict"
+                        )
                         assert call_args[0][0] == expected_url
 
                         # Check request payload
@@ -78,20 +82,21 @@ class TestUpscaleImage:
         mock_post.return_value = mock_response
 
         # Mock PIL Image operations
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = b'test_image_data'
-
+        with patch.object(Path, 'read_bytes', return_value=b'test_image_data'):
             with patch('nano_api.upscale.Image.open') as mock_image_open:
                 mock_image = MagicMock(spec=Image.Image)
                 mock_image_open.return_value = mock_image
 
-                with patch('nano_api.upscale.base64.b64encode',
-                          return_value=b'dGVzdCBkYXRh'):
+                with patch(
+                        'nano_api.upscale.base64.b64encode', return_value=b'dGVzdCBkYXRh'
+                ):
                     with patch('nano_api.upscale.base64.b64decode') as mock_decode:
                         mock_decode.return_value = b'decoded_image_data'
 
-                        result = upscale_image('test.jpg', 'test-project',
-                                             'us-central1', 'x4')
+                        upscale_image(
+                            Path('test.jpg'), 'test-project',
+                            'us-central1', 'x4'
+                        )
 
                         # Check request payload has x4 factor
                         call_args = mock_post.call_args
@@ -109,7 +114,7 @@ class TestUpscaleImage:
         # Mock file not found
         with patch('builtins.open', side_effect=FileNotFoundError):
             with pytest.raises(FileNotFoundError):
-                upscale_image('nonexistent.jpg', 'test-project')
+                upscale_image(Path('nonexistent.jpg'), 'test-project')
 
     @patch('nano_api.upscale.requests.post')
     @patch('nano_api.upscale.default')
@@ -124,11 +129,10 @@ class TestUpscaleImage:
         mock_response.raise_for_status.side_effect = requests.HTTPError("API Error")
         mock_post.return_value = mock_response
 
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = b'test_data'
+        with patch.object(Path, 'read_bytes', return_value=b'test_data'):
 
             with pytest.raises(requests.HTTPError, match="API Error"):
-                upscale_image('test.jpg', 'test-project')
+                upscale_image(Path('test.jpg'), 'test-project')
 
     @patch('nano_api.upscale.default')
     def test_upscale_image_auth_error(self, mock_default):
@@ -137,7 +141,7 @@ class TestUpscaleImage:
         mock_default.side_effect = Exception("Authentication failed")
 
         with pytest.raises(Exception, match="Authentication failed"):
-            upscale_image('test.jpg', 'test-project')
+            upscale_image(Path('test.jpg'), 'test-project')
 
     @patch('nano_api.upscale.requests.post')
     @patch('nano_api.upscale.default')
@@ -155,15 +159,14 @@ class TestUpscaleImage:
         }
         mock_post.return_value = mock_response
 
-        with patch('builtins.open', create=True) as mock_open:
-            mock_open.return_value.__enter__.return_value.read.return_value = b'test'
+        with patch.object(Path, 'read_bytes', return_value=b'test'):
 
             with patch('nano_api.upscale.Image.open'):
                 with patch('nano_api.upscale.base64.b64encode'):
                     with patch('nano_api.upscale.base64.b64decode') as mock_decode:
                         mock_decode.return_value = b'decoded_test_data'
 
-                        upscale_image('test.jpg', 'test-project')
+                        upscale_image(Path('test.jpg'), 'test-project')
 
                         # Check that default location was used
                         call_args = mock_post.call_args
@@ -184,15 +187,14 @@ class TestUpscaleImage:
                 }
                 mock_post.return_value = mock_response
 
-                with patch('builtins.open', create=True) as mock_open:
-                    mock_open.return_value.__enter__.return_value.read.return_value = b'test'
+                with patch.object(Path, 'read_bytes', return_value=b'test'):
 
                     with patch('nano_api.upscale.Image.open'):
                         with patch('nano_api.upscale.base64.b64encode'):
                             with patch('nano_api.upscale.base64.b64decode') as mock_decode:
                                 mock_decode.return_value = b'test_decoded_data'
 
-                                upscale_image('test.jpg', 'test-project')
+                                upscale_image(Path('test.jpg'), 'test-project')
 
                                 # Check headers
                                 call_args = mock_post.call_args
@@ -205,7 +207,6 @@ class TestUpscaleCommandLine:
     def test_command_line_defaults(self):
         """Test command line parsing with defaults."""
         import argparse
-        from nano_api.upscale import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
         # Create parser similar to upscale.py
         parser = argparse.ArgumentParser()
@@ -252,9 +253,8 @@ class TestUpscaleIntegration:
         test_args = ['upscale.py', 'test.jpg']
 
         with patch('sys.argv', test_args):
-            with patch('nano_api.upscale.print') as mock_print:
+            with patch('nano_api.upscale.print'):
                 # Import and execute the main block logic
-                from nano_api.upscale import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
                 import argparse
 
                 parser = argparse.ArgumentParser()
@@ -263,11 +263,14 @@ class TestUpscaleIntegration:
                 args = parser.parse_args(['test.jpg'])
 
                 # Simulate main execution
-                mock_upscale('test.jpg', DEFAULT_PROJECT_ID, DEFAULT_LOCATION,
-                           upscale_factor=f'x{args.scale}')
+                mock_upscale(
+                    'test.jpg', DEFAULT_PROJECT_ID, DEFAULT_LOCATION,
+                    upscale_factor=f'x{args.scale}'
+                )
                 mock_image.save('upscaled_test.jpg')
 
-                mock_upscale.assert_called_once_with('test.jpg', DEFAULT_PROJECT_ID,
-                                                   DEFAULT_LOCATION,
-                                                   upscale_factor='x4')
+                mock_upscale.assert_called_once_with(
+                    'test.jpg', DEFAULT_PROJECT_ID, DEFAULT_LOCATION,
+                    upscale_factor='x4'
+                )
                 mock_image.save.assert_called_once()

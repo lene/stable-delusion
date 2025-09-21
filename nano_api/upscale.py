@@ -1,21 +1,24 @@
 __author__ = 'Lene Preuss <lene.preuss@gmail.com>'
-import base64
-import logging
-
-from google.cloud import aiplatform
 
 import argparse
+import base64
 import io
+from pathlib import Path
+
 import requests
-from PIL import Image
 from google.auth import default
 from google.auth.transport.requests import Request
+from PIL import Image
 
 from conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 
-def upscale_image(image_path: str, project_id: str, location: str = "us-central1",
-                  upscale_factor: str = "x2") -> Image.Image:
+def upscale_image(
+    image_path: Path,
+    project_id: str,
+    location: str = "us-central1",
+    upscale_factor: str = "x2",
+) -> Image.Image:
     """
     Upscale an image using Google Vertex AI's built-in Imagen model
 
@@ -34,9 +37,8 @@ def upscale_image(image_path: str, project_id: str, location: str = "us-central1
     credentials.refresh(auth_req)
 
     # Load and encode image to base64
-    with open(image_path, "rb") as image_file:
-        image_data = image_file.read()
-        base64_image = base64.b64encode(image_data).decode('utf-8')
+    image_data = image_path.read_bytes()
+    base64_image = base64.b64encode(image_data).decode('utf-8')
 
     # Prepare the request
     url = (f"https://{location}-aiplatform.googleapis.com/v1/projects/"
@@ -80,19 +82,34 @@ def upscale_image(image_path: str, project_id: str, location: str = "us-central1
 
 
 # Usage example:
-# upscaled_img = upscale_image("my_image.jpg", "my-project-id", upscale_factor="x4")
+# upscaled_img = upscale_image("my_image.jpg", "my-project-id",
+#                              upscale_factor="x4")
 # upscaled_img.save("upscaled_image.png")
 
 # --- Run the upscaling process ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Upscale an image using Google Vertex AI.")
-    parser.add_argument("image_path", type=str, help="Path to the image to upscale.")
-    parser.add_argument("--scale", type=int, default=4, choices=[2, 4],
-                        help="Upscale factor: 2 or 4 (default: 4).")
+    parser = argparse.ArgumentParser(
+        description="Upscale an image using Google Vertex AI."
+    )
+    parser.add_argument(
+        "image_path", type=Path, help="Path to the image to upscale."
+    )
+    parser.add_argument(
+        "--scale",
+        type=int,
+        default=4,
+        choices=[2, 4],
+        help="Upscale factor: 2 or 4 (default: 4).",
+    )
     args = parser.parse_args()
 
-    upscaled_img = upscale_image(args.image_path, DEFAULT_PROJECT_ID,
-                                 DEFAULT_LOCATION, upscale_factor=f"x{args.scale}")
-    output_path = f"upscaled_{args.image_path}"
-    upscaled_img.save(output_path)
+    input_path = args.image_path
+    upscaled_img = upscale_image(
+        input_path,
+        DEFAULT_PROJECT_ID,
+        DEFAULT_LOCATION,
+        upscale_factor=f"x{args.scale}",
+    )
+    output_path = input_path.parent / f"upscaled_{input_path.name}"
+    upscaled_img.save(str(output_path))
     print(f"Upscaled image saved to {output_path}")

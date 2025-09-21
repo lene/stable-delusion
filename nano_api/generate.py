@@ -1,14 +1,16 @@
 __author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+
 import argparse
 import logging
 import os
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import List, Optional
 
 from google import genai
-from google.genai import types
 from google.cloud import aiplatform
+from google.genai import types
 from PIL import Image
 
 from conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
@@ -16,35 +18,78 @@ from upscale import upscale_image
 
 logging.basicConfig(level=logging.INFO)
 
+
 def parse_command_line() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
-    parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
-    parser.add_argument("--output", type=str, default="generated_gemini_image.png",
-                        help="The output filename for the generated image.")
-    parser.add_argument("--image", type=str, action="append",
-                        help="Path to a reference image. Can be repeated.")
-    parser.add_argument("--project-id", type=str,
-                        help="Google Cloud Project ID (defaults to value in conf.py).")
-    parser.add_argument("--location", type=str,
-                        help="Google Cloud region (defaults to value in conf.py).")
-    parser.add_argument("--scale", type=int, choices=[2, 4],
-                        help="Upscale factor: 2 or 4 (optional).")
+    parser = argparse.ArgumentParser(
+        description="Generate an image using the Gemini API."
+    )
+    parser.add_argument(
+        "--prompt", type=str, help="The prompt text for image generation."
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("generated_gemini_image.png"),
+        help="The output filename for the generated image.",
+    )
+    parser.add_argument(
+        "--image",
+        type=Path,
+        action="append",
+        help="Path to a reference image. Can be repeated.",
+    )
+    parser.add_argument(
+        "--project-id",
+        type=str,
+        help="Google Cloud Project ID (defaults to value in conf.py).",
+    )
+    parser.add_argument(
+        "--location",
+        type=str,
+        help="Google Cloud region (defaults to value in conf.py).",
+    )
+    parser.add_argument(
+        "--scale",
+        type=int,
+        choices=[2, 4],
+        help="Upscale factor: 2 or 4 (optional).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("."),
+        help="Directory where generated files will be saved "
+        "(default: current directory).",
+    )
     return parser.parse_args()
 
+
 class GeminiClient:
-    def __init__(self, project_id: str = DEFAULT_PROJECT_ID,
-                 location: str = DEFAULT_LOCATION):
+    def __init__(
+        self,
+        project_id: str = DEFAULT_PROJECT_ID,
+        location: str = DEFAULT_LOCATION,
+        output_dir: Path = Path("."),
+    ):
         if not os.getenv("GEMINI_API_KEY"):
-            raise ValueError("GEMINI_API_KEY environment variable is required but not set")
+            raise ValueError(
+                "GEMINI_API_KEY environment variable is required but not set"
+            )
 
         self.project_id = project_id
         self.location = location
+        self.output_dir = output_dir
+
+        # Create output directory if it doesn't exist
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.client = genai.Client()
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
 
-    def generate_from_images(self, prompt_text: str, image_paths: List[str]) -> Optional[str]:
+    def generate_from_images(
+        self, prompt_text: str, image_paths: List[Path]
+    ) -> Optional[Path]:
         uploaded_files = self.upload_files(image_paths)
 
         response = self.client.models.generate_content(
@@ -58,10 +103,12 @@ class GeminiClient:
             self.log_failure_reason(response)
 
             return None
-        logging.info(f"Generated image with {len(response.candidates)} candidates, "
-                     f"finish_reason: {response.candidates[0].finish_reason}, "
-                     f"tokens: {response.usage_metadata.total_token_count}")
-        return save_response_image(response)
+        logging.info(
+            f"Generated image with {len(response.candidates)} candidates, "
+            f"finish_reason: {response.candidates[0].finish_reason}, "
+            f"tokens: {response.usage_metadata.total_token_count}"
+        )
+        return save_response_image(response, self.output_dir)
 
     def log_failure_reason(self, response):
         # Log detailed information about why no candidates were returned
@@ -79,47 +126,63 @@ class GeminiClient:
             logging.error(f"Usage metadata: {response.usage_metadata}")
         # Log any other response properties that might give clues
         logging.error(f"Response type: {type(response)}")
-        logging.error(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+        logging.error(
+            f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}"
+        )
 
-    def upload_files(self, image_paths):
+    def upload_files(self, image_paths: List[Path]):
         uploaded_files = []
-        for image in image_paths:
-            if not os.path.isfile(image):
-                raise FileNotFoundError(f"Image file not found: {image}")
-            uploaded_file = self.client.files.upload(file=image)
+        for image_path in image_paths:
+            if not image_path.is_file():
+                raise FileNotFoundError(f"Image file not found: {image_path}")
+            uploaded_file = self.client.files.upload(file=str(image_path))
             create_time_str = uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
             expiration_time_str = uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
-            logging.info(f"Uploaded file: {image} -> name={uploaded_file.name}, "
-                         f"mime_type={uploaded_file.mime_type}, "
-                         f"size_bytes={uploaded_file.size_bytes}, "
-                         f"create_time={create_time_str}, "
-                         f"expiration_time={expiration_time_str}, "
-                         f"uri={uploaded_file.uri}")
+            logging.info(
+                f"Uploaded file: {image_path} -> name={uploaded_file.name}, "
+                f"mime_type={uploaded_file.mime_type}, "
+                f"size_bytes={uploaded_file.size_bytes}, "
+                f"create_time={create_time_str}, "
+                f"expiration_time={expiration_time_str}, "
+                f"uri={uploaded_file.uri}"
+            )
             uploaded_files.append(uploaded_file)
         return uploaded_files
 
-
-    def generate_hires_image_in_one_shot(self, prompt_text: str, image_paths: List[str],
-                                         scale: Optional[int] = None):
+    def generate_hires_image_in_one_shot(
+        self, prompt_text: str, image_paths: List[Path], scale: Optional[int] = None
+    ) -> Optional[Path]:
         preview_image = self.generate_from_images(prompt_text, image_paths)
 
         if scale is not None and preview_image:
-            upscaled_filename = f"upscaled_{preview_image}"
+            upscaled_filename = self.output_dir / f"upscaled_{preview_image.name}"
             upscale_factor = f'x{scale}'
-            upscale_image(preview_image, self.project_id, self.location,
-                          upscale_factor=upscale_factor).save(upscaled_filename)
+            upscale_image(
+                preview_image, self.project_id, self.location,
+                upscale_factor=upscale_factor
+            ).save(str(upscaled_filename))
             return upscaled_filename
 
         return preview_image
 
-def generate_from_images(prompt_text: str, image_paths: List[str],
-                        project_id: str = DEFAULT_PROJECT_ID,
-                        location: str = DEFAULT_LOCATION) -> Optional[str]:
+
+def generate_from_images(
+    prompt_text: str,
+    image_paths: List[Path],
+    project_id: str = DEFAULT_PROJECT_ID,
+    location: str = DEFAULT_LOCATION,
+    output_dir: Path = Path("."),
+) -> Optional[Path]:
     """Standalone function to generate image from prompt and reference images."""
-    client = GeminiClient(project_id=project_id, location=location)
+    client = GeminiClient(
+        project_id=project_id, location=location, output_dir=output_dir
+    )
     return client.generate_from_images(prompt_text, image_paths)
 
-def save_response_image(response: types.GenerateContentResponse) -> Optional[str]:
+
+def save_response_image(
+    response: types.GenerateContentResponse, output_dir: Path = Path(".")
+) -> Optional[Path]:
     for part in response.candidates[0].content.parts:
         if part.text is not None:
             logging.info(part.text)
@@ -127,10 +190,12 @@ def save_response_image(response: types.GenerateContentResponse) -> Optional[str
             image = Image.open(BytesIO(part.inline_data.data))
             current_time = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
             filename = f"generated_{current_time}.png"
-            image.save(filename)
-            return filename
+            filepath = output_dir / filename
+            image.save(str(filepath))
+            return filepath
     logging.warning("No image found in the API response.")
     return None
+
 
 if __name__ == "__main__":
     args = parse_command_line()
@@ -142,7 +207,8 @@ if __name__ == "__main__":
     # Pass command line arguments to GeminiClient, falling back to defaults if not provided
     project_id = getattr(args, 'project_id') or DEFAULT_PROJECT_ID
     location = getattr(args, 'location') or DEFAULT_LOCATION
-    gemini = GeminiClient(project_id=project_id, location=location)
+    output_dir = getattr(args, 'output_dir') or Path(".")
+    gemini = GeminiClient(project_id=project_id, location=location, output_dir=output_dir)
 
     hires_file = gemini.generate_hires_image_in_one_shot(prompt, images, scale=args.scale)
     if hires_file:

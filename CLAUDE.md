@@ -1,3 +1,9 @@
 - Keep line length to maximum 100 characters
-- follow the PEP8 rules for code formatting
-- After executing a command that edits code, check if the test suite still runs
+- Follow the PEP8 rules for code formatting
+- Thi project is managed with Poetry. Add any new dependencies with `poetry add <package>` and run any scripts using `poetry run <command>`
+- After executing a command that edits code, check if the test suite still runs. 
+- After making significant code changes, check if the test suite needs to be extended or altered. Propose these changes, if needed.
+- when dealing with temporary files, always use the tempfile module instead of using the "/tmp" directory
+- When dealing with path-like objects, always use the pathlib module
+- After making code changes, run `poetry run flake8 nano_api tests` to ensure no PEP 8 violations were introduced, and fix any detected issues.
+- When running flake8, always explicitly specify the directories to check, e.g., `flake8 nano_api tests`, to avoid unintended files being checked .

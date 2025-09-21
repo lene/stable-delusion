@@ -1,16 +1,17 @@
 """
 Pytest configuration and shared fixtures for the test suite.
 """
-import pytest
 import os
+import sys
 import tempfile
 from unittest.mock import MagicMock, patch
-from PIL import Image
-from io import BytesIO
-import sys
+
+import pytest
 
 # Add the nano_api package to the Python path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'nano_api'))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), '..', 'nano_api')
+)
 
 
 @pytest.fixture(scope="session")
@@ -253,10 +254,12 @@ def mock_google_auth():
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
+        "markers",
+        "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
     )
     config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+        "markers",
+        "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
     config.addinivalue_line(
         "markers", "api: marks tests that make actual API calls"
