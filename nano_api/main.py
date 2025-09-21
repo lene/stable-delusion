@@ -4,7 +4,7 @@ import os
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 
-from generate import multi_image_example
+from generate import generate_from_images
 
 
 app = Flask(__name__)
@@ -32,7 +32,7 @@ def generate():
         image.save(filepath)
         saved_files.append(filepath)
 
-    generated_file = multi_image_example(prompt, saved_files)
+    generated_file = generate_from_images(prompt, saved_files)
 
     # Example response
     return jsonify({

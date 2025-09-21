@@ -9,7 +9,7 @@ sys.path.append('nano_api')
 
 from nano_api.generate import (
     GeminiClient, parse_command_line, save_response_image,
-    multi_image_example
+    generate_from_images
 )
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
@@ -84,7 +84,7 @@ class TestGeminiClient:
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
             client = GeminiClient()
 
-            with patch.object(client, 'multi_image_example',
+            with patch.object(client, 'generate_from_images',
                             return_value='test_image.png'):
                 result = client.generate_hires_image_in_one_shot("prompt",
                                                                ["image.png"])
@@ -101,18 +101,156 @@ class TestGeminiClient:
             mock_upscaled_image = MagicMock()
             mock_upscale.return_value = mock_upscaled_image
 
-            with patch.object(client, 'multi_image_example',
+            with patch.object(client, 'generate_from_images',
                             return_value='test_image.png'):
                 result = client.generate_hires_image_in_one_shot("prompt",
                                                                ["image.png"],
                                                                scale=4)
 
-                mock_upscale.assert_called_once_with('preview_image.png',
+                mock_upscale.assert_called_once_with('test_image.png',
                                                    client.project_id,
                                                    client.location,
                                                    upscale_factor='x4')
                 mock_upscaled_image.save.assert_called_once()
                 assert result == 'upscaled_test_image.png'
+
+    @patch('nano_api.generate.genai.Client')
+    @patch('nano_api.generate.aiplatform.init')
+    def test_generate_from_images_no_candidates(self, mock_init, mock_client):
+        """Test generate_from_images when API returns no candidates."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            # Mock response with no candidates
+            mock_response = MagicMock()
+            mock_response.candidates = []
+
+            mock_client_instance = MagicMock()
+            mock_client_instance.models.generate_content.return_value = mock_response
+            mock_client_instance.files.upload.return_value = MagicMock()
+            mock_client.return_value = mock_client_instance
+
+            client = GeminiClient()
+
+            with patch.object(client, 'log_failure_reason') as mock_log_failure:
+                with patch('os.path.isfile', return_value=True):
+                    result = client.generate_from_images("test prompt", ["image.png"])
+
+                    assert result is None
+                    mock_log_failure.assert_called_once_with(mock_response)
+
+    @patch('nano_api.generate.genai.Client')
+    @patch('nano_api.generate.aiplatform.init')
+    def test_log_failure_reason_with_prompt_feedback(self, mock_init, mock_client):
+        """Test log_failure_reason with prompt feedback and safety ratings."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            client = GeminiClient()
+
+            # Mock response with prompt feedback
+            mock_response = MagicMock()
+            mock_feedback = MagicMock()
+            mock_feedback.block_reason = "SAFETY"
+
+            # Mock safety ratings
+            mock_rating1 = MagicMock()
+            mock_rating1.category = "HATE_SPEECH"
+            mock_rating1.probability = "HIGH"
+            mock_rating2 = MagicMock()
+            mock_rating2.category = "VIOLENCE"
+            mock_rating2.probability = "MEDIUM"
+
+            mock_feedback.safety_ratings = [mock_rating1, mock_rating2]
+            mock_response.prompt_feedback = mock_feedback
+            mock_response.usage_metadata = MagicMock()
+
+            with patch('nano_api.generate.logging.error') as mock_log_error:
+                client.log_failure_reason(mock_response)
+
+                # Verify logging calls
+                mock_log_error.assert_any_call("No candidates returned from the API.")
+                mock_log_error.assert_any_call("Prompt blocked: SAFETY")
+                mock_log_error.assert_any_call("Safety rating: HATE_SPEECH = HIGH")
+                mock_log_error.assert_any_call("Safety rating: VIOLENCE = MEDIUM")
+
+    @patch('nano_api.generate.genai.Client')
+    @patch('nano_api.generate.aiplatform.init')
+    def test_log_failure_reason_minimal_response(self, mock_init, mock_client):
+        """Test log_failure_reason with minimal response data."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            client = GeminiClient()
+
+            # Mock response with minimal data
+            mock_response = MagicMock()
+            mock_response.prompt_feedback = None
+            mock_response.usage_metadata = None
+
+            with patch('nano_api.generate.logging.error') as mock_log_error:
+                client.log_failure_reason(mock_response)
+
+                # Should still log basic information
+                mock_log_error.assert_any_call("No candidates returned from the API.")
+                assert mock_log_error.call_count >= 3  # Basic logs + type + attributes
+
+    @patch('nano_api.generate.genai.Client')
+    @patch('nano_api.generate.aiplatform.init')
+    def test_upload_files_enhanced_logging(self, mock_init, mock_client):
+        """Test upload_files with enhanced logging of file details."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            # Mock uploaded file with all attributes
+            mock_uploaded_file = MagicMock()
+            mock_uploaded_file.name = "test_uploaded_file.png"
+            mock_uploaded_file.mime_type = "image/png"
+            mock_uploaded_file.size_bytes = 1024
+            mock_uploaded_file.create_time.strftime.return_value = "2024-01-01 12:00:00"
+            mock_uploaded_file.expiration_time.strftime.return_value = "2024-01-02 12:00:00"
+            mock_uploaded_file.uri = "gs://test-bucket/test_file"
+
+            mock_client_instance = MagicMock()
+            mock_client_instance.files.upload.return_value = mock_uploaded_file
+            mock_client.return_value = mock_client_instance
+
+            client = GeminiClient()
+
+            with patch('os.path.isfile', return_value=True):
+                with patch('nano_api.generate.logging.info') as mock_log_info:
+                    result = client.upload_files(["test.png"])
+
+                    assert len(result) == 1
+                    assert result[0] == mock_uploaded_file
+
+                    # Verify enhanced logging
+                    expected_log = ("Uploaded file: test.png -> name=test_uploaded_file.png, "
+                                  "mime_type=image/png, size_bytes=1024, "
+                                  "create_time=2024-01-01 12:00:00, "
+                                  "expiration_time=2024-01-02 12:00:00, "
+                                  "uri=gs://test-bucket/test_file")
+                    mock_log_info.assert_called_with(expected_log)
+
+    @patch('nano_api.generate.genai.Client')
+    @patch('nano_api.generate.aiplatform.init')
+    @patch('nano_api.generate.upscale_image')
+    def test_generate_hires_uses_actual_filename(self, mock_upscale, mock_init, mock_client):
+        """Test that generate_hires_image_in_one_shot uses actual preview filename, not hardcoded."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
+            client = GeminiClient()
+
+            # Mock upscaling
+            mock_upscaled_image = MagicMock()
+            mock_upscale.return_value = mock_upscaled_image
+
+            # Mock generate_from_images to return a specific filename
+            actual_filename = "generated_2024-01-01-15:30:45.png"
+            with patch.object(client, 'generate_from_images', return_value=actual_filename):
+                result = client.generate_hires_image_in_one_shot("test prompt",
+                                                               ["image.png"],
+                                                               scale=2)
+
+                # Verify upscale_image is called with the actual filename, not hardcoded
+                mock_upscale.assert_called_once_with(actual_filename,
+                                                   client.project_id,
+                                                   client.location,
+                                                   upscale_factor='x2')
+
+                expected_result = f"upscaled_{actual_filename}"
+                assert result == expected_result
 
 
 class TestParseCommandLine:
@@ -209,33 +347,33 @@ class TestSaveResponseImage:
             assert result is None
 
 
-class TestMultiImageExample:
+class TestGenerateFromImages:
     @patch('nano_api.generate.GeminiClient')
-    def test_multi_image_example_defaults(self, mock_client_class):
-        """Test standalone multi_image_example function with defaults."""
+    def test_generate_from_images_defaults(self, mock_client_class):
+        """Test standalone generate_from_images function with defaults."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.multi_image_example.return_value = 'test_result.png'
+        mock_client.generate_from_images.return_value = 'test_result.png'
 
-        result = multi_image_example("test prompt", ["image.png"])
+        result = generate_from_images("test prompt", ["image.png"])
 
         mock_client_class.assert_called_once_with(project_id=DEFAULT_PROJECT_ID,
                                                 location=DEFAULT_LOCATION)
-        mock_client.multi_image_example.assert_called_once_with("test prompt",
+        mock_client.generate_from_images.assert_called_once_with("test prompt",
                                                               ["image.png"])
         assert result == 'test_result.png'
 
     @patch('nano_api.generate.GeminiClient')
-    def test_multi_image_example_custom_params(self, mock_client_class):
-        """Test standalone multi_image_example function with custom parameters."""
+    def test_generate_from_images_custom_params(self, mock_client_class):
+        """Test standalone generate_from_images function with custom parameters."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.multi_image_example.return_value = 'test_result.png'
+        mock_client.generate_from_images.return_value = 'test_result.png'
 
         custom_project = "custom-project"
         custom_location = "custom-location"
 
-        result = multi_image_example("test prompt", ["image.png"],
+        result = generate_from_images("test prompt", ["image.png"],
                                    project_id=custom_project,
                                    location=custom_location)
 

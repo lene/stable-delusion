@@ -79,7 +79,7 @@ class TestEndToEndWorkflow:
                 with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
                     # Test the complete workflow
                     client = GeminiClient()
-                    result = client.multi_image_example("Test prompt", temp_images)
+                    result = client.generate_from_images("Test prompt", temp_images)
 
                     assert result == 'generated_2024-01-01-12:00:00.png'
                     mock_image.save.assert_called_once()
@@ -144,7 +144,7 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch('nano_api.main.multi_image_example')
+    @patch('nano_api.main.generate_from_images')
     def test_api_with_real_file_upload(self, mock_generate, client, temp_image_file):
         """Test API with actual file upload simulation."""
         mock_generate.return_value = 'generated_test_image.png'
@@ -171,7 +171,7 @@ class TestFlaskAPIIntegration:
             saved_file = response_data['saved_files'][0]
             assert os.path.exists(saved_file)
 
-    @patch('nano_api.main.multi_image_example')
+    @patch('nano_api.main.generate_from_images')
     def test_api_with_multiple_files(self, mock_generate, client, temp_images):
         """Test API with multiple file uploads."""
         mock_generate.return_value = 'generated_multi_image.png'

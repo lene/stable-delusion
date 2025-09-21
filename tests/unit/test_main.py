@@ -51,7 +51,7 @@ def mock_image_files():
 class TestFlaskAPI:
     def test_generate_endpoint_success(self, client, mock_image_files):
         """Test successful image generation request."""
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png') as mock_generate:
 
             data = {
@@ -70,7 +70,7 @@ class TestFlaskAPI:
             assert response_data['generated_file'] == 'generated_image.png'
             assert len(response_data['saved_files']) == 2
 
-            # Verify multi_image_example was called with correct arguments
+            # Verify generate_from_images was called with correct arguments
             mock_generate.assert_called_once()
             call_args = mock_generate.call_args
             assert call_args[0][0] == 'A beautiful landscape'  # prompt
@@ -118,7 +118,7 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_single_image(self, client, mock_image_file):
         """Test request with single image."""
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png') as mock_generate:
 
             data = {
@@ -135,7 +135,7 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_file_saving(self, client, mock_image_files):
         """Test that files are properly saved to upload folder."""
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png'):
 
             data = {
@@ -163,7 +163,7 @@ class TestFlaskAPI:
             content_type="image/png"
         )
 
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png'):
 
             data = {
@@ -184,7 +184,7 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         """Test handling of image generation failure."""
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value=None) as mock_generate:
 
             data = {
@@ -211,7 +211,7 @@ class TestFlaskAPI:
             content_type="image/png"
         )]
 
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   side_effect=Exception('Generation failed')):
 
             data = {
@@ -257,7 +257,7 @@ class TestFlaskAPI:
 
     def test_response_format(self, client, mock_image_files):
         """Test that response has correct format."""
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png'):
 
             data = {
@@ -302,7 +302,7 @@ class TestFlaskAPI:
             'images': mock_files
         }
 
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png'):
             response = client.post('/generate', data=data,
                                  content_type='multipart/form-data')
@@ -316,7 +316,7 @@ class TestFlaskAPI:
         )]
 
         # Test without explicit content-type - Flask handles multipart automatically
-        with patch('nano_api.main.multi_image_example',
+        with patch('nano_api.main.generate_from_images',
                   return_value='generated_image.png'):
             response = client.post('/generate', data={
                 'prompt': 'Test prompt',

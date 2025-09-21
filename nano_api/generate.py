@@ -44,7 +44,7 @@ class GeminiClient:
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
 
-    def multi_image_example(self, prompt_text: str, image_paths: List[str]) -> Optional[str]:
+    def generate_from_images(self, prompt_text: str, image_paths: List[str]) -> Optional[str]:
         uploaded_files = self.upload_files(image_paths)
 
         response = self.client.models.generate_content(
@@ -54,39 +54,70 @@ class GeminiClient:
                 *uploaded_files
             ]
         )
+        if not response.candidates:
+            self.log_failure_reason(response)
+
+            return None
         logging.info(f"Generated image with {len(response.candidates)} candidates, "
                      f"finish_reason: {response.candidates[0].finish_reason}, "
                      f"tokens: {response.usage_metadata.total_token_count}")
         return save_response_image(response)
+
+    def log_failure_reason(self, response):
+        # Log detailed information about why no candidates were returned
+        logging.error("No candidates returned from the API.")
+        # Check prompt feedback for safety filtering
+        if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+            feedback = response.prompt_feedback
+            if hasattr(feedback, 'block_reason'):
+                logging.error(f"Prompt blocked: {feedback.block_reason}")
+            if hasattr(feedback, 'safety_ratings') and feedback.safety_ratings:
+                for rating in feedback.safety_ratings:
+                    logging.error(f"Safety rating: {rating.category} = {rating.probability}")
+        # Log usage metadata if available
+        if hasattr(response, 'usage_metadata') and response.usage_metadata:
+            logging.error(f"Usage metadata: {response.usage_metadata}")
+        # Log any other response properties that might give clues
+        logging.error(f"Response type: {type(response)}")
+        logging.error(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
     def upload_files(self, image_paths):
         uploaded_files = []
         for image in image_paths:
             if not os.path.isfile(image):
                 raise FileNotFoundError(f"Image file not found: {image}")
-            uploaded_files.append(self.client.files.upload(file=image))
+            uploaded_file = self.client.files.upload(file=image)
+            create_time_str = uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
+            expiration_time_str = uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
+            logging.info(f"Uploaded file: {image} -> name={uploaded_file.name}, "
+                         f"mime_type={uploaded_file.mime_type}, "
+                         f"size_bytes={uploaded_file.size_bytes}, "
+                         f"create_time={create_time_str}, "
+                         f"expiration_time={expiration_time_str}, "
+                         f"uri={uploaded_file.uri}")
+            uploaded_files.append(uploaded_file)
         return uploaded_files
 
 
     def generate_hires_image_in_one_shot(self, prompt_text: str, image_paths: List[str],
                                          scale: Optional[int] = None):
-        preview_image = self.multi_image_example(prompt_text, image_paths)
+        preview_image = self.generate_from_images(prompt_text, image_paths)
 
         if scale is not None and preview_image:
             upscaled_filename = f"upscaled_{preview_image}"
             upscale_factor = f'x{scale}'
-            upscale_image('preview_image.png', self.project_id, self.location,
+            upscale_image(preview_image, self.project_id, self.location,
                           upscale_factor=upscale_factor).save(upscaled_filename)
             return upscaled_filename
 
         return preview_image
 
-def multi_image_example(prompt_text: str, image_paths: List[str],
+def generate_from_images(prompt_text: str, image_paths: List[str],
                         project_id: str = DEFAULT_PROJECT_ID,
                         location: str = DEFAULT_LOCATION) -> Optional[str]:
     """Standalone function to generate image from prompt and reference images."""
     client = GeminiClient(project_id=project_id, location=location)
-    return client.multi_image_example(prompt_text, image_paths)
+    return client.generate_from_images(prompt_text, image_paths)
 
 def save_response_image(response: types.GenerateContentResponse) -> Optional[str]:
     for part in response.candidates[0].content.parts:
