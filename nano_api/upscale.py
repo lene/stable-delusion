@@ -11,7 +11,7 @@ from PIL import Image
 from google.auth import default
 from google.auth.transport.requests import Request
 
-from conf import PROJECT_ID, LOCATION
+from conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 
 def upscale_image(image_path: str, project_id: str, location: str = "us-central1",
@@ -39,7 +39,9 @@ def upscale_image(image_path: str, project_id: str, location: str = "us-central1
         base64_image = base64.b64encode(image_data).decode('utf-8')
 
     # Prepare the request
-    url = f"https://{location}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{location}/publishers/google/models/imagegeneration@002:predict"
+    url = (f"https://{location}-aiplatform.googleapis.com/v1/projects/"
+           f"{project_id}/locations/{location}/publishers/google/models/"
+           f"imagegeneration@002:predict")
 
     headers = {
         "Authorization": f"Bearer {credentials.token}",
@@ -85,11 +87,12 @@ def upscale_image(image_path: str, project_id: str, location: str = "us-central1
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upscale an image using Google Vertex AI.")
     parser.add_argument("image_path", type=str, help="Path to the image to upscale.")
-    parser.add_argument("--upscale_factor", type=str, default="x4", choices=["x2", "x4"],
-                        help="Upscale factor (default: x4).")
+    parser.add_argument("--scale", type=int, default=4, choices=[2, 4],
+                        help="Upscale factor: 2 or 4 (default: 4).")
     args = parser.parse_args()
 
-    upscaled_img = upscale_image(args.image_path, PROJECT_ID, LOCATION, upscale_factor=args.upscale_factor)
+    upscaled_img = upscale_image(args.image_path, DEFAULT_PROJECT_ID,
+                                 DEFAULT_LOCATION, upscale_factor=f"x{args.scale}")
     output_path = f"upscaled_{args.image_path}"
     upscaled_img.save(output_path)
     print(f"Upscaled image saved to {output_path}")
