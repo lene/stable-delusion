@@ -5,8 +5,6 @@ import logging
 from google.cloud import aiplatform
 
 import argparse
-
-import base64
 import io
 import requests
 from PIL import Image
