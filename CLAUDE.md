@@ -1,0 +1,2 @@
+- Keep line length to maximum 100 characters
+- follow the PEP8 rules for code formatting
