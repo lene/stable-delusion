@@ -1,0 +1,116 @@
+# GitLab CI/CD configuration for NanoAPIClient
+# Runs tests and code quality checks on every push
+
+# Use Python 3.10 image (matches development environment)
+image: python:3.10
+
+# Define stages for the pipeline
+stages:
+  - setup
+  - test
+  - quality
+
+# Cache poetry dependencies between runs for faster builds
+cache:
+  paths:
+    - .venv/
+
+# Variables
+variables:
+  # Use virtual environment in project directory for caching
+  POETRY_VENV_IN_PROJECT: "true"
+  # Don't ask for confirmation
+  POETRY_NO_INTERACTION: "1"
+  # Don't create virtual environment (we'll use the cached one)
+  POETRY_CACHE_DIR: ".poetry-cache"
+
+# Install dependencies (runs before each job)
+before_script:
+  - echo "Installing Poetry..."
+  - pip install poetry
+  - echo "Configuring Poetry..."
+  - poetry config virtualenvs.create true
+  - poetry config virtualenvs.in-project true
+  - echo "Installing dependencies..."
+  - poetry install --with dev
+
+# Setup stage - validate project structure
+setup:
+  stage: setup
+  script:
+    - echo "Project structure validation..."
+    - ls -la
+    - echo "Python version:"
+    - python --version
+    - echo "Poetry version:"
+    - poetry --version
+    - echo "Project dependencies:"
+    - poetry show
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Test stage - run the full test suite
+test:
+  stage: test
+  script:
+    - echo "Running test suite..."
+    - poetry run pytest tests/ -v --tb=short
+    - echo "✅ All $(poetry run pytest tests/ --collect-only -q | grep -c test_) tests passed!"
+  artifacts:
+    reports:
+      junit: test-reports.xml
+    expire_in: 1 week
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Code quality stage - run flake8 linting
+flake8:
+  stage: quality
+  script:
+    - echo "Running flake8 code quality checks..."
+    - poetry run flake8 nano_api tests --count --statistics
+    - echo "✅ All code quality checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Optional: Type checking with mypy (if you want to add it later)
+# type-check:
+#   stage: quality
+#   script:
+#     - echo "Running type checks..."
+#     - poetry add --group dev mypy
+#     - poetry run mypy nano_api/
+#   allow_failure: true
+#   only:
+#     - main
+#     - merge_requests
+
+# Security scanning (optional - can be enabled later)
+# security-scan:
+#   stage: quality
+#   script:
+#     - echo "Running security scans..."
+#     - poetry add --group dev bandit safety
+#     - poetry run bandit -r nano_api/
+#     - poetry run safety check
+#   allow_failure: true
+#   only:
+#     - main
+#     - merge_requests
+
+# Deployment stage (runs only on main branch)
+# deploy:
+#   stage: deploy
+#   script:
+#     - echo "Deployment would go here..."
+#     - echo "All tests passed, code quality checks passed"
+#   only:
+#     - main
+#   when: manual
