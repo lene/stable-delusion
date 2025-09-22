@@ -1,0 +1,35 @@
+[MESSAGES CONTROL]
+
+# Disable the message, report, category or checker with the given id(s).
+disable=
+    # Import errors for third-party packages not available to pylint
+    import-error,
+    no-name-in-module,
+    # Test patterns that are normal in pytest
+    redefined-outer-name,
+    no-self-use,
+    unused-argument,
+    # Code duplication is acceptable in tests for clarity
+    duplicate-code,
+    # Test structure patterns
+    too-few-public-methods,
+    too-many-locals,
+    # Acceptable test patterns
+    protected-access,
+    attribute-defined-outside-init,
+    # Import organization
+    import-outside-toplevel,
+    reimported,
+    missing-function-docstring,
+    invalid-name
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=100
+
+[DESIGN]
+# Maximum number of locals for function / method body.
+max-locals=15
+
+# Minimum number of public methods for a class
+min-public-methods=1

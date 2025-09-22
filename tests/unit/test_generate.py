@@ -1,8 +1,7 @@
-import argparse
+"""Unit tests for image generation functionality using Google Gemini API."""
 import os
 import sys
 import tempfile
-from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,10 +15,13 @@ from nano_api.generate import (
     save_response_image,
 )
 
-sys.path.append('nano_api')
+from ..conftest import create_mock_gemini_response
+
+sys.path.append("nano_api")
 
 
 class TestGeminiClient:
+    """Test cases for GeminiClient functionality."""
     def test_init_missing_api_key(self):
         """Test GeminiClient initialization without GEMINI_API_KEY."""
         with patch.dict(os.environ, {}, clear=True):
@@ -31,9 +33,9 @@ class TestGeminiClient:
 
     def test_init_successful(self):
         """Test successful GeminiClient initialization."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client'):
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client"):
+                with patch("nano_api.generate.aiplatform.init"):
                     client = GeminiClient()
                     assert client.project_id == DEFAULT_PROJECT_ID
                     assert client.location == DEFAULT_LOCATION
@@ -41,9 +43,9 @@ class TestGeminiClient:
 
     def test_init_with_custom_params(self):
         """Test GeminiClient initialization with custom parameters."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client'):
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client"):
+                with patch("nano_api.generate.aiplatform.init"):
                     custom_project = "custom-project"
                     custom_location = "custom-location"
                     custom_output_dir = Path("custom/output")
@@ -59,9 +61,9 @@ class TestGeminiClient:
 
     def test_upload_files_success(self):
         """Test successful file upload."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client') as mock_client_class:
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client") as mock_client_class:
+                with patch("nano_api.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
@@ -97,9 +99,9 @@ class TestGeminiClient:
 
     def test_upload_files_nonexistent(self):
         """Test upload_files with non-existent file."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client'):
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client"):
+                with patch("nano_api.generate.aiplatform.init"):
                     client = GeminiClient()
 
                     nonexistent_file = Path("nonexistent.png")
@@ -109,37 +111,27 @@ class TestGeminiClient:
 
     def test_generate_from_images_success(self):
         """Test successful image generation."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client') as mock_client_class:
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client") as mock_client_class:
+                with patch("nano_api.generate.aiplatform.init"):
                     # Set up mocks
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
-                    # Mock response
-                    mock_response = MagicMock()
-                    mock_candidate = MagicMock()
-                    mock_part = MagicMock()
-                    mock_part.text = None
-                    mock_part.inline_data = MagicMock()
-                    mock_part.inline_data.data = b'fake_image_data'
-
-                    mock_candidate.content.parts = [mock_part]
-                    mock_candidate.finish_reason = "STOP"
-                    mock_response.candidates = [mock_candidate]
-                    mock_response.usage_metadata.total_token_count = 100
+                    # Mock response using helper
+                    mock_response = create_mock_gemini_response(b"fake_image_data")
 
                     mock_client.models.generate_content.return_value = mock_response
                     mock_client.files.upload.return_value = MagicMock()
 
                     # Mock PIL Image operations
-                    with patch('nano_api.generate.Image.open') as mock_image_open:
+                    with patch("nano_api.generate.Image.open") as mock_image_open:
                         mock_image = MagicMock()
                         mock_image_open.return_value = mock_image
 
-                        with patch('nano_api.generate.datetime') as mock_datetime:
+                        with patch("nano_api.generate.datetime") as mock_datetime:
                             mock_datetime.now.return_value.strftime.return_value = (
-                                '2024-01-01-12:00:00'
+                                "2024-01-01-12:00:00"
                             )
 
                             client = GeminiClient()
@@ -157,9 +149,9 @@ class TestGeminiClient:
 
     def test_generate_from_images_no_candidates(self):
         """Test image generation when API returns no candidates."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client') as mock_client_class:
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client") as mock_client_class:
+                with patch("nano_api.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
@@ -183,14 +175,14 @@ class TestGeminiClient:
 
     def test_generate_hires_image_without_scale(self):
         """Test high-res image generation without upscaling."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client') as mock_client_class:
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client") as mock_client_class:
+                with patch("nano_api.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
                     # Mock successful generation
-                    with patch.object(GeminiClient, 'generate_from_images') as mock_generate:
+                    with patch.object(GeminiClient, "generate_from_images") as mock_generate:
                         mock_generate.return_value = Path("generated_image.png")
 
                         client = GeminiClient()
@@ -208,15 +200,15 @@ class TestGeminiClient:
 
     def test_generate_hires_image_with_scale(self):
         """Test high-res image generation with upscaling."""
-        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}):
-            with patch('nano_api.generate.genai.Client') as mock_client_class:
-                with patch('nano_api.generate.aiplatform.init'):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+            with patch("nano_api.generate.genai.Client") as mock_client_class:
+                with patch("nano_api.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
                     # Mock successful generation and upscaling
-                    with patch.object(GeminiClient, 'generate_from_images') as mock_generate:
-                        with patch('nano_api.generate.upscale_image') as mock_upscale:
+                    with patch.object(GeminiClient, "generate_from_images") as mock_generate:
+                        with patch("nano_api.generate.upscale_image") as mock_upscale:
                             mock_generate.return_value = Path("generated_image.png")
                             mock_upscaled_image = MagicMock()
                             mock_upscale.return_value = mock_upscaled_image
@@ -239,6 +231,7 @@ class TestGeminiClient:
 
 
 class TestSaveResponseImage:
+    """Test cases for save_response_image function."""
     def test_save_response_image_success(self):
         """Test saving image from API response."""
         from google.genai import types
@@ -249,18 +242,18 @@ class TestSaveResponseImage:
         mock_part = MagicMock()
         mock_part.text = None
         mock_part.inline_data = MagicMock()
-        mock_part.inline_data.data = b'fake_image_data'
+        mock_part.inline_data.data = b"fake_image_data"
 
         mock_candidate.content.parts = [mock_part]
         mock_response.candidates = [mock_candidate]
 
         # Mock PIL Image operations
-        with patch('nano_api.generate.Image.open') as mock_image_open:
+        with patch("nano_api.generate.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch('nano_api.generate.datetime') as mock_datetime:
-                mock_datetime.now.return_value.strftime.return_value = '2024-01-01-12:00:00'
+            with patch("nano_api.generate.datetime") as mock_datetime:
+                mock_datetime.now.return_value.strftime.return_value = "2024-01-01-12:00:00"
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     output_dir = Path(temp_dir)
@@ -303,9 +296,10 @@ class TestSaveResponseImage:
 
 
 class TestParseCommandLine:
+    """Test cases for command line argument parsing."""
     def test_parse_command_line_defaults(self):
         """Test command line parsing with default values."""
-        with patch('sys.argv', ['generate.py']):
+        with patch("sys.argv", ["generate.py"]):
             args = parse_command_line()
             assert args.prompt is None
             assert args.output == Path("generated_gemini_image.png")
@@ -318,41 +312,42 @@ class TestParseCommandLine:
     def test_parse_command_line_all_args(self):
         """Test command line parsing with all arguments provided."""
         test_args = [
-            'generate.py',
-            '--prompt', 'test prompt',
-            '--output', 'custom_output.png',
-            '--image', 'image1.png',
-            '--image', 'image2.png',
-            '--project-id', 'test-project',
-            '--location', 'test-location',
-            '--scale', '4',
-            '--output-dir', '/custom/output'
+            "generate.py",
+            "--prompt", "test prompt",
+            "--output", "custom_output.png",
+            "--image", "image1.png",
+            "--image", "image2.png",
+            "--project-id", "test-project",
+            "--location", "test-location",
+            "--scale", "4",
+            "--output-dir", "/custom/output"
         ]
 
-        with patch('sys.argv', test_args):
+        with patch("sys.argv", test_args):
             args = parse_command_line()
-            assert args.prompt == 'test prompt'
-            assert args.output == Path('custom_output.png')
-            assert args.image == [Path('image1.png'), Path('image2.png')]
-            assert args.project_id == 'test-project'
-            assert args.location == 'test-location'
+            assert args.prompt == "test prompt"
+            assert args.output == Path("custom_output.png")
+            assert args.image == [Path("image1.png"), Path("image2.png")]
+            assert args.project_id == "test-project"
+            assert args.location == "test-location"
             assert args.scale == 4
-            assert args.output_dir == Path('/custom/output')
+            assert args.output_dir == Path("/custom/output")
 
     def test_parse_command_line_scale_validation(self):
         """Test command line parsing with invalid scale value."""
-        with patch('sys.argv', ['generate.py', '--scale', '3']):
+        with patch("sys.argv", ["generate.py", "--scale", "3"]):
             with pytest.raises(SystemExit):  # argparse raises SystemExit on invalid choice
                 parse_command_line()
 
 
 class TestGenerateFromImagesFunction:
+    """Test cases for the standalone generate_from_images function."""
     def test_generate_from_images_function(self):
         """Test the standalone generate_from_images function."""
-        with patch('nano_api.generate.GeminiClient') as mock_client_class:
+        with patch("nano_api.generate.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            mock_client.generate_from_images.return_value = Path('test_result.png')
+            mock_client.generate_from_images.return_value = Path("test_result.png")
 
             result = generate_from_images(
                 "test prompt",
@@ -370,14 +365,14 @@ class TestGenerateFromImagesFunction:
             mock_client.generate_from_images.assert_called_once_with(
                 "test prompt", [Path("test_image.png")]
             )
-            assert result == Path('test_result.png')
+            assert result == Path("test_result.png")
 
     def test_generate_from_images_function_defaults(self):
         """Test the standalone generate_from_images function with defaults."""
-        with patch('nano_api.generate.GeminiClient') as mock_client_class:
+        with patch("nano_api.generate.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            mock_client.generate_from_images.return_value = 'test_result.png'
+            mock_client.generate_from_images.return_value = "test_result.png"
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 custom_output_dir = Path(temp_dir) / "custom"
@@ -393,4 +388,4 @@ class TestGenerateFromImagesFunction:
                     location=DEFAULT_LOCATION,
                     output_dir=custom_output_dir
                 )
-            assert result == 'test_result.png'
+            assert result == "test_result.png"

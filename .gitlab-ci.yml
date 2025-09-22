@@ -26,12 +26,9 @@ variables:
 
 # Install dependencies (runs before each job)
 before_script:
-  - echo "Installing Poetry..."
   - pip install poetry
-  - echo "Configuring Poetry..."
   - poetry config virtualenvs.create true
   - poetry config virtualenvs.in-project true
-  - echo "Installing dependencies..."
   - poetry install --with dev
 
 # Setup stage - validate project structure
@@ -73,6 +70,18 @@ flake8:
   script:
     - echo "Running flake8 code quality checks..."
     - poetry run flake8 nano_api tests --count --statistics
+    - echo "✅ All code quality checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+pylint:
+  stage: quality
+  script:
+    - echo "Running pylint code quality checks..."
+    - poetry run pylint nano_api tests --score=yes
     - echo "✅ All code quality checks passed!"
   allow_failure: false
   only:

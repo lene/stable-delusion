@@ -1,39 +1,45 @@
-__author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+"""
+Flask web API server for image generation services.
+Provides REST endpoints for uploading images and generating new images with Gemini AI.
+Supports multi-image input and custom output directories.
+"""
+
+__author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from pathlib import Path
 
 from flask import Flask, jsonify, request
 from werkzeug.utils import secure_filename
 
-from generate import generate_from_images
+from nano_api.generate import generate_from_images
 
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = Path('uploads')
-app.config['UPLOAD_FOLDER'].mkdir(exist_ok=True)
+app.config["UPLOAD_FOLDER"] = Path("uploads")
+app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
 
 
-@app.route('/generate', methods=['POST'])
+@app.route("/generate", methods=["POST"])
 def generate():
     # Get the prompt parameter
-    prompt = request.form.get('prompt')
+    prompt = request.form.get("prompt")
     if not prompt:
         return jsonify({"error": "Missing 'prompt' parameter"}), 400
 
     # Get the uploaded files
-    if 'images' not in request.files:
+    if "images" not in request.files:
         return jsonify({"error": "Missing 'images' parameter"}), 400
 
     # Get optional output directory parameter
-    output_dir = Path(request.form.get('output_dir', '.'))
+    output_dir = Path(request.form.get("output_dir", "."))
 
-    images = request.files.getlist('images')
+    images = request.files.getlist("images")
     saved_files = []
 
     # Save uploaded files
     for image in images:
         filename = secure_filename(image.filename)
-        filepath = app.config['UPLOAD_FOLDER'] / filename
+        filepath = app.config["UPLOAD_FOLDER"] / filename
         image.save(str(filepath))
         saved_files.append(filepath)
 
@@ -51,5 +57,5 @@ def generate():
     })
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

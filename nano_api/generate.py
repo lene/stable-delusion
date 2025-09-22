@@ -1,4 +1,10 @@
-__author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+"""
+Image generation using Google Gemini 2.5 Flash Image Preview API.
+Supports multi-image input, custom prompts, and automatic upscaling integration.
+Provides both CLI interface and programmatic API for image generation workflows.
+"""
+
+__author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import argparse
 import logging
@@ -13,10 +19,34 @@ from google.cloud import aiplatform
 from google.genai import types
 from PIL import Image
 
-from conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-from upscale import upscale_image
+from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.upscale import upscale_image
+
+DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
 logging.basicConfig(level=logging.INFO)
+
+
+def log_failure_reason(response):
+    """Log detailed information about why no candidates were returned from API."""
+    logging.error("No candidates returned from the API.")
+    # Check prompt feedback for safety filtering
+    if hasattr(response, "prompt_feedback") and response.prompt_feedback:
+        feedback = response.prompt_feedback
+        if hasattr(feedback, "block_reason"):
+            logging.error("Prompt blocked: %s", feedback.block_reason)
+        if hasattr(feedback, "safety_ratings") and feedback.safety_ratings:
+            for rating in feedback.safety_ratings:
+                logging.error("Safety rating: %s = %s", rating.category, rating.probability)
+    # Log usage metadata if available
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        logging.error("Usage metadata: %s", response.usage_metadata)
+    # Log any other response properties that might give clues
+    logging.error("Response type: %s", type(response))
+    logging.error(
+        "Response attributes: %s",
+        [attr for attr in dir(response) if not attr.startswith("_")]
+    )
 
 
 def parse_command_line() -> argparse.Namespace:
@@ -65,6 +95,11 @@ def parse_command_line() -> argparse.Namespace:
 
 
 class GeminiClient:
+    """
+    Client for generating images using Google Gemini 2.5 Flash Image Preview API.
+
+    Handles image uploads, content generation, and optional upscaling workflows.
+    """
     def __init__(
         self,
         project_id: str = DEFAULT_PROJECT_ID,
@@ -80,7 +115,7 @@ class GeminiClient:
         self.location = location
         self.output_dir = output_dir
 
-        # Create output directory if it doesn't exist
+        # Create output directory if it doesn"t exist
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.client = genai.Client()
@@ -100,35 +135,15 @@ class GeminiClient:
             ]
         )
         if not response.candidates:
-            self.log_failure_reason(response)
-
+            log_failure_reason(response)
             return None
         logging.info(
-            f"Generated image with {len(response.candidates)} candidates, "
-            f"finish_reason: {response.candidates[0].finish_reason}, "
-            f"tokens: {response.usage_metadata.total_token_count}"
+            "Generated image with %d candidates, finish_reason: %s, tokens: %d",
+            len(response.candidates),
+            response.candidates[0].finish_reason,
+            response.usage_metadata.total_token_count
         )
         return save_response_image(response, self.output_dir)
-
-    def log_failure_reason(self, response):
-        # Log detailed information about why no candidates were returned
-        logging.error("No candidates returned from the API.")
-        # Check prompt feedback for safety filtering
-        if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
-            feedback = response.prompt_feedback
-            if hasattr(feedback, 'block_reason'):
-                logging.error(f"Prompt blocked: {feedback.block_reason}")
-            if hasattr(feedback, 'safety_ratings') and feedback.safety_ratings:
-                for rating in feedback.safety_ratings:
-                    logging.error(f"Safety rating: {rating.category} = {rating.probability}")
-        # Log usage metadata if available
-        if hasattr(response, 'usage_metadata') and response.usage_metadata:
-            logging.error(f"Usage metadata: {response.usage_metadata}")
-        # Log any other response properties that might give clues
-        logging.error(f"Response type: {type(response)}")
-        logging.error(
-            f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}"
-        )
 
     def upload_files(self, image_paths: List[Path]):
         uploaded_files = []
@@ -139,12 +154,15 @@ class GeminiClient:
             create_time_str = uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
             expiration_time_str = uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
             logging.info(
-                f"Uploaded file: {image_path} -> name={uploaded_file.name}, "
-                f"mime_type={uploaded_file.mime_type}, "
-                f"size_bytes={uploaded_file.size_bytes}, "
-                f"create_time={create_time_str}, "
-                f"expiration_time={expiration_time_str}, "
-                f"uri={uploaded_file.uri}"
+                "Uploaded file: %s -> name=%s, mime_type=%s, size_bytes=%d, "
+                "create_time=%s, expiration_time=%s, uri=%s",
+                image_path,
+                uploaded_file.name,
+                uploaded_file.mime_type,
+                uploaded_file.size_bytes,
+                create_time_str,
+                expiration_time_str,
+                uploaded_file.uri
             )
             uploaded_files.append(uploaded_file)
         return uploaded_files
@@ -156,7 +174,7 @@ class GeminiClient:
 
         if scale is not None and preview_image:
             upscaled_filename = self.output_dir / f"upscaled_{preview_image.name}"
-            upscale_factor = f'x{scale}'
+            upscale_factor = f"x{scale}"
             upscale_image(
                 preview_image, self.project_id, self.location,
                 upscale_factor=upscale_factor
@@ -201,20 +219,22 @@ if __name__ == "__main__":
     args = parse_command_line()
     prompt = args.prompt
     if not prompt:
-        prompt = "A futuristic cityscape with flying cars at sunset"
+        prompt = DEFAULT_PROMPT
     images = args.image if args.image else []
 
     # Pass command line arguments to GeminiClient, falling back to defaults if not provided
-    project_id = getattr(args, 'project_id') or DEFAULT_PROJECT_ID
-    location = getattr(args, 'location') or DEFAULT_LOCATION
-    output_dir = getattr(args, 'output_dir') or Path(".")
-    gemini = GeminiClient(project_id=project_id, location=location, output_dir=output_dir)
+    cli_project_id = getattr(args, "project_id") or DEFAULT_PROJECT_ID
+    cli_location = getattr(args, "location") or DEFAULT_LOCATION
+    cli_output_dir = getattr(args, "output_dir") or Path(".")
+    gemini = GeminiClient(
+        project_id=cli_project_id, location=cli_location, output_dir=cli_output_dir
+    )
 
     hires_file = gemini.generate_hires_image_in_one_shot(prompt, images, scale=args.scale)
     if hires_file:
         if args.scale:
-            logging.info(f"High Res Image saved to {hires_file}")
+            logging.info("High Res Image saved to %s", hires_file)
         else:
-            logging.info(f"Image saved to {hires_file}")
+            logging.info("Image saved to %s", hires_file)
     else:
         logging.error("Image generation failed.")
