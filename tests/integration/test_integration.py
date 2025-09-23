@@ -81,8 +81,8 @@ class TestEndToEndWorkflow:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.datetime") as mock_datetime:
-                mock_datetime.now.return_value.strftime.return_value = "2024-01-01-12:00:00"
+            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
                     # Test the complete workflow
@@ -127,8 +127,8 @@ class TestEndToEndWorkflow:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.datetime") as mock_datetime:
-                mock_datetime.now.return_value.strftime.return_value = "2024-01-01-12:00:00"
+            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
                     # Test the complete workflow with upscaling
@@ -236,8 +236,8 @@ class TestCommandLineIntegration:
         mock_client.return_value = mock_client_instance
 
         with patch("nano_api.generate.Image.open"):
-            with patch("nano_api.generate.datetime") as mock_datetime:
-                mock_datetime.now.return_value.strftime.return_value = "2024-01-01-15:30:00"
+            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                mock_timestamp.return_value = "2024-01-01-15:30:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
                     with patch("sys.argv", ["generate.py", "--prompt", "Test prompt",

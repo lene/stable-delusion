@@ -5,6 +5,7 @@
 - After making significant code changes, check if the test suite needs to be extended or altered. Propose these changes, if needed.
 - when dealing with temporary files, always use the tempfile module instead of using the "/tmp" directory
 - When dealing with path-like objects, always use the pathlib module
+- After finishing a task, review the code with focus on readability, reusability and brevity. Factor out repeated code into functions or methods.
 - After making code changes, run `poetry run flake8 nano_api tests` to ensure no PEP 8 violations were introduced, and fix any detected issues.
 - When running flake8, always explicitly specify the directories to check, e.g., `flake8 nano_api tests`, to avoid unintended files being checked .
 - also run pylint checks with `poetry run pylint nano_api/ tests/` and fix any detected issues.

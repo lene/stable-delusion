@@ -9,7 +9,6 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 import argparse
 import logging
 import os
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Any
@@ -21,6 +20,7 @@ from PIL import Image
 
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from nano_api.upscale import upscale_image
+from nano_api.utils import get_current_timestamp, log_upload_info
 
 DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
@@ -151,25 +151,7 @@ class GeminiClient:
             if not image_path.is_file():
                 raise FileNotFoundError(f"Image file not found: {image_path}")
             uploaded_file = self.client.files.upload(file=str(image_path))
-            create_time_str = (
-                uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
-                if uploaded_file.create_time else "Unknown"
-            )
-            expiration_time_str = (
-                uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
-                if uploaded_file.expiration_time else "Unknown"
-            )
-            logging.info(
-                "Uploaded file: %s -> name=%s, mime_type=%s, size_bytes=%d, "
-                "create_time=%s, expiration_time=%s, uri=%s",
-                image_path,
-                uploaded_file.name,
-                uploaded_file.mime_type,
-                uploaded_file.size_bytes,
-                create_time_str,
-                expiration_time_str,
-                uploaded_file.uri
-            )
+            log_upload_info(image_path, uploaded_file)
             uploaded_files.append(uploaded_file)
         return uploaded_files
 
@@ -221,8 +203,8 @@ def save_response_image(
             logging.info(part.text)
         elif part.inline_data is not None and part.inline_data.data is not None:
             image = Image.open(BytesIO(part.inline_data.data))
-            current_time = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-            filename = f"generated_{current_time}.png"
+            timestamp = get_current_timestamp("filename")
+            filename = f"generated_{timestamp}.png"
             filepath = output_dir / filename
             image.save(str(filepath))
             return filepath

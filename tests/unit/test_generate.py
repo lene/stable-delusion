@@ -129,10 +129,8 @@ class TestGeminiClient:
                         mock_image = MagicMock()
                         mock_image_open.return_value = mock_image
 
-                        with patch("nano_api.generate.datetime") as mock_datetime:
-                            mock_datetime.now.return_value.strftime.return_value = (
-                                "2024-01-01-12:00:00"
-                            )
+                        with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                            mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                             client = GeminiClient()
 
@@ -252,8 +250,8 @@ class TestSaveResponseImage:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.datetime") as mock_datetime:
-                mock_datetime.now.return_value.strftime.return_value = "2024-01-01-12:00:00"
+            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     output_dir = Path(temp_dir)
