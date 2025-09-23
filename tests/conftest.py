@@ -244,7 +244,8 @@ def mock_google_auth():
     """Mock Google authentication."""
     with patch("nano_api.upscale.default") as mock_default:
         mock_credentials = MagicMock()
-        mock_credentials.token = "mock-access-token"
+        # NOTE: This is a test-only mock token, not a real credential
+        mock_credentials.token = "mock-access-token"  # nosec B105
         mock_default.return_value = (mock_credentials, None)
 
         yield mock_credentials

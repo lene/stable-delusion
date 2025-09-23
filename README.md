@@ -8,10 +8,20 @@ poetry install
 
 ## Setup
 
-Set your Gemini API key as an environment variable:
+### Environment Variables
+
+Set the required environment variables:
+
 ```bash
+# Required: Gemini API key for image generation
 export GEMINI_API_KEY="your-api-key-here"
+
+# Optional: Flask debug mode (development only)
+export FLASK_DEBUG="true"  # Enable debug mode in development
+# export FLASK_DEBUG="false"  # Disable debug mode (default/production)
 ```
+
+**Security Note**: `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in development environments, never in production.
 
 ## Usage
 
@@ -148,3 +158,73 @@ $ poetry run pytest tests/ -v
 $ poetry run pytest tests/unit/ -v
 $ poetry run pytest tests/integration/ -v
 ```
+
+## Development
+
+### Code Quality Tools
+
+This project includes comprehensive code quality and security tools:
+
+#### Linting and Code Style
+```bash
+# Check code style with flake8
+$ poetry run flake8 nano_api tests
+
+# Run pylint for comprehensive code analysis
+$ poetry run pylint nano_api/ tests/
+```
+
+#### Security Analysis
+```bash
+# Run security analysis with bandit
+$ poetry run bandit -r nano_api/
+
+# Bandit configuration excludes test files automatically
+# See .bandit file for configuration details
+```
+
+### Pre-commit Workflow
+
+Before committing code, run all quality checks:
+```bash
+# 1. Run tests
+$ poetry run pytest
+
+# 2. Check code style
+$ poetry run flake8 nano_api tests
+
+# 3. Run pylint analysis
+$ poetry run pylint nano_api/ tests/
+
+# 4. Run security analysis
+$ poetry run bandit -r nano_api/
+```
+
+### Configuration Files
+
+- `.pylintrc` - Pylint configuration for code quality standards
+- `.flake8` - Flake8 configuration for PEP 8 compliance
+- `.bandit` - Bandit security scanner configuration
+- `.gitlab-ci.yml` - CI/CD pipeline configuration
+- `CLAUDE.md` - Development guidelines for AI assistance
+
+### CI/CD Pipeline
+
+The GitLab CI/CD pipeline automatically runs on every push and includes:
+
+1. **Setup**: Project structure validation and dependency installation
+2. **Tests**: Complete test suite execution (56 tests)
+3. **Code Quality**:
+   - Flake8 style checking
+   - Pylint comprehensive analysis
+   - Bandit security scanning
+
+All quality gates must pass for the pipeline to succeed, ensuring consistent code quality and security.
+
+### Security Best Practices
+
+- **Flask Debug Mode**: Controlled via `FLASK_DEBUG` environment variable (disabled by default)
+- **Secret Management**: API keys stored in environment variables, never hardcoded
+- **Test Isolation**: Security scanning excludes test files with mock credentials
+- **Dependency Management**: Regular dependency updates via Poetry
+- **Automated Security Scanning**: Bandit security analysis runs on every push via GitLab CI/CD

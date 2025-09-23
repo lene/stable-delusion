@@ -91,7 +91,8 @@ def upscale_image(
     response = requests.post(
         _build_upscale_url(project_id, location),
         json=_create_upscale_payload(base64_image, upscale_factor),
-        headers=headers
+        headers=headers,
+        timeout=60
     )
     response.raise_for_status()
 

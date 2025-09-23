@@ -22,7 +22,7 @@ class TestUpscaleImage:
         """Test successful image upscaling with x2 factor."""
         # Mock authentication
         mock_credentials = MagicMock()
-        mock_credentials.token = "test-token"
+        mock_credentials.token = "test-token"  # nosec B105 - test-only mock credential
         mock_default.return_value = (mock_credentials, None)
 
         # Mock successful API response
@@ -73,7 +73,7 @@ class TestUpscaleImage:
         """Test successful image upscaling with x4 factor."""
         # Mock authentication
         mock_credentials = MagicMock()
-        mock_credentials.token = "test-token"
+        mock_credentials.token = "test-token"  # nosec B105 - test-only mock credential
         mock_default.return_value = (mock_credentials, None)
 
         # Mock successful API response
@@ -151,7 +151,7 @@ class TestUpscaleImage:
         """Test upscale_image with default location parameter."""
         # Mock authentication
         mock_credentials = MagicMock()
-        mock_credentials.token = "test-token"
+        mock_credentials.token = "test-token"  # nosec B105 - test-only mock credential
         mock_default.return_value = (mock_credentials, None)
 
         # Mock successful API response
@@ -179,7 +179,7 @@ class TestUpscaleImage:
         """Test that request headers are properly formatted."""
         with patch("nano_api.upscale.default") as mock_default:
             mock_credentials = MagicMock()
-            mock_credentials.token = "test-bearer-token"
+            mock_credentials.token = "test-bearer-token"  # nosec B105 - test-only mock
             mock_default.return_value = (mock_credentials, None)
 
             with patch("nano_api.upscale.requests.post") as mock_post:

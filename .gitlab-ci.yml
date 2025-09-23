@@ -1,5 +1,5 @@
 # GitLab CI/CD configuration for NanoAPIClient
-# Runs tests and code quality checks on every push
+# Runs tests, code quality checks, and security analysis on every push
 
 # Use Python 3.10 image (matches development environment)
 image: python:3.10
@@ -101,18 +101,18 @@ pylint:
 #     - main
 #     - merge_requests
 
-# Security scanning (optional - can be enabled later)
-# security-scan:
-#   stage: quality
-#   script:
-#     - echo "Running security scans..."
-#     - poetry add --group dev bandit safety
-#     - poetry run bandit -r nano_api/
-#     - poetry run safety check
-#   allow_failure: true
-#   only:
-#     - main
-#     - merge_requests
+# Security scanning with bandit
+bandit:
+  stage: quality
+  script:
+    - echo "Running security analysis with bandit..."
+    - poetry run bandit -r nano_api/ --format txt
+    - echo "✅ Security analysis completed - no vulnerabilities found!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
 
 # Deployment stage (runs only on main branch)
 # deploy:
