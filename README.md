@@ -172,6 +172,9 @@ $ poetry run flake8 nano_api tests
 
 # Run pylint for comprehensive code analysis
 $ poetry run pylint nano_api/ tests/
+
+# Run mypy for static type checking
+$ poetry run mypy nano_api/
 ```
 
 #### Security Analysis
@@ -196,7 +199,10 @@ $ poetry run flake8 nano_api tests
 # 3. Run pylint analysis
 $ poetry run pylint nano_api/ tests/
 
-# 4. Run security analysis
+# 4. Run type checking
+$ poetry run mypy nano_api/
+
+# 5. Run security analysis
 $ poetry run bandit -r nano_api/
 ```
 
@@ -217,6 +223,7 @@ The GitLab CI/CD pipeline automatically runs on every push and includes:
 3. **Code Quality**:
    - Flake8 style checking
    - Pylint comprehensive analysis
+   - MyPy static type checking
    - Bandit security scanning
 
 All quality gates must pass for the pipeline to succeed, ensuring consistent code quality and security.

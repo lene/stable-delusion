@@ -12,11 +12,11 @@ import os
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from google import genai
 from google.cloud import aiplatform
-from google.genai import types
+from google.genai.types import GenerateContentResponse
 from PIL import Image
 
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
@@ -27,7 +27,7 @@ DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 logging.basicConfig(level=logging.INFO)
 
 
-def log_failure_reason(response):
+def log_failure_reason(response: GenerateContentResponse) -> None:
     """Log detailed information about why no candidates were returned from API."""
     logging.error("No candidates returned from the API.")
     # Check prompt feedback for safety filtering
@@ -141,18 +141,24 @@ class GeminiClient:
             "Generated image with %d candidates, finish_reason: %s, tokens: %d",
             len(response.candidates),
             response.candidates[0].finish_reason,
-            response.usage_metadata.total_token_count
+            response.usage_metadata.total_token_count if response.usage_metadata else 0
         )
         return save_response_image(response, self.output_dir)
 
-    def upload_files(self, image_paths: List[Path]):
+    def upload_files(self, image_paths: List[Path]) -> List[Any]:
         uploaded_files = []
         for image_path in image_paths:
             if not image_path.is_file():
                 raise FileNotFoundError(f"Image file not found: {image_path}")
             uploaded_file = self.client.files.upload(file=str(image_path))
-            create_time_str = uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
-            expiration_time_str = uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
+            create_time_str = (
+                uploaded_file.create_time.strftime("%Y-%m-%d %H:%M:%S")
+                if uploaded_file.create_time else "Unknown"
+            )
+            expiration_time_str = (
+                uploaded_file.expiration_time.strftime("%Y-%m-%d %H:%M:%S")
+                if uploaded_file.expiration_time else "Unknown"
+            )
             logging.info(
                 "Uploaded file: %s -> name=%s, mime_type=%s, size_bytes=%d, "
                 "create_time=%s, expiration_time=%s, uri=%s",
@@ -199,12 +205,21 @@ def generate_from_images(
 
 
 def save_response_image(
-    response: types.GenerateContentResponse, output_dir: Path = Path(".")
+    response: GenerateContentResponse, output_dir: Path = Path(".")
 ) -> Optional[Path]:
-    for part in response.candidates[0].content.parts:
+    if not response.candidates:
+        logging.warning("No candidates found in the API response.")
+        return None
+
+    candidate = response.candidates[0]
+    if not candidate.content or not candidate.content.parts:
+        logging.warning("No content parts found in the API response.")
+        return None
+
+    for part in candidate.content.parts:
         if part.text is not None:
             logging.info(part.text)
-        elif part.inline_data is not None:
+        elif part.inline_data is not None and part.inline_data.data is not None:
             image = Image.open(BytesIO(part.inline_data.data))
             current_time = datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
             filename = f"generated_{current_time}.png"

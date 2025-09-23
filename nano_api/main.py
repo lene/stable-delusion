@@ -6,9 +6,11 @@ Supports multi-image input and custom output directories.
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+from datetime import datetime
 from pathlib import Path
+from typing import Tuple
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from werkzeug.utils import secure_filename
 
 from nano_api.generate import generate_from_images
@@ -20,7 +22,7 @@ app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
 
 
 @app.route("/generate", methods=["POST"])
-def generate():
+def generate() -> Tuple[Response, int]:
     # Get the prompt parameter
     prompt = request.form.get("prompt")
     if not prompt:
@@ -38,7 +40,8 @@ def generate():
 
     # Save uploaded files
     for image in images:
-        filename = secure_filename(image.filename)
+        timestamp = datetime.now().strftime("%y%m%d-%H:%M:%S")
+        filename = secure_filename(image.filename or f"uploaded_image_{timestamp}")
         filepath = app.config["UPLOAD_FOLDER"] / filename
         image.save(str(filepath))
         saved_files.append(filepath)
@@ -54,7 +57,7 @@ def generate():
         "saved_files": [str(f) for f in saved_files],
         "generated_file": str(generated_file) if generated_file else None,
         "output_dir": str(output_dir)
-    })
+    }), 200
 
 
 if __name__ == "__main__":

@@ -8,4 +8,5 @@
 - After making code changes, run `poetry run flake8 nano_api tests` to ensure no PEP 8 violations were introduced, and fix any detected issues.
 - When running flake8, always explicitly specify the directories to check, e.g., `flake8 nano_api tests`, to avoid unintended files being checked .
 - also run pylint checks with `poetry run pylint nano_api/ tests/` and fix any detected issues.
+- run type checking with `poetry run mypy nano_api/` and fix any type-related issues. All functions and methods should have type annotations for input parameters and return values.
 - run security analysis with `poetry run bandit -r nano_api/` to check for security vulnerabilities in source code.

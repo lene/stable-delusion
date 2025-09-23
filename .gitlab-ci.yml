@@ -89,17 +89,18 @@ pylint:
     - merge_requests
     - multi-image-support
 
-# Optional: Type checking with mypy (if you want to add it later)
-# type-check:
-#   stage: quality
-#   script:
-#     - echo "Running type checks..."
-#     - poetry add --group dev mypy
-#     - poetry run mypy nano_api/
-#   allow_failure: true
-#   only:
-#     - main
-#     - merge_requests
+# Type checking with mypy
+mypy:
+  stage: quality
+  script:
+    - echo "Running static type checking with mypy..."
+    - poetry run mypy nano_api/
+    - echo "✅ All type checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
 
 # Security scanning with bandit
 bandit:

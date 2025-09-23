@@ -10,6 +10,7 @@ import argparse
 import base64
 import io
 from pathlib import Path
+from typing import Dict, Any
 
 import requests
 from google.auth import default
@@ -19,7 +20,7 @@ from PIL import Image
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 
-def _get_authenticated_headers() -> dict:
+def _get_authenticated_headers() -> Dict[str, str]:
     """Get authentication headers for Vertex AI API."""
     credentials, _ = default()
     auth_req = Request()
@@ -37,7 +38,7 @@ def _build_upscale_url(project_id: str, location: str) -> str:
             f"imagegeneration@002:predict")
 
 
-def _create_upscale_payload(base64_image: str, upscale_factor: str) -> dict:
+def _create_upscale_payload(base64_image: str, upscale_factor: str) -> Dict[str, Any]:
     """Create the API request payload for upscaling."""
     return {
         "instances": [{
@@ -56,7 +57,7 @@ def _create_upscale_payload(base64_image: str, upscale_factor: str) -> dict:
     }
 
 
-def _decode_upscaled_image(response_data: dict) -> Image.Image:
+def _decode_upscaled_image(response_data: Dict[str, Any]) -> Image.Image:
     """Extract and decode upscaled image from API response."""
     upscaled_base64 = response_data["predictions"][0]["bytesBase64Encoded"]
     image_data = base64.b64decode(upscaled_base64)
@@ -91,8 +92,7 @@ def upscale_image(
     response = requests.post(
         _build_upscale_url(project_id, location),
         json=_create_upscale_payload(base64_image, upscale_factor),
-        headers=headers,
-        timeout=60
+        headers=headers, timeout=60
     )
     response.raise_for_status()
 
@@ -113,20 +113,14 @@ if __name__ == "__main__":
         "image_path", type=Path, help="Path to the image to upscale."
     )
     parser.add_argument(
-        "--scale",
-        type=int,
-        default=4,
-        choices=[2, 4],
+        "--scale", type=int, default=4, choices=[2, 4],
         help="Upscale factor: 2 or 4 (default: 4).",
     )
     args = parser.parse_args()
 
     input_path = args.image_path
     upscaled_img = upscale_image(
-        input_path,
-        DEFAULT_PROJECT_ID,
-        DEFAULT_LOCATION,
-        upscale_factor=f"x{args.scale}",
+        input_path, DEFAULT_PROJECT_ID, DEFAULT_LOCATION, upscale_factor=f"x{args.scale}",
     )
     output_path = input_path.parent / f"upscaled_{input_path.name}"
     upscaled_img.save(str(output_path))
