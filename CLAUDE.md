@@ -11,3 +11,5 @@
 - also run pylint checks with `poetry run pylint nano_api/ tests/` and fix any detected issues.
 - run type checking with `poetry run mypy nano_api/` and fix any type-related issues. All functions and methods should have type annotations for input parameters and return values.
 - run security analysis with `poetry run bandit -r nano_api/` to check for security vulnerabilities in source code.
+- whenever adding a feature to the CLI, also add it to the flask API, and vice versa.
+- whenever changing the flask API, update the OpenAPI specification to reflect the change.

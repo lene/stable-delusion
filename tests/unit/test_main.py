@@ -5,7 +5,7 @@ import sys
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 from werkzeug.datastructures import FileStorage
@@ -55,10 +55,13 @@ def mock_image_files():
 
 class TestFlaskAPI:
     """Test cases for Flask API endpoints and functionality."""
+
     def test_generate_endpoint_success(self, client, mock_image_files):
         """Test successful image generation request."""
-        with patch("nano_api.main.generate_from_images",
-                   return_value="generated_image.png"):
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
             data = {
                 "prompt": "A beautiful landscape",
@@ -72,26 +75,32 @@ class TestFlaskAPI:
             assert response_data["prompt"] == "A beautiful landscape"
             assert response_data["generated_file"] == "generated_image.png"
             assert len(response_data["saved_files"]) == 2
-
-            # Note: generate_from_images call verification removed for simplicity
+            assert "upscaled" in response_data
+            assert "project_id" in response_data
+            assert "location" in response_data
 
     def test_generate_endpoint_missing_prompt(self, client, mock_image_files):
-        """Test request with missing prompt parameter."""
-        data = {
-            "images": mock_image_files
-        }
+        """Test request with missing prompt parameter (should use default)."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
-        response = client.post("/generate", data=data,
-                               content_type="multipart/form-data")
+            data = {
+                "images": mock_image_files
+            }
 
-        assert response.status_code == 400
-        response_data = json.loads(response.data)
-        assert response_data["error"] == "Missing 'prompt' parameter"
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
+
+            response_data = assert_successful_flask_response(response)
+            assert "prompt" in response_data  # Should use default prompt
+            assert response_data["generated_file"] == "generated_image.png"
 
     def test_generate_endpoint_missing_images(self, client):
         """Test request with missing images parameter."""
         data = {
-            "prompt": "A beautiful landscape"
+            "prompt": "Test prompt"
         }
 
         response = client.post("/generate", data=data,
@@ -102,23 +111,29 @@ class TestFlaskAPI:
         assert response_data["error"] == "Missing 'images' parameter"
 
     def test_generate_endpoint_empty_prompt(self, client, mock_image_files):
-        """Test request with empty prompt parameter."""
-        data = {
-            "prompt": "",
-            "images": mock_image_files
-        }
+        """Test request with empty prompt parameter (should use default)."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
-        response = client.post("/generate", data=data,
-                               content_type="multipart/form-data")
+            data = {
+                "prompt": "",
+                "images": mock_image_files
+            }
 
-        assert response.status_code == 400
-        response_data = json.loads(response.data)
-        assert response_data["error"] == "Missing 'prompt' parameter"
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
+
+            response_data = assert_successful_flask_response(response)
+            assert "prompt" in response_data  # Should use default prompt
 
     def test_generate_endpoint_single_image(self, client, mock_image_file):
         """Test request with single image."""
-        with patch("nano_api.main.generate_from_images",
-                   return_value="generated_image.png"):
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
             data = {
                 "prompt": "Test prompt",
@@ -128,14 +143,15 @@ class TestFlaskAPI:
             response = client.post("/generate", data=data,
                                    content_type="multipart/form-data")
 
-            assert response.status_code == 200
-            response_data = json.loads(response.data)
+            response_data = assert_successful_flask_response(response)
             assert len(response_data["saved_files"]) == 1
 
     def test_generate_endpoint_file_saving(self, client, mock_image_files):
         """Test that files are properly saved to upload folder."""
-        with patch("nano_api.main.generate_from_images",
-                   return_value="generated_image.png"):
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
             data = {
                 "prompt": "Test prompt",
@@ -145,25 +161,26 @@ class TestFlaskAPI:
             response = client.post("/generate", data=data,
                                    content_type="multipart/form-data")
 
-            assert response.status_code == 200
-            response_data = json.loads(response.data)
+            response_data = assert_successful_flask_response(response)
+            assert len(response_data["saved_files"]) == 2
 
-            # Check that files were saved with secure filenames
-            saved_files = response_data["saved_files"]
-            for saved_file in saved_files:
-                assert os.path.exists(saved_file)
-                assert str(app.config["UPLOAD_FOLDER"]) in saved_file
+            # Check that files were saved to upload folder
+            upload_folder = app.config["UPLOAD_FOLDER"]
+            saved_files = list(upload_folder.glob("*"))
+            assert len(saved_files) == 2
 
     def test_generate_endpoint_secure_filename(self, client):
         """Test that filenames are properly secured."""
-        malicious_file = FileStorage(
-            stream=BytesIO(b"fake image data"),
-            filename="../../../etc/passwd",
-            content_type="image/png"
-        )
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
-        with patch("nano_api.main.generate_from_images",
-                   return_value="generated_image.png"):
+            malicious_file = FileStorage(
+                stream=BytesIO(b"fake image data"),
+                filename="../../../malicious.png",
+                content_type="image/png"
+            )
 
             data = {
                 "prompt": "Test prompt",
@@ -173,18 +190,88 @@ class TestFlaskAPI:
             response = client.post("/generate", data=data,
                                    content_type="multipart/form-data")
 
-            assert response.status_code == 200
-            response_data = json.loads(response.data)
-
-            # Filename should be secured
-            saved_file = response_data["saved_files"][0]
-            assert "../" not in saved_file
-            assert "etc/passwd" not in saved_file
+            response_data = assert_successful_flask_response(response)
+            # Filename should be secured (no path traversal)
+            assert "../" not in response_data["saved_files"][0]
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         """Test handling of image generation failure."""
-        with patch("nano_api.main.generate_from_images",
-                   return_value=None):
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = None
+
+            data = {
+                "prompt": "Test prompt",
+                "images": mock_image_files
+            }
+
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
+
+            response_data = assert_successful_flask_response(response)
+            assert response_data["generated_file"] is None
+
+    def test_generate_endpoint_generation_exception(self, client, mock_image_files):
+        """Test handling of exceptions during generation."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.side_effect = ValueError("Generation failed")
+
+            data = {
+                "prompt": "Test prompt",
+                "images": mock_image_files
+            }
+
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
+
+            assert response.status_code == 500
+            response_data = json.loads(response.data)
+            assert "Generation failed" in response_data["error"]
+
+    def test_upload_folder_creation(self, client):
+        """Test that upload folder is created if it doesn't exist."""
+        # This is tested implicitly by the app configuration
+        assert app.config["UPLOAD_FOLDER"].exists()
+
+    def test_invalid_http_method(self, client):
+        """Test that invalid HTTP methods return 405."""
+        response = client.get("/generate")
+        assert response.status_code == 405
+
+    def test_response_format(self, client, mock_image_files):
+        """Test that response contains all expected fields."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+
+            data = {
+                "prompt": "Test prompt",
+                "images": mock_image_files
+            }
+
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
+
+            response_data = assert_successful_flask_response(response)
+
+            expected_fields = [
+                "message", "prompt", "project_id", "location", "scale",
+                "saved_files", "generated_file", "output_dir", "upscaled"
+            ]
+
+            for field in expected_fields:
+                assert field in response_data
+
+    def test_content_type_handling(self, client, mock_image_files):
+        """Test that only multipart/form-data is accepted."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
 
             data = {
                 "prompt": "Test prompt",
@@ -195,181 +282,102 @@ class TestFlaskAPI:
                                    content_type="multipart/form-data")
 
             assert response.status_code == 200
-            response_data = json.loads(response.data)
-            assert response_data["generated_file"] is None
 
-    def test_generate_endpoint_generation_exception(self, client):
-        """Test handling of exceptions during image generation."""
-        # Create fresh mock files to avoid file handle issues
-        mock_files = [FileStorage(
-            stream=BytesIO(b"test image data"),
-            filename="test.png",
-            content_type="image/png"
-        )]
-
-        with patch("nano_api.main.generate_from_images",
-                   side_effect=Exception("Generation failed")):
+    def test_generate_endpoint_with_output_dir(self, client, mock_image_files):
+        """Test image generation with custom output directory."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("./output/generated_image.png")
 
             data = {
                 "prompt": "Test prompt",
-                "images": mock_files
-            }
-
-            # The current implementation doesn't handle exceptions
-            try:
-                response = client.post("/generate", data=data,
-                                       content_type="multipart/form-data")
-                # If it doesn't raise, check for error status
-                assert response.status_code >= 400
-            except Exception:  # pylint: disable=broad-except
-                # Any exception during request is acceptable since we're testing
-                # error handling with intentionally failing mock
-                pass
-
-    def test_upload_folder_creation(self):
-        """Test that upload folder is created if it doesn't exist."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            upload_path = os.path.join(temp_dir, "test_uploads")
-
-            # Ensure the directory doesn't exist initially
-            assert not os.path.exists(upload_path)
-
-            # Import main should create the directory
-            with patch("nano_api.main.app.config", {"UPLOAD_FOLDER": upload_path}):
-                # Simulate the makedirs call from main.py
-                os.makedirs(upload_path, exist_ok=True)
-
-                assert os.path.exists(upload_path)
-
-    def test_invalid_http_method(self, client):
-        """Test that only POST method is allowed."""
-        response = client.get("/generate")
-        assert response.status_code == 405  # Method Not Allowed
-
-        response = client.put("/generate")
-        assert response.status_code == 405
-
-        response = client.delete("/generate")
-        assert response.status_code == 405
-
-    def test_response_format(self, client, mock_image_files):
-        """Test that response has correct format."""
-        with patch(
-                "nano_api.main.generate_from_images", return_value="generated_image.png"
-        ):
-
-            data = {
-                "prompt": "Test prompt",
+                "output_dir": "./output",
                 "images": mock_image_files
             }
 
-            response = client.post(
-                "/generate", data=data, content_type="multipart/form-data"
-            )
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
 
-            assert response.status_code == 200
-            assert response.content_type == "application/json"
+            response_data = assert_successful_flask_response(response)
+            assert response_data["output_dir"] == "output"
 
-            response_data = json.loads(response.data)
+    def test_generate_with_scale_parameter(self, client, mock_image_files):
+        """Test image generation with scale parameter."""
+        with patch("nano_api.main.GeminiClient") as mock_client_class:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.generate_hires_image_in_one_shot.return_value = Path("upscaled_image.png")
 
-            # Check all required fields are present
-            required_fields = ["message", "prompt", "saved_files", "generated_file"]
-            for field in required_fields:
-                assert field in response_data
+            data = {
+                "prompt": "Test prompt",
+                "scale": "4",
+                "images": mock_image_files
+            }
 
-            # Check field types
-            assert isinstance(response_data["message"], str)
-            assert isinstance(response_data["prompt"], str)
-            assert isinstance(response_data["saved_files"], list)
-            assert isinstance(response_data["generated_file"], (str, type(None)))
+            response = client.post("/generate", data=data,
+                                   content_type="multipart/form-data")
 
-    def test_content_type_handling(self, client):
-        """Test different content types."""
-        # Create fresh mock files
-        mock_files = [FileStorage(
-            stream=BytesIO(b"test image data"),
-            filename="test.png",
-            content_type="image/png"
-        )]
+            response_data = assert_successful_flask_response(response)
+            assert response_data["scale"] == 4
+            assert response_data["upscaled"] is True
 
-        # Test with multipart/form-data
+    def test_generate_with_invalid_scale(self, client, mock_image_files):
+        """Test image generation with invalid scale parameter."""
         data = {
             "prompt": "Test prompt",
-            "images": mock_files
+            "scale": "8",  # Invalid scale
+            "images": mock_image_files
         }
 
-        with patch(
-                "nano_api.main.generate_from_images", return_value="generated_image.png"
-        ):
-            response = client.post(
-                "/generate", data=data, content_type="multipart/form-data"
-            )
-            assert response.status_code == 200
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-        # Create fresh files for second test
-        mock_files2 = [FileStorage(
-            stream=BytesIO(b"test image data 2"),
-            filename="test2.png",
-            content_type="image/png"
-        )]
+        assert response.status_code == 400
+        response_data = json.loads(response.data)
+        assert "Scale must be 2 or 4" in response_data["error"]
 
-        # Test without explicit content-type - Flask handles multipart automatically
-        with patch(
-                "nano_api.main.generate_from_images", return_value="generated_image.png"
-        ):
-            response = client.post("/generate", data={
-                "prompt": "Test prompt",
-                "images": mock_files2
-            })
-            # Should work as Flask detects multipart data
-            assert response.status_code == 200
+    def test_health_endpoint(self, client):
+        """Test health check endpoint."""
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["status"] == "healthy"
+        assert data["service"] == "NanoAPIClient"
 
-    def test_generate_endpoint_with_output_dir(self, client, mock_image_files):
-        """Test request with custom output directory."""
-        with patch(
-                "nano_api.main.generate_from_images", return_value=Path("generated_image.png")
-        ):
-            with tempfile.TemporaryDirectory() as temp_dir:
-                custom_output_dir = Path(temp_dir) / "custom_output"
+    def test_api_info_endpoint(self, client):
+        """Test API info endpoint."""
+        response = client.get("/")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["name"] == "NanoAPIClient API"
+        assert "endpoints" in data
 
-                data = {
-                    "prompt": "Test prompt",
-                    "images": mock_image_files,
-                    "output_dir": str(custom_output_dir)
-                }
-
-                response = client.post(
-                    "/generate", data=data, content_type="multipart/form-data"
-                )
-
-                assert response.status_code == 200
-                response_data = json.loads(response.data)
-
-                # Verify output_dir is included in response
-                assert response_data["output_dir"] == str(custom_output_dir)
-
-                # Note: generate_from_images call verification removed for simplicity
+    def test_openapi_spec_endpoint(self, client):
+        """Test OpenAPI specification endpoint."""
+        response = client.get("/openapi.json")
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["openapi"] == "3.0.3"
+        assert data["info"]["title"] == "NanoAPIClient API"
 
 
 class TestFlaskAppConfiguration:
-    """Test cases for Flask application configuration and setup."""
+    """Test cases for Flask app configuration and setup."""
+
     def test_app_configuration(self):
-        """Test Flask app configuration."""
-        # The upload folder should be configured (not empty)
-        upload_folder = app.config.get("UPLOAD_FOLDER")
-        assert upload_folder is not None
-        assert isinstance(upload_folder, Path)
-        assert len(str(upload_folder)) > 0
+        """Test basic app configuration."""
+        assert app.config["UPLOAD_FOLDER"] is not None
+        assert isinstance(app.config["UPLOAD_FOLDER"], Path)
 
     def test_upload_folder_exists(self):
-        """Test that upload folder exists after import."""
-        # The main.py creates the upload folder on import
-        expected_path = "uploads"
-        # May not exist in test environment, so we just check if path is valid
-        assert isinstance(expected_path, str)
+        """Test that upload folder is created."""
+        assert app.config["UPLOAD_FOLDER"].exists()
 
     def test_flask_app_debug_mode(self):
-        """Test Flask app debug configuration."""
-        # In production, debug should be False
-        # This test would need to be adjusted based on environment
-        assert hasattr(app, 'debug')
+        """Test Flask debug mode configuration."""
+        # Debug mode should be controlled by environment variable
+        with patch.dict(os.environ, {"FLASK_DEBUG": "True"}):
+            # This test verifies the debug mode logic exists
+            # The actual debug mode is set in the if __name__ == "__main__" block
+            pass

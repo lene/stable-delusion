@@ -271,7 +271,7 @@ def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_
     return mock_response
 
 
-def assert_successful_flask_response(response, expected_message="Files uploaded successfully"):
+def assert_successful_flask_response(response, expected_message="Image generated successfully"):
     """Assert common Flask API response patterns."""
     import json
 

@@ -155,10 +155,12 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("nano_api.main.generate_from_images")
-    def test_api_with_real_file_upload(self, mock_generate, client, temp_image_file):
+    @patch("nano_api.main.GeminiClient")
+    def test_api_with_real_file_upload(self, mock_client_class, client, temp_image_file):
         """Test API with actual file upload simulation."""
-        mock_generate.return_value = "generated_test_image.png"
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_test_image.png")
 
         # Simulate file upload
         with open(temp_image_file, "rb") as image_file:
@@ -173,7 +175,7 @@ class TestFlaskAPIIntegration:
             assert response.status_code == 200
             response_data = json.loads(response.data)
 
-            assert response_data["message"] == "Files uploaded successfully"
+            assert response_data["message"] == "Image generated successfully"
             assert response_data["prompt"] == "Generate a beautiful landscape"
             assert response_data["generated_file"] == "generated_test_image.png"
             assert len(response_data["saved_files"]) == 1
@@ -182,10 +184,12 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("nano_api.main.generate_from_images")
-    def test_api_with_multiple_files(self, mock_generate, client, temp_images):
+    @patch("nano_api.main.GeminiClient")
+    def test_api_with_multiple_files(self, mock_client_class, client, temp_images):
         """Test API with multiple file uploads."""
-        mock_generate.return_value = "generated_multi_image.png"
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_multi_image.png")
 
         # Simulate multiple file upload using proper context management
         files = []
