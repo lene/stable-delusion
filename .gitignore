@@ -224,3 +224,5 @@ generated_image.pngsamples/
 generated_image.png
 uploads/
 samples/
+*.png
+

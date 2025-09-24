@@ -1,0 +1,293 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "NanoAPIClient API",
+    "description": "Flask web API for image generation using Google Gemini AI. Supports multi-image input, custom prompts, and automatic upscaling integration.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Lene Preuss",
+      "email": "lene.preuss@gmail.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Get API information",
+        "description": "Returns basic information about the API and available endpoints",
+        "operationId": "getApiInfo",
+        "responses": {
+          "200": {
+            "description": "API information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns the health status of the API service",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate": {
+      "post": {
+        "summary": "Generate image from prompt and reference images",
+        "description": "Upload reference images and generate new images using Google Gemini AI with optional upscaling",
+        "operationId": "generateImage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Image generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateImageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - missing or invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "Get OpenAPI specification",
+        "description": "Returns the OpenAPI specification for this API",
+        "operationId": "getOpenApiSpec",
+        "responses": {
+          "200": {
+            "description": "OpenAPI specification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiInfo": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "NanoAPIClient API"
+          },
+          "description": {
+            "type": "string",
+            "example": "Flask web API for image generation using Google Gemini AI"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
+          },
+          "endpoints": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["name", "description", "version", "endpoints"]
+      },
+      "HealthStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "unhealthy"],
+            "example": "healthy"
+          },
+          "service": {
+            "type": "string",
+            "example": "NanoAPIClient"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
+          }
+        },
+        "required": ["status", "service", "version"]
+      },
+      "GenerateImageRequest": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "Text prompt for image generation. If not provided, uses default prompt.",
+            "example": "A futuristic cityscape with flying cars at sunset"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "description": "Reference images to use for generation. At least one image is required.",
+            "minItems": 1
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Google Cloud Project ID. Uses default if not provided.",
+            "example": "my-project-id"
+          },
+          "location": {
+            "type": "string",
+            "description": "Google Cloud region. Uses default if not provided.",
+            "example": "us-central1"
+          },
+          "scale": {
+            "type": "integer",
+            "enum": [2, 4],
+            "description": "Upscale factor for the generated image. Optional.",
+            "example": 4
+          },
+          "output": {
+            "type": "string",
+            "description": "Custom output filename. If not provided, uses timestamp-based name.",
+            "example": "my_generated_image.png"
+          },
+          "output_dir": {
+            "type": "string",
+            "description": "Directory where generated files will be saved. Defaults to current directory.",
+            "example": "./output"
+          }
+        },
+        "required": ["images"]
+      },
+      "GenerateImageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Image generated successfully"
+          },
+          "prompt": {
+            "type": "string",
+            "example": "A futuristic cityscape with flying cars at sunset"
+          },
+          "project_id": {
+            "type": "string",
+            "example": "my-project-id"
+          },
+          "location": {
+            "type": "string",
+            "example": "us-central1"
+          },
+          "scale": {
+            "type": "integer",
+            "nullable": true,
+            "example": 4
+          },
+          "saved_files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Paths to the uploaded reference images",
+            "example": ["uploads/image1.png", "uploads/image2.jpg"]
+          },
+          "generated_file": {
+            "type": "string",
+            "nullable": true,
+            "description": "Path to the generated image file",
+            "example": "./generated_2024-01-01-12:00:00.png"
+          },
+          "output_dir": {
+            "type": "string",
+            "example": "."
+          },
+          "upscaled": {
+            "type": "boolean",
+            "description": "Whether the image was upscaled",
+            "example": true
+          }
+        },
+        "required": ["message", "prompt", "project_id", "location", "scale", "saved_files", "generated_file", "output_dir", "upscaled"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message describing what went wrong",
+            "example": "Missing 'images' parameter"
+          }
+        },
+        "required": ["error"]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Image Generation",
+      "description": "Operations for generating images using AI"
+    },
+    {
+      "name": "API Management",
+      "description": "Operations for API information and health checks"
+    }
+  ]
+}

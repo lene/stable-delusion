@@ -1,0 +1,126 @@
+# GitLab CI/CD configuration for NanoAPIClient
+# Runs tests, code quality checks, and security analysis on every push
+
+# Use Python 3.10 image (matches development environment)
+image: python:3.10
+
+# Define stages for the pipeline
+stages:
+  - setup
+  - test
+  - quality
+
+# Cache poetry dependencies between runs for faster builds
+cache:
+  paths:
+    - .venv/
+
+# Variables
+variables:
+  # Use virtual environment in project directory for caching
+  POETRY_VENV_IN_PROJECT: "true"
+  # Don't ask for confirmation
+  POETRY_NO_INTERACTION: "1"
+  # Don't create virtual environment (we'll use the cached one)
+  POETRY_CACHE_DIR: ".poetry-cache"
+
+# Install dependencies (runs before each job)
+before_script:
+  - pip install poetry
+  - poetry config virtualenvs.create true
+  - poetry config virtualenvs.in-project true
+  - poetry install --with dev
+
+# Setup stage - validate project structure
+setup:
+  stage: setup
+  script:
+    - echo "Project structure validation..."
+    - ls -la
+    - echo "Python version:"
+    - python --version
+    - echo "Poetry version:"
+    - poetry --version
+    - echo "Project dependencies:"
+    - poetry show
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Test stage - run the full test suite
+test:
+  stage: test
+  script:
+    - echo "Running test suite..."
+    - poetry run pytest tests/ -v --tb=short
+    - echo "✅ All $(poetry run pytest tests/ --collect-only -q | grep -c test_) tests passed!"
+  artifacts:
+    reports:
+      junit: test-reports.xml
+    expire_in: 1 week
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Code quality stage - run flake8 linting
+flake8:
+  stage: quality
+  script:
+    - echo "Running flake8 code quality checks..."
+    - poetry run flake8 nano_api tests --count --statistics
+    - echo "✅ All code quality checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+pylint:
+  stage: quality
+  script:
+    - echo "Running pylint code quality checks..."
+    - poetry run pylint nano_api tests --score=yes
+    - echo "✅ All code quality checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Type checking with mypy
+mypy:
+  stage: quality
+  script:
+    - echo "Running static type checking with mypy..."
+    - poetry run mypy nano_api/
+    - echo "✅ All type checks passed!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Security scanning with bandit
+bandit:
+  stage: quality
+  script:
+    - echo "Running security analysis with bandit..."
+    - poetry run bandit -r nano_api/ --format txt
+    - echo "✅ Security analysis completed - no vulnerabilities found!"
+  allow_failure: false
+  only:
+    - main
+    - merge_requests
+    - multi-image-support
+
+# Deployment stage (runs only on main branch)
+# deploy:
+#   stage: deploy
+#   script:
+#     - echo "Deployment would go here..."
+#     - echo "All tests passed, code quality checks passed"
+#   only:
+#     - main
+#   when: manual

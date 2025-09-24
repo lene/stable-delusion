@@ -1,0 +1,10 @@
+[bandit]
+# Bandit configuration for NanoAPIClient
+
+# Skip specific directories that contain test code
+exclude_dirs = tests
+
+# Skip common test-related security warnings that are acceptable in test code
+# B101: assert_used - acceptable in test code
+# B105: hardcoded_password_string - acceptable for test fixtures
+skips = B101,B105
