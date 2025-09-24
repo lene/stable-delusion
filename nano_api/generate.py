@@ -8,7 +8,6 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import argparse
 import logging
-import os
 from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Any
@@ -18,6 +17,7 @@ from google.cloud import aiplatform
 from google.genai.types import GenerateContentResponse
 from PIL import Image
 
+from nano_api.config import ConfigManager
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from nano_api.upscale import upscale_image
 from nano_api.utils import (log_upload_info, validate_image_file,
@@ -98,18 +98,15 @@ class GeminiClient:
     """Client for generating images using Google Gemini API."""
     def __init__(
         self,
-        project_id: str = DEFAULT_PROJECT_ID,
-        location: str = DEFAULT_LOCATION,
-        output_dir: Path = Path("."),
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
     ):
-        if not os.getenv("GEMINI_API_KEY"):
-            raise ValueError(
-                "GEMINI_API_KEY environment variable is required but not set"
-            )
+        config = ConfigManager.get_config()
 
-        self.project_id = project_id
-        self.location = location
-        self.output_dir = output_dir
+        self.project_id = project_id or config.project_id
+        self.location = location or config.location
+        self.output_dir = output_dir or config.default_output_dir
 
         # Create output directory if it doesn"t exist
         ensure_directory_exists(self.output_dir)
@@ -212,12 +209,11 @@ if __name__ == "__main__":
         prompt = DEFAULT_PROMPT
     images = args.image if args.image else []
 
-    # Pass command line arguments to GeminiClient, falling back to defaults if not provided
-    cli_project_id = getattr(args, "project_id") or DEFAULT_PROJECT_ID
-    cli_location = getattr(args, "location") or DEFAULT_LOCATION
-    cli_output_dir = getattr(args, "output_dir") or Path(".")
+    # Pass command line arguments to GeminiClient, config provides defaults
     gemini = GeminiClient(
-        project_id=cli_project_id, location=cli_location, output_dir=cli_output_dir
+        project_id=getattr(args, "project_id"),
+        location=getattr(args, "location"),
+        output_dir=getattr(args, "output_dir")
     )
 
     hires_file = gemini.generate_hires_image_in_one_shot(prompt, images, scale=args.scale)

@@ -13,14 +13,15 @@ from typing import Tuple
 from flask import Flask, jsonify, request, Response
 from werkzeug.utils import secure_filename
 
+from nano_api.config import ConfigManager
 from nano_api.generate import GeminiClient, DEFAULT_PROMPT
 from nano_api.utils import (create_error_response, get_current_timestamp,
-                            validate_scale_parameter, get_project_config)
+                            validate_scale_parameter)
 
 
+config = ConfigManager.get_config()
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = Path("uploads")
-app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
+app.config["UPLOAD_FOLDER"] = config.upload_folder
 
 
 @app.route("/health", methods=["GET"])
@@ -67,9 +68,10 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
     if "images" not in request.files:
         return create_error_response("Missing 'images' parameter")
 
-    # Get optional parameters with defaults using utility function
-    project_id, location = get_project_config(request.form)
-    output_dir = Path(request.form.get("output_dir", "."))
+    # Get optional parameters with defaults from config
+    project_id = request.form.get("project_id") or config.project_id
+    location = request.form.get("location") or config.location
+    output_dir = Path(request.form.get("output_dir") or config.default_output_dir)
 
     # Parse scale parameter using utility function
     try:
@@ -132,7 +134,5 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
 
 
 if __name__ == "__main__":
-    import os
-    # Only enable debug mode in development, never in production
-    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
-    app.run(debug=debug_mode)
+    # Use configuration for debug mode
+    app.run(debug=config.flask_debug)

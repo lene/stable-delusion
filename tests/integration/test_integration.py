@@ -270,7 +270,9 @@ class TestErrorHandlingIntegration:
 
     def test_missing_api_key_integration(self, temp_images):
         """Test integration behavior when API key is missing."""
+        from nano_api.config import ConfigManager
         with patch.dict(os.environ, {}, clear=True):
+            ConfigManager.reset_config()  # Ensure clean config state
             with pytest.raises(ValueError,
                                match="GEMINI_API_KEY environment variable is required"):
                 GeminiClient()

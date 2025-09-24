@@ -17,7 +17,7 @@ from google.auth import default
 from google.auth.transport.requests import Request
 from PIL import Image
 
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.config import ConfigManager
 
 
 def _get_authenticated_headers() -> Dict[str, str]:
@@ -102,9 +102,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    config = ConfigManager.get_config()
     input_path = args.image_path
     upscaled_img = upscale_image(
-        input_path, DEFAULT_PROJECT_ID, DEFAULT_LOCATION, upscale_factor=f"x{args.scale}",
+        input_path, config.project_id, config.location, upscale_factor=f"x{args.scale}",
     )
     output_path = input_path.parent / f"upscaled_{input_path.name}"
     upscaled_img.save(str(output_path))
