@@ -4,6 +4,7 @@ Pytest configuration and shared fixtures for the test suite.
 import os
 import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -74,6 +75,27 @@ def mock_upscale_function():
         mock_upscaled_image.save.return_value = None
         mock_upscale.return_value = mock_upscaled_image
         yield mock_upscale
+
+
+@pytest.fixture
+def mock_main_gemini_client():
+    """Mock GeminiClient for main.py Flask tests."""
+    with patch("nano_api.main.GeminiClient") as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        yield mock_client
+
+
+@pytest.fixture
+def mock_generate_gemini_client():
+    """Mock GeminiClient for generate.py tests."""
+    with patch("nano_api.generate.genai.Client") as mock_client_class:
+        with patch("nano_api.generate.aiplatform.init"):
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.files.upload.return_value = MagicMock()
+            yield mock_client
 
 
 @pytest.fixture

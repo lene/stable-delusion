@@ -56,46 +56,38 @@ def mock_image_files():
 class TestFlaskAPI:
     """Test cases for Flask API endpoints and functionality."""
 
-    def test_generate_endpoint_success(self, client, mock_image_files):
+    def test_generate_endpoint_success(self, client, mock_image_files,
+                                       mock_main_gemini_client):
         """Test successful image generation request."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        data = {
+            "prompt": "A beautiful landscape",
+            "images": mock_image_files
+        }
 
-            data = {
-                "prompt": "A beautiful landscape",
-                "images": mock_image_files
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
+        response_data = assert_successful_flask_response(response)
+        assert response_data["prompt"] == "A beautiful landscape"
+        assert response_data["generated_file"] == "generated_image.png"
+        assert len(response_data["saved_files"]) == 2
+        assert "upscaled" in response_data
+        assert "project_id" in response_data
+        assert "location" in response_data
 
-            response_data = assert_successful_flask_response(response)
-            assert response_data["prompt"] == "A beautiful landscape"
-            assert response_data["generated_file"] == "generated_image.png"
-            assert len(response_data["saved_files"]) == 2
-            assert "upscaled" in response_data
-            assert "project_id" in response_data
-            assert "location" in response_data
-
-    def test_generate_endpoint_missing_prompt(self, client, mock_image_files):
+    def test_generate_endpoint_missing_prompt(self, client, mock_image_files,
+                                              mock_main_gemini_client):
         """Test request with missing prompt parameter (should use default)."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        data = {
+            "images": mock_image_files
+        }
 
-            data = {
-                "images": mock_image_files
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
-
-            response_data = assert_successful_flask_response(response)
-            assert "prompt" in response_data  # Should use default prompt
-            assert response_data["generated_file"] == "generated_image.png"
+        response_data = assert_successful_flask_response(response)
+        assert "prompt" in response_data  # Should use default prompt
+        assert response_data["generated_file"] == "generated_image.png"
 
     def test_generate_endpoint_missing_images(self, client):
         """Test request with missing images parameter."""
@@ -110,89 +102,70 @@ class TestFlaskAPI:
         response_data = json.loads(response.data)
         assert response_data["error"] == "Missing 'images' parameter"
 
-    def test_generate_endpoint_empty_prompt(self, client, mock_image_files):
+    def test_generate_endpoint_empty_prompt(self, client, mock_image_files,
+                                            mock_main_gemini_client):
         """Test request with empty prompt parameter (should use default)."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        data = {
+            "prompt": "",
+            "images": mock_image_files
+        }
 
-            data = {
-                "prompt": "",
-                "images": mock_image_files
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
+        response_data = assert_successful_flask_response(response)
+        assert "prompt" in response_data  # Should use default prompt
 
-            response_data = assert_successful_flask_response(response)
-            assert "prompt" in response_data  # Should use default prompt
-
-    def test_generate_endpoint_single_image(self, client, mock_image_file):
+    def test_generate_endpoint_single_image(self, client, mock_image_file, mock_main_gemini_client):
         """Test request with single image."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        data = {
+            "prompt": "Test prompt",
+            "images": [mock_image_file]
+        }
 
-            data = {
-                "prompt": "Test prompt",
-                "images": [mock_image_file]
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
+        response_data = assert_successful_flask_response(response)
+        assert len(response_data["saved_files"]) == 1
 
-            response_data = assert_successful_flask_response(response)
-            assert len(response_data["saved_files"]) == 1
-
-    def test_generate_endpoint_file_saving(self, client, mock_image_files):
+    def test_generate_endpoint_file_saving(self, client, mock_image_files, mock_main_gemini_client):
         """Test that files are properly saved to upload folder."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        data = {
+            "prompt": "Test prompt",
+            "images": mock_image_files
+        }
 
-            data = {
-                "prompt": "Test prompt",
-                "images": mock_image_files
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
+        response_data = assert_successful_flask_response(response)
+        assert len(response_data["saved_files"]) == 2
 
-            response_data = assert_successful_flask_response(response)
-            assert len(response_data["saved_files"]) == 2
+        # Check that files were saved to upload folder
+        upload_folder = app.config["UPLOAD_FOLDER"]
+        saved_files = list(upload_folder.glob("*"))
+        assert len(saved_files) == 2
 
-            # Check that files were saved to upload folder
-            upload_folder = app.config["UPLOAD_FOLDER"]
-            saved_files = list(upload_folder.glob("*"))
-            assert len(saved_files) == 2
-
-    def test_generate_endpoint_secure_filename(self, client):
+    def test_generate_endpoint_secure_filename(self, client, mock_main_gemini_client):
         """Test that filenames are properly secured."""
-        with patch("nano_api.main.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
+        malicious_file = FileStorage(
+            stream=BytesIO(b"fake image data"),
+            filename="../../../malicious.png",
+            content_type="image/png"
+        )
 
-            malicious_file = FileStorage(
-                stream=BytesIO(b"fake image data"),
-                filename="../../../malicious.png",
-                content_type="image/png"
-            )
+        data = {
+            "prompt": "Test prompt",
+            "images": [malicious_file]
+        }
 
-            data = {
-                "prompt": "Test prompt",
-                "images": [malicious_file]
-            }
+        response = client.post("/generate", data=data,
+                               content_type="multipart/form-data")
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
-
-            response_data = assert_successful_flask_response(response)
-            # Filename should be secured (no path traversal)
-            assert "../" not in response_data["saved_files"][0]
+        response_data = assert_successful_flask_response(response)
+        # Filename should be secured (no path traversal)
+        assert "../" not in response_data["saved_files"][0]
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         """Test handling of image generation failure."""
@@ -217,7 +190,9 @@ class TestFlaskAPI:
         with patch("nano_api.main.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.side_effect = ValueError("Generation failed")
+            mock_client.generate_hires_image_in_one_shot.side_effect = ValueError(
+                "Generation failed"
+            )
 
             data = {
                 "prompt": "Test prompt",
@@ -288,7 +263,9 @@ class TestFlaskAPI:
         with patch("nano_api.main.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
-            mock_client.generate_hires_image_in_one_shot.return_value = Path("./output/generated_image.png")
+            mock_client.generate_hires_image_in_one_shot.return_value = Path(
+                "./output/generated_image.png"
+            )
 
             data = {
                 "prompt": "Test prompt",
@@ -335,7 +312,7 @@ class TestFlaskAPI:
 
         assert response.status_code == 400
         response_data = json.loads(response.data)
-        assert "Scale must be 2 or 4" in response_data["error"]
+        assert "Scale must be one of [2, 4]" in response_data["error"]
 
     def test_health_endpoint(self, client):
         """Test health check endpoint."""

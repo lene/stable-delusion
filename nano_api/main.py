@@ -14,8 +14,8 @@ from flask import Flask, jsonify, request, Response
 from werkzeug.utils import secure_filename
 
 from nano_api.generate import GeminiClient, DEFAULT_PROMPT
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-from nano_api.utils import create_error_response, get_current_timestamp
+from nano_api.utils import (create_error_response, get_current_timestamp,
+                            validate_scale_parameter, get_project_config)
 
 
 app = Flask(__name__)
@@ -25,7 +25,6 @@ app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
 
 @app.route("/health", methods=["GET"])
 def health() -> Tuple[Response, int]:
-    """Health check endpoint."""
     return jsonify({
         "status": "healthy",
         "service": "NanoAPIClient",
@@ -35,7 +34,6 @@ def health() -> Tuple[Response, int]:
 
 @app.route("/", methods=["GET"])
 def api_info() -> Tuple[Response, int]:
-    """API information endpoint."""
     return jsonify({
         "name": "NanoAPIClient API",
         "description": "Flask web API for image generation using Google Gemini AI",
@@ -51,7 +49,6 @@ def api_info() -> Tuple[Response, int]:
 
 @app.route("/openapi.json", methods=["GET"])
 def openapi_spec() -> Tuple[Response, int]:
-    """Serve OpenAPI specification."""
     try:
         spec_path = Path(__file__).parent.parent / "openapi.json"
         with open(spec_path, "r", encoding="utf-8") as f:
@@ -70,21 +67,15 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
     if "images" not in request.files:
         return create_error_response("Missing 'images' parameter")
 
-    # Get optional parameters with defaults
-    project_id = request.form.get("project_id") or DEFAULT_PROJECT_ID
-    location = request.form.get("location") or DEFAULT_LOCATION
+    # Get optional parameters with defaults using utility function
+    project_id, location = get_project_config(request.form)
     output_dir = Path(request.form.get("output_dir", "."))
 
-    # Parse scale parameter
-    scale = None
-    scale_str = request.form.get("scale")
-    if scale_str:
-        try:
-            scale = int(scale_str)
-            if scale not in [2, 4]:
-                return create_error_response("Scale must be 2 or 4")
-        except ValueError:
-            return create_error_response("Scale must be an integer")
+    # Parse scale parameter using utility function
+    try:
+        scale = validate_scale_parameter(request.form.get("scale"))
+    except ValueError as e:
+        return create_error_response(str(e))
 
     # Parse custom output filename
     custom_output = request.form.get("output")

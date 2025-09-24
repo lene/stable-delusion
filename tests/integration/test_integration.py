@@ -81,7 +81,7 @@ class TestEndToEndWorkflow:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
@@ -127,7 +127,7 @@ class TestEndToEndWorkflow:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
@@ -189,7 +189,9 @@ class TestFlaskAPIIntegration:
         """Test API with multiple file uploads."""
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_multi_image.png")
+        mock_client.generate_hires_image_in_one_shot.return_value = Path(
+            "generated_multi_image.png"
+        )
 
         # Simulate multiple file upload using proper context management
         files = []
@@ -240,7 +242,7 @@ class TestCommandLineIntegration:
         mock_client.return_value = mock_client_instance
 
         with patch("nano_api.generate.Image.open"):
-            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-15:30:00"
 
                 with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):

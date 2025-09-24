@@ -20,7 +20,8 @@ from PIL import Image
 
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from nano_api.upscale import upscale_image
-from nano_api.utils import get_current_timestamp, log_upload_info
+from nano_api.utils import (log_upload_info, validate_image_file,
+                            ensure_directory_exists, generate_timestamped_filename)
 
 DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
@@ -28,7 +29,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 def log_failure_reason(response: GenerateContentResponse) -> None:
-    """Log detailed information about why no candidates were returned from API."""
     logging.error("No candidates returned from the API.")
     # Check prompt feedback for safety filtering
     if hasattr(response, "prompt_feedback") and response.prompt_feedback:
@@ -95,11 +95,7 @@ def parse_command_line() -> argparse.Namespace:
 
 
 class GeminiClient:
-    """
-    Client for generating images using Google Gemini 2.5 Flash Image Preview API.
-
-    Handles image uploads, content generation, and optional upscaling workflows.
-    """
+    """Client for generating images using Google Gemini API."""
     def __init__(
         self,
         project_id: str = DEFAULT_PROJECT_ID,
@@ -116,7 +112,7 @@ class GeminiClient:
         self.output_dir = output_dir
 
         # Create output directory if it doesn"t exist
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        ensure_directory_exists(self.output_dir)
 
         self.client = genai.Client()
         # Initialize the Vertex AI client
@@ -136,7 +132,7 @@ class GeminiClient:
         )
         if not response.candidates:
             log_failure_reason(response)
-            return None
+            raise RuntimeError(f"Image generation failed, response: {response}")
         logging.info(
             "Generated image with %d candidates, finish_reason: %s, tokens: %d",
             len(response.candidates),
@@ -148,8 +144,7 @@ class GeminiClient:
     def upload_files(self, image_paths: List[Path]) -> List[Any]:
         uploaded_files = []
         for image_path in image_paths:
-            if not image_path.is_file():
-                raise FileNotFoundError(f"Image file not found: {image_path}")
+            validate_image_file(image_path)
             uploaded_file = self.client.files.upload(file=str(image_path))
             log_upload_info(image_path, uploaded_file)
             uploaded_files.append(uploaded_file)
@@ -179,7 +174,6 @@ def generate_from_images(
     location: str = DEFAULT_LOCATION,
     output_dir: Path = Path("."),
 ) -> Optional[Path]:
-    """Standalone function to generate image from prompt and reference images."""
     client = GeminiClient(
         project_id=project_id, location=location, output_dir=output_dir
     )
@@ -191,20 +185,19 @@ def save_response_image(
 ) -> Optional[Path]:
     if not response.candidates:
         logging.warning("No candidates found in the API response.")
-        return None
+        raise RuntimeError("No candidates returned from the API.")
 
     candidate = response.candidates[0]
     if not candidate.content or not candidate.content.parts:
         logging.warning("No content parts found in the API response.")
-        return None
+        raise RuntimeError("No content parts in the candidate.")
 
     for part in candidate.content.parts:
         if part.text is not None:
             logging.info(part.text)
         elif part.inline_data is not None and part.inline_data.data is not None:
             image = Image.open(BytesIO(part.inline_data.data))
-            timestamp = get_current_timestamp("filename")
-            filename = f"generated_{timestamp}.png"
+            filename = generate_timestamped_filename("generated")
             filepath = output_dir / filename
             image.save(str(filepath))
             return filepath

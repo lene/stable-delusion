@@ -129,7 +129,7 @@ class TestGeminiClient:
                         mock_image = MagicMock()
                         mock_image_open.return_value = mock_image
 
-                        with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+                        with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                             mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                             client = GeminiClient()
@@ -167,9 +167,8 @@ class TestGeminiClient:
                         test_file = Path(temp_dir) / "test.png"
                         test_file.write_bytes(b"test image data")
 
-                        result = client.generate_from_images("test prompt", [test_file])
-
-                        assert result is None
+                        with pytest.raises(RuntimeError, match="Image generation failed"):
+                            client.generate_from_images("test prompt", [test_file])
 
     def test_generate_hires_image_without_scale(self):
         """Test high-res image generation without upscaling."""
@@ -250,7 +249,7 @@ class TestSaveResponseImage:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.generate.get_current_timestamp") as mock_timestamp:
+            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -289,8 +288,8 @@ class TestSaveResponseImage:
         mock_candidate.content.parts = []
         mock_response.candidates = [mock_candidate]
 
-        result = save_response_image(mock_response)
-        assert result is None
+        with pytest.raises(RuntimeError, match="No content parts in the candidate"):
+            save_response_image(mock_response)
 
 
 class TestParseCommandLine:

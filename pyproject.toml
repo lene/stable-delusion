@@ -24,6 +24,7 @@ requests-mock = "^1.12.1"
 flake8 = "^7.3.0"
 bandit = "^1.8.6"
 mypy = "^1.18.2"
+types-requests = "^2.32.4.20250913"
 
 [build-system]
 requires = ["poetry-core"]

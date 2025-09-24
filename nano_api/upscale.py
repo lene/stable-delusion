@@ -21,7 +21,6 @@ from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 
 def _get_authenticated_headers() -> Dict[str, str]:
-    """Get authentication headers for Vertex AI API."""
     credentials, _ = default()
     auth_req = Request()
     credentials.refresh(auth_req)
@@ -32,14 +31,12 @@ def _get_authenticated_headers() -> Dict[str, str]:
 
 
 def _build_upscale_url(project_id: str, location: str) -> str:
-    """Build the Vertex AI upscale API URL."""
     return (f"https://{location}-aiplatform.googleapis.com/v1/projects/"
             f"{project_id}/locations/{location}/publishers/google/models/"
             f"imagegeneration@002:predict")
 
 
 def _create_upscale_payload(base64_image: str, upscale_factor: str) -> Dict[str, Any]:
-    """Create the API request payload for upscaling."""
     return {
         "instances": [{
             "prompt": "",
@@ -58,7 +55,6 @@ def _create_upscale_payload(base64_image: str, upscale_factor: str) -> Dict[str,
 
 
 def _decode_upscaled_image(response_data: Dict[str, Any]) -> Image.Image:
-    """Extract and decode upscaled image from API response."""
     upscaled_base64 = response_data["predictions"][0]["bytesBase64Encoded"]
     image_data = base64.b64decode(upscaled_base64)
     return Image.open(io.BytesIO(image_data))
@@ -70,18 +66,6 @@ def upscale_image(
     location: str = "us-central1",
     upscale_factor: str = "x2",
 ) -> Image.Image:
-    """
-    Upscale an image using Google Vertex AI's built-in Imagen model
-
-    Args:
-        image_path: Path to the input image
-        project_id: Your Google Cloud Project ID
-        location: Region (e.g., "us-central1", "europe-west2")
-        upscale_factor: "x2" or "x4" scaling factor
-
-    Returns:
-        PIL Image object of the upscaled image
-    """
     # Get authentication headers first (preserves original error behavior)
     headers = _get_authenticated_headers()
 

@@ -7,7 +7,6 @@ disable=
     no-name-in-module,
     # Test patterns that are normal in pytest
     redefined-outer-name,
-    no-self-use,
     unused-argument,
     # Code duplication is acceptable in tests for clarity
     duplicate-code,
