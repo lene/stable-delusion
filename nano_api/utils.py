@@ -11,6 +11,8 @@ from typing import Optional, Tuple, Any, Dict, Union
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
 
+from nano_api.exceptions import ValidationError, FileOperationError
+
 
 # Date/time format constants
 STANDARD_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -32,7 +34,7 @@ def format_timestamp(dt: Optional[datetime], format_type: str = "standard") -> s
 
 def get_current_timestamp(format_type: str = "filename") -> str:
     # Import datetime here to allow for easier mocking in tests
-    from datetime import datetime as dt
+    from datetime import datetime as dt  # pylint: disable=import-outside-toplevel
     return format_timestamp(dt.now(), format_type)
 
 
@@ -48,7 +50,7 @@ def safe_format_timestamps(create_time: Optional[datetime],
 
 
 def log_upload_info(image_path: Any, uploaded_file: Any) -> None:
-    import logging
+    import logging  # pylint: disable=import-outside-toplevel
 
     create_time_str, expiration_time_str = safe_format_timestamps(
         uploaded_file.create_time, uploaded_file.expiration_time
@@ -77,12 +79,20 @@ def validate_scale_parameter(scale_value: Union[str, int, None]) -> Optional[int
         try:
             scale = int(scale_value)
         except (ValueError, TypeError) as e:
-            raise ValueError("Scale must be an integer") from e
+            raise ValidationError(
+                "Scale must be an integer",
+                field="scale",
+                value=str(scale_value)
+            ) from e
 
     # Import here to avoid circular dependency
-    from nano_api.conf import VALID_SCALE_FACTORS
+    from nano_api.conf import VALID_SCALE_FACTORS  # pylint: disable=import-outside-toplevel
     if scale not in VALID_SCALE_FACTORS:
-        raise ValueError(f"Scale must be one of {VALID_SCALE_FACTORS}")
+        raise ValidationError(
+            f"Scale must be one of {VALID_SCALE_FACTORS}",
+            field="scale",
+            value=str(scale)
+        )
 
     return scale
 
@@ -90,6 +100,7 @@ def validate_scale_parameter(scale_value: Union[str, int, None]) -> Optional[int
 def get_project_config(source_dict: Dict[str, Any],
                        key_project: str = "project_id",
                        key_location: str = "location") -> Tuple[str, str]:
+    # pylint: disable=import-outside-toplevel
     from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
     if hasattr(source_dict, 'get'):  # Dict-like object (request.form)
@@ -117,7 +128,11 @@ def generate_timestamped_filename(base_name: str,
 
 def validate_image_file(path: Path) -> None:
     if not path.is_file():
-        raise FileNotFoundError(f"Image file not found: {path}")
+        raise FileOperationError(
+            f"Image file not found: {path}",
+            file_path=str(path),
+            operation="read"
+        )
 
 
 def ensure_directory_exists(path: Path) -> None:

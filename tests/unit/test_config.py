@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from nano_api.config import Config, ConfigManager
+from nano_api.exceptions import ConfigurationError
 
 
 class TestConfig:
@@ -39,7 +40,7 @@ class TestConfig:
     def test_config_missing_api_key(self):
         """Test Config validation fails with missing API key."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with pytest.raises(ValueError, match="GEMINI_API_KEY.*required"):
+            with pytest.raises(ConfigurationError, match="GEMINI_API_KEY.*required"):
                 Config(
                     project_id="test-project",
                     location="us-central1",
@@ -123,5 +124,5 @@ class TestConfigManager:
     def test_config_missing_gemini_api_key(self):
         """Test ConfigManager raises error when GEMINI_API_KEY missing."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="GEMINI_API_KEY.*required"):
+            with pytest.raises(ConfigurationError, match="GEMINI_API_KEY.*required"):
                 ConfigManager.get_config()

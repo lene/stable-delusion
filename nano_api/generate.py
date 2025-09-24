@@ -19,6 +19,7 @@ from PIL import Image
 
 from nano_api.config import ConfigManager
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.exceptions import ImageGenerationError
 from nano_api.upscale import upscale_image
 from nano_api.utils import (log_upload_info, validate_image_file,
                             ensure_directory_exists, generate_timestamped_filename)
@@ -129,7 +130,11 @@ class GeminiClient:
         )
         if not response.candidates:
             log_failure_reason(response)
-            raise RuntimeError(f"Image generation failed, response: {response}")
+            raise ImageGenerationError(
+                "Image generation failed - no candidates returned",
+                prompt=prompt_text,
+                api_response=str(response)
+            )
         logging.info(
             "Generated image with %d candidates, finish_reason: %s, tokens: %d",
             len(response.candidates),
@@ -182,12 +187,18 @@ def save_response_image(
 ) -> Optional[Path]:
     if not response.candidates:
         logging.warning("No candidates found in the API response.")
-        raise RuntimeError("No candidates returned from the API.")
+        raise ImageGenerationError(
+            "No candidates returned from the API",
+            api_response=str(response)
+        )
 
     candidate = response.candidates[0]
     if not candidate.content or not candidate.content.parts:
         logging.warning("No content parts found in the API response.")
-        raise RuntimeError("No content parts in the candidate.")
+        raise ImageGenerationError(
+            "No content parts in the candidate",
+            api_response=str(candidate)
+        )
 
     for part in candidate.content.parts:
         if part.text is not None:

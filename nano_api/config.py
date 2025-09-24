@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional
 
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.exceptions import ConfigurationError
 
 
 @dataclass
@@ -27,8 +28,9 @@ class Config:
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if not self.gemini_api_key:
-            raise ValueError(
-                "GEMINI_API_KEY environment variable is required but not set"
+            raise ConfigurationError(
+                "GEMINI_API_KEY environment variable is required but not set",
+                config_key="GEMINI_API_KEY"
             )
 
         # Ensure directories exist

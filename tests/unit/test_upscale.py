@@ -9,6 +9,7 @@ import requests
 from PIL import Image
 
 from nano_api.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from nano_api.exceptions import UpscalingError, APIError
 from nano_api.upscale import upscale_image
 
 sys.path.append("nano_api")
@@ -114,8 +115,8 @@ class TestUpscaleImage:
         mock_default.return_value = (mock_credentials, None)
 
         # Mock file not found
-        with patch("builtins.open", side_effect=FileNotFoundError):
-            with pytest.raises(FileNotFoundError):
+        with patch.object(Path, "read_bytes", side_effect=FileNotFoundError):
+            with pytest.raises(UpscalingError, match="Failed to read image file"):
                 upscale_image(Path("nonexistent.jpg"), "test-project")
 
     @patch("nano_api.upscale.requests.post")
@@ -129,11 +130,12 @@ class TestUpscaleImage:
         # Mock API error
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = requests.HTTPError("API Error")
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
         mock_post.return_value = mock_response
 
         with patch.object(Path, "read_bytes", return_value=b"test_data"):
-
-            with pytest.raises(requests.HTTPError, match="API Error"):
+            with pytest.raises(APIError, match="Upscaling API request failed"):
                 upscale_image(Path("test.jpg"), "test-project")
 
     @patch("nano_api.upscale.default")

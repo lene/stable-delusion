@@ -14,6 +14,9 @@ from flask import Flask, jsonify, request, Response
 from werkzeug.utils import secure_filename
 
 from nano_api.config import ConfigManager
+from nano_api.exceptions import (ValidationError, ImageGenerationError,
+                                 UpscalingError, FileOperationError,
+                                 ConfigurationError)
 from nano_api.generate import GeminiClient, DEFAULT_PROMPT
 from nano_api.utils import (create_error_response, get_current_timestamp,
                             validate_scale_parameter)
@@ -76,8 +79,8 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
     # Parse scale parameter using utility function
     try:
         scale = validate_scale_parameter(request.form.get("scale"))
-    except ValueError as e:
-        return create_error_response(str(e))
+    except ValidationError as e:
+        return create_error_response(str(e), 400)
 
     # Parse custom output filename
     custom_output = request.form.get("output")
@@ -100,7 +103,7 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
             location=location,
             output_dir=output_dir
         )
-    except ValueError as e:
+    except (ConfigurationError, ValidationError) as e:
         return create_error_response(str(e), 400)
 
     # Generate image with optional upscaling
@@ -108,8 +111,11 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         generated_file = client.generate_hires_image_in_one_shot(
             prompt, saved_files, scale=scale
         )
-    except (RuntimeError, OSError, ValueError) as e:
+    except (ImageGenerationError, UpscalingError, FileOperationError) as e:
         return create_error_response(f"Image generation failed: {e}", 500)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # Catch any other unexpected exceptions for API stability
+        return create_error_response(f"Unexpected error: {e}", 500)
 
     # Handle custom output filename if provided
     if generated_file and custom_output:

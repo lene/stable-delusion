@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from nano_api.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from nano_api.exceptions import ImageGenerationError, FileOperationError, ConfigurationError
 from nano_api.generate import (
     GeminiClient,
     generate_from_images,
@@ -24,9 +25,11 @@ class TestGeminiClient:
     """Test cases for GeminiClient functionality."""
     def test_init_missing_api_key(self):
         """Test GeminiClient initialization without GEMINI_API_KEY."""
+        from nano_api.config import ConfigManager
         with patch.dict(os.environ, {}, clear=True):
+            ConfigManager.reset_config()  # Ensure clean config state
             with pytest.raises(
-                ValueError,
+                ConfigurationError,
                 match="GEMINI_API_KEY environment variable is required"
             ):
                 GeminiClient()
@@ -106,7 +109,7 @@ class TestGeminiClient:
 
                     nonexistent_file = Path("nonexistent.png")
 
-                    with pytest.raises(FileNotFoundError, match="Image file not found"):
+                    with pytest.raises(FileOperationError, match="Image file not found"):
                         client.upload_files([nonexistent_file])
 
     def test_generate_from_images_success(self):
@@ -167,7 +170,7 @@ class TestGeminiClient:
                         test_file = Path(temp_dir) / "test.png"
                         test_file.write_bytes(b"test image data")
 
-                        with pytest.raises(RuntimeError, match="Image generation failed"):
+                        with pytest.raises(ImageGenerationError, match="Image generation failed"):
                             client.generate_from_images("test prompt", [test_file])
 
     def test_generate_hires_image_without_scale(self):
@@ -288,7 +291,7 @@ class TestSaveResponseImage:
         mock_candidate.content.parts = []
         mock_response.candidates = [mock_candidate]
 
-        with pytest.raises(RuntimeError, match="No content parts in the candidate"):
+        with pytest.raises(ImageGenerationError, match="No content parts in the candidate"):
             save_response_image(mock_response)
 
 

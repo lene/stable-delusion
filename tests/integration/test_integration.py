@@ -271,9 +271,10 @@ class TestErrorHandlingIntegration:
     def test_missing_api_key_integration(self, temp_images):
         """Test integration behavior when API key is missing."""
         from nano_api.config import ConfigManager
+        from nano_api.exceptions import ConfigurationError
         with patch.dict(os.environ, {}, clear=True):
             ConfigManager.reset_config()  # Ensure clean config state
-            with pytest.raises(ValueError,
+            with pytest.raises(ConfigurationError,
                                match="GEMINI_API_KEY environment variable is required"):
                 GeminiClient()
 
@@ -281,10 +282,11 @@ class TestErrorHandlingIntegration:
     @patch("nano_api.generate.aiplatform.init")
     def test_file_not_found_integration(self, _mock_init, mock_client):
         """Test integration behavior when image files are not found."""
+        from nano_api.exceptions import FileOperationError
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
             client = GeminiClient()
 
-            with pytest.raises(FileNotFoundError,
+            with pytest.raises(FileOperationError,
                                match="Image file not found: nonexistent.png"):
                 client.upload_files([Path("nonexistent.png")])
 

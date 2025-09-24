@@ -16,9 +16,6 @@ disable=
     # Acceptable test patterns
     protected-access,
     attribute-defined-outside-init,
-    # Import organization
-    import-outside-toplevel,
-    reimported,
     missing-function-docstring,
     invalid-name
 
