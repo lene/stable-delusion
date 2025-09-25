@@ -1,10 +1,12 @@
 """
 Repository factory for creating repository instances.
-Provides centralized repository creation and configuration.
+Provides centralized repository creation and configuration with support for multiple
+storage backends.
 """
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+from nano_api.config import ConfigManager
 from nano_api.repositories.interfaces import (
     ImageRepository, FileRepository, UploadRepository
 )
@@ -19,21 +21,33 @@ class RepositoryFactory:
     @staticmethod
     def create_image_repository() -> ImageRepository:
         """
-        Create image repository instance.
+        Create image repository instance based on configuration.
 
         Returns:
-            Configured image repository instance
+            Configured image repository instance (local or S3)
         """
+        config = ConfigManager.get_config()
+
+        if config.storage_type == "s3":
+            from nano_api.repositories.s3_image_repository import S3ImageRepository
+            return S3ImageRepository(config)
+
         return LocalImageRepository()
 
     @staticmethod
     def create_file_repository() -> FileRepository:
         """
-        Create file repository instance.
+        Create file repository instance based on configuration.
 
         Returns:
-            Configured file repository instance
+            Configured file repository instance (local or S3)
         """
+        config = ConfigManager.get_config()
+
+        if config.storage_type == "s3":
+            from nano_api.repositories.s3_file_repository import S3FileRepository
+            return S3FileRepository(config)
+
         return LocalFileRepository()
 
     @staticmethod
