@@ -17,10 +17,11 @@ from nano_api.config import ConfigManager
 from nano_api.exceptions import (ValidationError, ImageGenerationError,
                                  UpscalingError, FileOperationError,
                                  ConfigurationError)
-from nano_api.generate import GeminiClient, DEFAULT_PROMPT
+from nano_api.generate import DEFAULT_PROMPT
 from nano_api.models.requests import GenerateImageRequest
-from nano_api.models.responses import (GenerateImageResponse, ErrorResponse,
-                                       HealthResponse, APIInfoResponse)
+from nano_api.models.responses import (ErrorResponse, HealthResponse,
+                                       APIInfoResponse)
+from nano_api.services.gemini_service import GeminiImageGenerationService
 from nano_api.utils import create_error_response, get_current_timestamp
 
 
@@ -94,9 +95,9 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         error_response = ErrorResponse(f"Invalid scale parameter: {e}")
         return jsonify(error_response.to_dict()), 400
 
-    # Create Gemini client with provided parameters
+    # Create image generation service
     try:
-        client = GeminiClient(
+        service = GeminiImageGenerationService.create(
             project_id=request_dto.project_id,
             location=request_dto.location,
             output_dir=request_dto.output_dir
@@ -105,11 +106,9 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         error_response = ErrorResponse(str(e))
         return jsonify(error_response.to_dict()), 400
 
-    # Generate image with optional upscaling
+    # Generate image using service
     try:
-        generated_file = client.generate_hires_image_in_one_shot(
-            request_dto.prompt, request_dto.images, scale=request_dto.scale
-        )
+        response_dto = service.generate_image(request_dto)
     except (ImageGenerationError, UpscalingError, FileOperationError) as e:
         error_response = ErrorResponse(f"Image generation failed: {e}")
         return jsonify(error_response.to_dict()), 500
@@ -119,25 +118,15 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         return jsonify(error_response.to_dict()), 500
 
     # Handle custom output filename if provided
-    if generated_file and request_dto.custom_output and request_dto.output_dir:
+    if (response_dto.generated_file and request_dto.custom_output
+            and request_dto.output_dir):
         try:
             custom_path = request_dto.output_dir / request_dto.custom_output
-            generated_file.rename(custom_path)
-            generated_file = custom_path
+            response_dto.generated_file.rename(custom_path)
+            response_dto.generated_file = custom_path
         except OSError as e:
             error_response = ErrorResponse(f"Failed to rename output file: {e}")
             return jsonify(error_response.to_dict()), 500
-
-    # Create response DTO
-    response_dto = GenerateImageResponse(
-        generated_file=generated_file,
-        prompt=request_dto.prompt,
-        project_id=request_dto.project_id or config.project_id,
-        location=request_dto.location or config.location,
-        scale=request_dto.scale,
-        saved_files=saved_files,
-        output_dir=request_dto.output_dir or config.default_output_dir
-    )
 
     return jsonify(response_dto.to_dict()), 200
 

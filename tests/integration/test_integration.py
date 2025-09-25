@@ -155,12 +155,30 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("nano_api.main.GeminiClient")
-    def test_api_with_real_file_upload(self, mock_client_class, client, temp_image_file):
+    @patch("nano_api.main.GeminiImageGenerationService.create")
+    def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         """Test API with actual file upload simulation."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_test_image.png")
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_test_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
 
         # Simulate file upload
         with open(temp_image_file, "rb") as image_file:
@@ -184,14 +202,30 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("nano_api.main.GeminiClient")
-    def test_api_with_multiple_files(self, mock_client_class, client, temp_images):
+    @patch("nano_api.main.GeminiImageGenerationService.create")
+    def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         """Test API with multiple file uploads."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path(
-            "generated_multi_image.png"
-        )
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_multi_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
 
         # Simulate multiple file upload using proper context management
         files = []

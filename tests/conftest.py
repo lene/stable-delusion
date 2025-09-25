@@ -78,13 +78,39 @@ def mock_upscale_function():
 
 
 @pytest.fixture
-def mock_main_gemini_client():
-    """Mock GeminiClient for main.py Flask tests."""
-    with patch("nano_api.main.GeminiClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
-        yield mock_client
+def mock_main_gemini_service():
+    """Mock GeminiImageGenerationService for main.py Flask tests."""
+    with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.generated_file = Path("generated_image.png")
+            mock_response.prompt = request_dto.prompt
+            mock_response.project_id = request_dto.project_id
+            mock_response.location = request_dto.location
+            mock_response.scale = request_dto.scale
+            mock_response.saved_files = request_dto.images  # Use actual saved files
+            mock_response.output_dir = request_dto.output_dir
+            mock_response.upscaled = request_dto.scale is not None
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
+        yield mock_service
 
 
 @pytest.fixture
