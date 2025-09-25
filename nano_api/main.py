@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Tuple
 
 from flask import Flask, jsonify, request, Response
-from werkzeug.utils import secure_filename
 
 from nano_api.config import ConfigManager
 from nano_api.exceptions import (ValidationError, ImageGenerationError,
@@ -21,13 +20,17 @@ from nano_api.generate import DEFAULT_PROMPT
 from nano_api.models.requests import GenerateImageRequest
 from nano_api.models.responses import (ErrorResponse, HealthResponse,
                                        APIInfoResponse)
+from nano_api.repositories.upload_repository import LocalUploadRepository
 from nano_api.services.gemini_service import GeminiImageGenerationService
-from nano_api.utils import create_error_response, get_current_timestamp
+from nano_api.utils import create_error_response
 
 
 config = ConfigManager.get_config()
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = config.upload_folder
+
+# Initialize upload repository
+upload_repository = LocalUploadRepository()
 
 
 @app.route("/health", methods=["GET"])
@@ -61,19 +64,11 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
             error_response = ErrorResponse("Missing 'images' parameter")
             return jsonify(error_response.to_dict()), 400
 
-        # Extract and save uploaded files
+        # Extract and save uploaded files using repository
         images = request.files.getlist("images")
-        saved_files = []
-
-        # Save uploaded files with utility functions
-        for image in images:
-            timestamp = get_current_timestamp("compact")
-            filename = secure_filename(
-                image.filename or f"uploaded_image_{timestamp}"
-            )
-            filepath = app.config["UPLOAD_FOLDER"] / filename
-            image.save(str(filepath))
-            saved_files.append(filepath)
+        saved_files = upload_repository.save_uploaded_files(
+            images, app.config["UPLOAD_FOLDER"]
+        )
 
         # Create request DTO with validation
         request_dto = GenerateImageRequest(

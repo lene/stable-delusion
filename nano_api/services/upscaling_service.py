@@ -7,8 +7,6 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from typing import Optional
 
-from PIL import Image
-
 from nano_api.config import ConfigManager
 from nano_api.models.requests import UpscaleImageRequest
 from nano_api.models.responses import UpscaleImageResponse
@@ -62,7 +60,7 @@ class VertexAIUpscalingService(ImageUpscalingService):
             AuthenticationError: If authentication fails
         """
         # Use the existing upscale_image function
-        upscaled_image: Image.Image = upscale_image(
+        upscale_image(
             request.image_path,
             request.project_id or self.project_id,
             request.location or self.location,
