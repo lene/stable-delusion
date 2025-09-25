@@ -29,5 +29,8 @@ max-line-length=100
 # Maximum number of locals for function / method body.
 max-locals=15
 
+# Maximum number of instance attributes for class
+max-attributes=12
+
 # Minimum number of public methods for a class
 min-public-methods=1

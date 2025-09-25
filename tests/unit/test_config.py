@@ -26,16 +26,24 @@ class TestConfig:
                 gemini_api_key="test-key",
                 upload_folder=Path(temp_dir) / "uploads",
                 default_output_dir=Path(temp_dir) / "output",
-                flask_debug=False
+                flask_debug=False,
+                storage_type="local",
+                s3_bucket=None,
+                s3_region=None,
+                aws_access_key_id=None,
+                aws_secret_access_key=None
             )
 
             assert config.project_id == "test-project"
             assert config.location == "us-central1"
             assert config.gemini_api_key == "test-key"
             assert config.flask_debug is False
-            # Check directories were created
+            # Check directories were created for local storage
             assert config.upload_folder.exists()
             assert config.default_output_dir.exists()
+            # Check S3 settings default to None
+            assert config.storage_type == "local"
+            assert config.s3_bucket is None
 
     def test_config_missing_api_key(self):
         """Test Config validation fails with missing API key."""
@@ -47,7 +55,12 @@ class TestConfig:
                     gemini_api_key="",
                     upload_folder=Path(temp_dir) / "uploads",
                     default_output_dir=Path(temp_dir) / "output",
-                    flask_debug=False
+                    flask_debug=False,
+                    storage_type="local",
+                    s3_bucket=None,
+                    s3_region=None,
+                    aws_access_key_id=None,
+                    aws_secret_access_key=None
                 )
 
 
@@ -126,3 +139,53 @@ class TestConfigManager:
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ConfigurationError, match="GEMINI_API_KEY.*required"):
                 ConfigManager.get_config()
+
+    @patch.dict(os.environ, {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "s3",
+        "AWS_S3_BUCKET": "test-bucket",
+        "AWS_S3_REGION": "us-west2"
+    })
+    def test_config_s3_storage_valid(self):
+        """Test S3 storage configuration with valid settings."""
+        ConfigManager.reset_config()
+        config = ConfigManager.get_config()
+
+        assert config.storage_type == "s3"
+        assert config.s3_bucket == "test-bucket"
+        assert config.s3_region == "us-west2"
+        # Local directories should not be created for S3 storage
+
+    @patch.dict(os.environ, {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "s3"
+    })
+    def test_config_s3_missing_bucket(self):
+        """Test S3 storage fails without bucket configuration."""
+        ConfigManager.reset_config()
+        with pytest.raises(ConfigurationError, match="AWS_S3_BUCKET.*required"):
+            ConfigManager.get_config()
+
+    @patch.dict(os.environ, {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "s3",
+        "AWS_S3_BUCKET": "test-bucket"
+    })
+    def test_config_s3_missing_region(self):
+        """Test S3 storage fails without region configuration."""
+        ConfigManager.reset_config()
+        with pytest.raises(ConfigurationError, match="AWS_S3_REGION.*required"):
+            ConfigManager.get_config()
+
+    @patch.dict(os.environ, {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "local"
+    })
+    def test_config_local_storage_default(self):
+        """Test local storage configuration (default behavior)."""
+        ConfigManager.reset_config()
+        config = ConfigManager.get_config()
+
+        assert config.storage_type == "local"
+        assert config.s3_bucket is None
+        assert config.s3_region is None

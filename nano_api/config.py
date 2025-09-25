@@ -26,6 +26,13 @@ class Config:
     default_output_dir: Path
     flask_debug: bool
 
+    # Storage configuration
+    storage_type: str
+    s3_bucket: Optional[str]
+    s3_region: Optional[str]
+    aws_access_key_id: Optional[str]
+    aws_secret_access_key: Optional[str]
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if not self.gemini_api_key:
@@ -35,9 +42,23 @@ class Config:
                 config_key="GEMINI_API_KEY"
             )
 
-        # Ensure directories exist
-        self.upload_folder.mkdir(parents=True, exist_ok=True)
-        self.default_output_dir.mkdir(parents=True, exist_ok=True)
+        # Validate S3 configuration if S3 storage is enabled
+        if self.storage_type == "s3":
+            if not self.s3_bucket:
+                raise ConfigurationError(
+                    "AWS_S3_BUCKET environment variable is required when storage_type is 's3'",
+                    config_key="AWS_S3_BUCKET"
+                )
+            if not self.s3_region:
+                raise ConfigurationError(
+                    "AWS_S3_REGION environment variable is required when storage_type is 's3'",
+                    config_key="AWS_S3_REGION"
+                )
+
+        # Ensure local directories exist only for local storage
+        if self.storage_type == "local":
+            self.upload_folder.mkdir(parents=True, exist_ok=True)
+            self.default_output_dir.mkdir(parents=True, exist_ok=True)
 
 
 class ConfigManager:
@@ -71,5 +92,11 @@ class ConfigManager:
             default_output_dir=Path(os.getenv("DEFAULT_OUTPUT_DIR", ".")),
             flask_debug=os.getenv("FLASK_DEBUG", "False").lower() in (
                 "true", "1", "yes"
-            )
+            ),
+            # Storage configuration
+            storage_type=os.getenv("STORAGE_TYPE", "local").lower(),
+            s3_bucket=os.getenv("AWS_S3_BUCKET"),
+            s3_region=os.getenv("AWS_S3_REGION"),
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
         )
