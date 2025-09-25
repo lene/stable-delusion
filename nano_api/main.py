@@ -20,8 +20,7 @@ from nano_api.generate import DEFAULT_PROMPT
 from nano_api.models.requests import GenerateImageRequest
 from nano_api.models.responses import (ErrorResponse, HealthResponse,
                                        APIInfoResponse)
-from nano_api.repositories.upload_repository import LocalUploadRepository
-from nano_api.services.gemini_service import GeminiImageGenerationService
+from nano_api.factories import ServiceFactory, RepositoryFactory
 from nano_api.utils import create_error_response
 
 
@@ -30,7 +29,7 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = config.upload_folder
 
 # Initialize upload repository
-upload_repository = LocalUploadRepository()
+upload_repository = RepositoryFactory.create_upload_repository()
 
 
 @app.route("/health", methods=["GET"])
@@ -92,7 +91,7 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
 
     # Create image generation service
     try:
-        service = GeminiImageGenerationService.create(
+        service = ServiceFactory.create_image_generation_service(
             project_id=request_dto.project_id,
             location=request_dto.location,
             output_dir=request_dto.output_dir

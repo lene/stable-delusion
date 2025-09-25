@@ -172,7 +172,8 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         """Test handling of image generation failure."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
 
@@ -204,7 +205,8 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_generation_exception(self, client, mock_image_files):
         """Test handling of exceptions during generation."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
             mock_service.generate_image.side_effect = ValueError("Generation failed")
@@ -234,7 +236,8 @@ class TestFlaskAPI:
 
     def test_response_format(self, client, mock_image_files):
         """Test that response contains all expected fields."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
 
@@ -274,7 +277,8 @@ class TestFlaskAPI:
 
     def test_content_type_handling(self, client, mock_image_files):
         """Test that only multipart/form-data is accepted."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
 
@@ -297,7 +301,8 @@ class TestFlaskAPI:
 
     def test_generate_endpoint_with_output_dir(self, client, mock_image_files):
         """Test image generation with custom output directory."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
 
@@ -324,7 +329,8 @@ class TestFlaskAPI:
 
     def test_generate_with_scale_parameter(self, client, mock_image_files):
         """Test image generation with scale parameter."""
-        with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+        with patch("nano_api.main.ServiceFactory."
+                   "create_image_generation_service") as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
 

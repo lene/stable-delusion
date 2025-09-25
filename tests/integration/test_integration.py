@@ -155,7 +155,7 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("nano_api.main.GeminiImageGenerationService.create")
+    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
     def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         """Test API with actual file upload simulation."""
         mock_service = MagicMock()
@@ -202,7 +202,7 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("nano_api.main.GeminiImageGenerationService.create")
+    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
     def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         """Test API with multiple file uploads."""
         mock_service = MagicMock()

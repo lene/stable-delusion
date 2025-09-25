@@ -80,7 +80,8 @@ def mock_upscale_function():
 @pytest.fixture
 def mock_main_gemini_service():
     """Mock GeminiImageGenerationService for main.py Flask tests."""
-    with patch("nano_api.main.GeminiImageGenerationService.create") as mock_service_create:
+    with patch("nano_api.main.ServiceFactory."
+               "create_image_generation_service") as mock_service_create:
         mock_service = MagicMock()
         mock_service_create.return_value = mock_service
 
