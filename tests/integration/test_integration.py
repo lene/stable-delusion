@@ -9,8 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.generate import GeminiClient
+from nano_api.generate import GeminiClient, parse_command_line
 from nano_api.main import app
+from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 sys.path.append("nano_api")
 
@@ -155,12 +156,30 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("nano_api.main.GeminiClient")
-    def test_api_with_real_file_upload(self, mock_client_class, client, temp_image_file):
+    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         """Test API with actual file upload simulation."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_test_image.png")
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_test_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
 
         # Simulate file upload
         with open(temp_image_file, "rb") as image_file:
@@ -184,14 +203,30 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("nano_api.main.GeminiClient")
-    def test_api_with_multiple_files(self, mock_client_class, client, temp_images):
+    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         """Test API with multiple file uploads."""
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path(
-            "generated_multi_image.png"
-        )
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_multi_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
 
         # Simulate multiple file upload using proper context management
         files = []
@@ -250,8 +285,6 @@ class TestCommandLineIntegration:
                                             "--image", temp_image_file, "--scale", "2"]):
 
                         # Import and test the main execution logic
-                        from nano_api.generate import parse_command_line, GeminiClient
-                        from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
                         args = parse_command_line()
                         project_id = getattr(args, "project_id") or DEFAULT_PROJECT_ID
@@ -270,8 +303,11 @@ class TestErrorHandlingIntegration:
 
     def test_missing_api_key_integration(self, temp_images):
         """Test integration behavior when API key is missing."""
+        from nano_api.config import ConfigManager
+        from nano_api.exceptions import ConfigurationError
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError,
+            ConfigManager.reset_config()  # Ensure clean config state
+            with pytest.raises(ConfigurationError,
                                match="GEMINI_API_KEY environment variable is required"):
                 GeminiClient()
 
@@ -279,10 +315,11 @@ class TestErrorHandlingIntegration:
     @patch("nano_api.generate.aiplatform.init")
     def test_file_not_found_integration(self, _mock_init, mock_client):
         """Test integration behavior when image files are not found."""
+        from nano_api.exceptions import FileOperationError
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
             client = GeminiClient()
 
-            with pytest.raises(FileNotFoundError,
+            with pytest.raises(FileOperationError,
                                match="Image file not found: nonexistent.png"):
                 client.upload_files([Path("nonexistent.png")])
 
@@ -306,8 +343,6 @@ class TestConfigurationIntegration:
 
     def test_default_configuration_usage(self):
         """Test that default configuration values are used correctly."""
-        from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-
         # Test that constants are properly imported and used
         assert DEFAULT_PROJECT_ID is not None
         assert DEFAULT_LOCATION is not None

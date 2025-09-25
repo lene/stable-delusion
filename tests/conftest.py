@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for the test suite.
 """
+import json
 import os
 import sys
 import tempfile
@@ -78,13 +79,40 @@ def mock_upscale_function():
 
 
 @pytest.fixture
-def mock_main_gemini_client():
-    """Mock GeminiClient for main.py Flask tests."""
-    with patch("nano_api.main.GeminiClient") as mock_client_class:
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-        mock_client.generate_hires_image_in_one_shot.return_value = Path("generated_image.png")
-        yield mock_client
+def mock_main_gemini_service():
+    """Mock GeminiImageGenerationService for main.py Flask tests."""
+    with patch("nano_api.main.ServiceFactory."
+               "create_image_generation_service") as mock_service_create:
+        mock_service = MagicMock()
+        mock_service_create.return_value = mock_service
+
+        def create_mock_response(request_dto):
+            """Create a dynamic mock response based on request."""
+            mock_response = MagicMock()
+            mock_response.generated_file = Path("generated_image.png")
+            mock_response.prompt = request_dto.prompt
+            mock_response.project_id = request_dto.project_id
+            mock_response.location = request_dto.location
+            mock_response.scale = request_dto.scale
+            mock_response.saved_files = request_dto.images  # Use actual saved files
+            mock_response.output_dir = request_dto.output_dir
+            mock_response.upscaled = request_dto.scale is not None
+            mock_response.to_dict.return_value = {
+                "generated_file": "generated_image.png",
+                "prompt": request_dto.prompt,
+                "project_id": request_dto.project_id,
+                "location": request_dto.location,
+                "scale": request_dto.scale,
+                "saved_files": [str(f) for f in request_dto.images],
+                "output_dir": str(request_dto.output_dir),
+                "upscaled": request_dto.scale is not None,
+                "success": True,
+                "message": "Image generated successfully"
+            }
+            return mock_response
+
+        mock_service.generate_image.side_effect = create_mock_response
+        yield mock_service
 
 
 @pytest.fixture
@@ -276,7 +304,6 @@ def mock_google_auth():
 # Helper functions for reducing code duplication
 def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_reason="STOP"):
     """Create a mock Gemini API response with consistent structure."""
-    from unittest.mock import MagicMock
 
     mock_response = MagicMock()
     mock_candidate = MagicMock()
@@ -295,7 +322,6 @@ def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_
 
 def assert_successful_flask_response(response, expected_message="Image generated successfully"):
     """Assert common Flask API response patterns."""
-    import json
 
     assert response.status_code == 200
     response_data = json.loads(response.data)
@@ -305,8 +331,6 @@ def assert_successful_flask_response(response, expected_message="Image generated
 
 def mock_image_operations():
     """Create mock context for PIL Image and datetime operations."""
-    from unittest.mock import patch
-
     return patch("nano_api.generate.Image.open"), patch("nano_api.generate.datetime")
 
 

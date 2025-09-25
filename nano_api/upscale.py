@@ -17,7 +17,8 @@ from google.auth import default
 from google.auth.transport.requests import Request
 from PIL import Image
 
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.config import ConfigManager
+from nano_api.exceptions import UpscalingError, APIError, AuthenticationError
 
 
 def _get_authenticated_headers() -> Dict[str, str]:
@@ -66,21 +67,56 @@ def upscale_image(
     location: str = "us-central1",
     upscale_factor: str = "x2",
 ) -> Image.Image:
-    # Get authentication headers first (preserves original error behavior)
-    headers = _get_authenticated_headers()
+    try:
+        # Get authentication headers first (preserves original error behavior)
+        headers = _get_authenticated_headers()
+    except Exception as e:
+        raise AuthenticationError(
+            f"Failed to get authentication credentials: {e}"
+        ) from e
 
-    # Load and encode image to base64
-    base64_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    try:
+        # Load and encode image to base64
+        base64_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+    except (IOError, OSError) as e:
+        raise UpscalingError(
+            f"Failed to read image file: {e}",
+            image_path=str(image_path)
+        ) from e
 
-    # Make the API call
-    response = requests.post(
-        _build_upscale_url(project_id, location),
-        json=_create_upscale_payload(base64_image, upscale_factor),
-        headers=headers, timeout=60
-    )
-    response.raise_for_status()
+    try:
+        # Make the API call
+        response = requests.post(
+            _build_upscale_url(project_id, location),
+            json=_create_upscale_payload(base64_image, upscale_factor),
+            headers=headers, timeout=60
+        )
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        if response.status_code == 401:
+            raise AuthenticationError(
+                "Authentication failed with Vertex AI"
+            ) from e
+        raise APIError(
+            f"Upscaling API request failed: {e}",
+            status_code=response.status_code,
+            response_body=response.text
+        ) from e
+    except requests.exceptions.RequestException as e:
+        raise UpscalingError(
+            f"Network error during upscaling: {e}",
+            scale_factor=upscale_factor,
+            image_path=str(image_path)
+        ) from e
 
-    return _decode_upscaled_image(response.json())
+    try:
+        return _decode_upscaled_image(response.json())
+    except (KeyError, ValueError) as e:
+        raise UpscalingError(
+            f"Failed to decode upscaled image: {e}",
+            scale_factor=upscale_factor,
+            image_path=str(image_path)
+        ) from e
 
 
 # Usage example:
@@ -102,9 +138,10 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    config = ConfigManager.get_config()
     input_path = args.image_path
     upscaled_img = upscale_image(
-        input_path, DEFAULT_PROJECT_ID, DEFAULT_LOCATION, upscale_factor=f"x{args.scale}",
+        input_path, config.project_id, config.location, upscale_factor=f"x{args.scale}",
     )
     output_path = input_path.parent / f"upscaled_{input_path.name}"
     upscaled_img.save(str(output_path))

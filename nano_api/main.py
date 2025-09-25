@@ -11,40 +11,37 @@ from pathlib import Path
 from typing import Tuple
 
 from flask import Flask, jsonify, request, Response
-from werkzeug.utils import secure_filename
 
-from nano_api.generate import GeminiClient, DEFAULT_PROMPT
-from nano_api.utils import (create_error_response, get_current_timestamp,
-                            validate_scale_parameter, get_project_config)
+from nano_api.config import ConfigManager
+from nano_api.exceptions import (ValidationError, ImageGenerationError,
+                                 UpscalingError, FileOperationError,
+                                 ConfigurationError)
+from nano_api.generate import DEFAULT_PROMPT
+from nano_api.models.requests import GenerateImageRequest
+from nano_api.models.responses import (ErrorResponse, HealthResponse,
+                                       APIInfoResponse)
+from nano_api.factories import ServiceFactory, RepositoryFactory
+from nano_api.utils import create_error_response
 
 
+config = ConfigManager.get_config()
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = Path("uploads")
-app.config["UPLOAD_FOLDER"].mkdir(exist_ok=True)
+app.config["UPLOAD_FOLDER"] = config.upload_folder
+
+# Initialize upload repository
+upload_repository = RepositoryFactory.create_upload_repository()
 
 
 @app.route("/health", methods=["GET"])
 def health() -> Tuple[Response, int]:
-    return jsonify({
-        "status": "healthy",
-        "service": "NanoAPIClient",
-        "version": "1.0.0"
-    }), 200
+    response = HealthResponse()
+    return jsonify(response.to_dict()), 200
 
 
 @app.route("/", methods=["GET"])
 def api_info() -> Tuple[Response, int]:
-    return jsonify({
-        "name": "NanoAPIClient API",
-        "description": "Flask web API for image generation using Google Gemini AI",
-        "version": "1.0.0",
-        "endpoints": {
-            "/": "API information",
-            "/health": "Health check",
-            "/generate": "Generate images from prompt and reference images",
-            "/openapi.json": "OpenAPI specification"
-        }
-    }), 200
+    response = APIInfoResponse()
+    return jsonify(response.to_dict()), 200
 
 
 @app.route("/openapi.json", methods=["GET"])
@@ -60,79 +57,74 @@ def openapi_spec() -> Tuple[Response, int]:
 
 @app.route("/generate", methods=["POST"])
 def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-statements
-    # Get prompt parameter (use default if not provided)
-    prompt = request.form.get("prompt") or DEFAULT_PROMPT
-
-    # Validate that images are provided
-    if "images" not in request.files:
-        return create_error_response("Missing 'images' parameter")
-
-    # Get optional parameters with defaults using utility function
-    project_id, location = get_project_config(request.form)
-    output_dir = Path(request.form.get("output_dir", "."))
-
-    # Parse scale parameter using utility function
     try:
-        scale = validate_scale_parameter(request.form.get("scale"))
-    except ValueError as e:
-        return create_error_response(str(e))
+        # Validate that images are provided
+        if "images" not in request.files:
+            error_response = ErrorResponse("Missing 'images' parameter")
+            return jsonify(error_response.to_dict()), 400
 
-    # Parse custom output filename
-    custom_output = request.form.get("output")
-
-    images = request.files.getlist("images")
-    saved_files = []
-
-    # Save uploaded files with utility functions
-    for image in images:
-        timestamp = get_current_timestamp("compact")
-        filename = secure_filename(image.filename or f"uploaded_image_{timestamp}")
-        filepath = app.config["UPLOAD_FOLDER"] / filename
-        image.save(str(filepath))
-        saved_files.append(filepath)
-
-    # Create Gemini client with provided parameters
-    try:
-        client = GeminiClient(
-            project_id=project_id,
-            location=location,
-            output_dir=output_dir
+        # Extract and save uploaded files using repository
+        images = request.files.getlist("images")
+        saved_files = upload_repository.save_uploaded_files(
+            images, app.config["UPLOAD_FOLDER"]
         )
-    except ValueError as e:
-        return create_error_response(str(e), 400)
 
-    # Generate image with optional upscaling
-    try:
-        generated_file = client.generate_hires_image_in_one_shot(
-            prompt, saved_files, scale=scale
+        # Create request DTO with validation
+        request_dto = GenerateImageRequest(
+            prompt=request.form.get("prompt") or DEFAULT_PROMPT,
+            images=saved_files,
+            project_id=request.form.get("project_id") or config.project_id,
+            location=request.form.get("location") or config.location,
+            output_dir=Path(
+                request.form.get("output_dir") or config.default_output_dir
+            ),
+            scale=int(request.form["scale"]) if request.form.get("scale") else None,
+            custom_output=request.form.get("output")
         )
-    except (RuntimeError, OSError, ValueError) as e:
-        return create_error_response(f"Image generation failed: {e}", 500)
+
+    except ValidationError as e:
+        error_response = ErrorResponse(str(e))
+        return jsonify(error_response.to_dict()), 400
+    except ValueError as e:
+        error_response = ErrorResponse(f"Invalid scale parameter: {e}")
+        return jsonify(error_response.to_dict()), 400
+
+    # Create image generation service
+    try:
+        service = ServiceFactory.create_image_generation_service(
+            project_id=request_dto.project_id,
+            location=request_dto.location,
+            output_dir=request_dto.output_dir
+        )
+    except (ConfigurationError, ValidationError) as e:
+        error_response = ErrorResponse(str(e))
+        return jsonify(error_response.to_dict()), 400
+
+    # Generate image using service
+    try:
+        response_dto = service.generate_image(request_dto)
+    except (ImageGenerationError, UpscalingError, FileOperationError) as e:
+        error_response = ErrorResponse(f"Image generation failed: {e}")
+        return jsonify(error_response.to_dict()), 500
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        # Catch any other unexpected exceptions for API stability
+        error_response = ErrorResponse(f"Unexpected error: {e}")
+        return jsonify(error_response.to_dict()), 500
 
     # Handle custom output filename if provided
-    if generated_file and custom_output:
+    if response_dto.generated_file and request_dto.custom_output and \
+            request_dto.output_dir:
         try:
-            custom_path = output_dir / custom_output
-            generated_file.rename(custom_path)
-            generated_file = custom_path
+            custom_path = request_dto.output_dir / request_dto.custom_output
+            response_dto.generated_file.rename(custom_path)
+            response_dto.generated_file = custom_path
         except OSError as e:
-            return create_error_response(f"Failed to rename output file: {e}", 500)
+            error_response = ErrorResponse(f"Failed to rename output file: {e}")
+            return jsonify(error_response.to_dict()), 500
 
-    return jsonify({
-        "message": "Image generated successfully",
-        "prompt": prompt,
-        "project_id": project_id,
-        "location": location,
-        "scale": scale,
-        "saved_files": [str(f) for f in saved_files],
-        "generated_file": str(generated_file) if generated_file else None,
-        "output_dir": str(output_dir),
-        "upscaled": scale is not None
-    }), 200
+    return jsonify(response_dto.to_dict()), 200
 
 
 if __name__ == "__main__":
-    import os
-    # Only enable debug mode in development, never in production
-    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes")
-    app.run(debug=debug_mode)
+    # Use configuration for debug mode
+    app.run(debug=config.flask_debug)
