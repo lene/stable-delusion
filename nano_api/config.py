@@ -5,6 +5,7 @@ Provides environment-based configuration with validation and defaults.
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ class Config:
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         if not self.gemini_api_key:
+            logging.error("%s", os.environ)
             raise ConfigurationError(
                 "GEMINI_API_KEY environment variable is required but not set",
                 config_key="GEMINI_API_KEY"
