@@ -112,8 +112,8 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         return jsonify(error_response.to_dict()), 500
 
     # Handle custom output filename if provided
-    if (response_dto.generated_file and request_dto.custom_output
-            and request_dto.output_dir):
+    if response_dto.generated_file and request_dto.custom_output and \
+            request_dto.output_dir:
         try:
             custom_path = request_dto.output_dir / request_dto.custom_output
             response_dto.generated_file.rename(custom_path)

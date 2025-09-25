@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for the test suite.
 """
+import json
 import os
 import sys
 import tempfile
@@ -303,7 +304,6 @@ def mock_google_auth():
 # Helper functions for reducing code duplication
 def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_reason="STOP"):
     """Create a mock Gemini API response with consistent structure."""
-    from unittest.mock import MagicMock
 
     mock_response = MagicMock()
     mock_candidate = MagicMock()
@@ -322,7 +322,6 @@ def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_
 
 def assert_successful_flask_response(response, expected_message="Image generated successfully"):
     """Assert common Flask API response patterns."""
-    import json
 
     assert response.status_code == 200
     response_data = json.loads(response.data)
@@ -332,8 +331,6 @@ def assert_successful_flask_response(response, expected_message="Image generated
 
 def mock_image_operations():
     """Create mock context for PIL Image and datetime operations."""
-    from unittest.mock import patch
-
     return patch("nano_api.generate.Image.open"), patch("nano_api.generate.datetime")
 
 

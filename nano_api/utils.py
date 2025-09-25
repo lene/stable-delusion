@@ -12,6 +12,7 @@ from flask import jsonify, Response
 from werkzeug.utils import secure_filename
 
 from nano_api.exceptions import ValidationError, FileOperationError
+from nano_api.conf import VALID_SCALE_FACTORS, DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 
 # Date/time format constants
@@ -33,9 +34,7 @@ def format_timestamp(dt: Optional[datetime], format_type: str = "standard") -> s
 
 
 def get_current_timestamp(format_type: str = "filename") -> str:
-    # Import datetime here to allow for easier mocking in tests
-    from datetime import datetime as dt  # pylint: disable=import-outside-toplevel
-    return format_timestamp(dt.now(), format_type)
+    return format_timestamp(datetime.now(), format_type)
 
 
 def create_error_response(message: str, status_code: int = 400) -> Tuple[Response, int]:
@@ -85,8 +84,6 @@ def validate_scale_parameter(scale_value: Union[str, int, None]) -> Optional[int
                 value=str(scale_value)
             ) from e
 
-    # Import here to avoid circular dependency
-    from nano_api.conf import VALID_SCALE_FACTORS  # pylint: disable=import-outside-toplevel
     if scale not in VALID_SCALE_FACTORS:
         raise ValidationError(
             f"Scale must be one of {VALID_SCALE_FACTORS}",
@@ -100,9 +97,6 @@ def validate_scale_parameter(scale_value: Union[str, int, None]) -> Optional[int
 def get_project_config(source_dict: Dict[str, Any],
                        key_project: str = "project_id",
                        key_location: str = "location") -> Tuple[str, str]:
-    # pylint: disable=import-outside-toplevel
-    from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-
     if hasattr(source_dict, 'get'):  # Dict-like object (request.form)
         project_id = source_dict.get(key_project) or DEFAULT_PROJECT_ID
         location = source_dict.get(key_location) or DEFAULT_LOCATION

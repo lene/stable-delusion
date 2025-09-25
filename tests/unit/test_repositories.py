@@ -61,7 +61,7 @@ class TestLocalImageRepository:
     def test_save_image_failure(self, repository, test_image):
         """Test image saving failure."""
         # Try to save to an invalid path
-        invalid_path = Path("/invalid/readonly/path/test.png")
+        invalid_path = Path("/dev/null/test.png")
 
         with pytest.raises(FileOperationError) as excinfo:
             repository.save_image(test_image, invalid_path)

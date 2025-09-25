@@ -17,7 +17,9 @@ disable=
     protected-access,
     attribute-defined-outside-init,
     missing-function-docstring,
-    invalid-name
+    invalid-name,
+    # Import patterns for test fixtures and functions
+    import-outside-toplevel
 
 [FORMAT]
 # Maximum number of characters on a single line.

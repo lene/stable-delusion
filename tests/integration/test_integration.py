@@ -9,8 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.generate import GeminiClient
+from nano_api.generate import GeminiClient, parse_command_line
 from nano_api.main import app
+from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
 sys.path.append("nano_api")
 
@@ -284,8 +285,6 @@ class TestCommandLineIntegration:
                                             "--image", temp_image_file, "--scale", "2"]):
 
                         # Import and test the main execution logic
-                        from nano_api.generate import parse_command_line, GeminiClient
-                        from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 
                         args = parse_command_line()
                         project_id = getattr(args, "project_id") or DEFAULT_PROJECT_ID
@@ -344,8 +343,6 @@ class TestConfigurationIntegration:
 
     def test_default_configuration_usage(self):
         """Test that default configuration values are used correctly."""
-        from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-
         # Test that constants are properly imported and used
         assert DEFAULT_PROJECT_ID is not None
         assert DEFAULT_LOCATION is not None
