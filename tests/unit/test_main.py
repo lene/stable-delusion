@@ -100,7 +100,8 @@ class TestFlaskAPI:
 
         assert response.status_code == 400
         response_data = json.loads(response.data)
-        assert response_data["error"] == "Missing 'images' parameter"
+        assert response_data["success"] is False
+        assert response_data["message"] == "Missing 'images' parameter"
 
     def test_generate_endpoint_empty_prompt(self, client, mock_image_files,
                                             mock_main_gemini_client):
@@ -182,7 +183,10 @@ class TestFlaskAPI:
             response = client.post("/generate", data=data,
                                    content_type="multipart/form-data")
 
-            response_data = assert_successful_flask_response(response)
+            assert response.status_code == 200
+            response_data = json.loads(response.data)
+            assert response_data["success"] is False
+            assert response_data["message"] == "Image generation failed"
             assert response_data["generated_file"] is None
 
     def test_generate_endpoint_generation_exception(self, client, mock_image_files):
@@ -204,7 +208,8 @@ class TestFlaskAPI:
 
             assert response.status_code == 500
             response_data = json.loads(response.data)
-            assert "Generation failed" in response_data["error"]
+            assert response_data["success"] is False
+            assert "Unexpected error" in response_data["message"]
 
     def test_upload_folder_creation(self, client):
         """Test that upload folder is created if it doesn't exist."""
@@ -312,7 +317,8 @@ class TestFlaskAPI:
 
         assert response.status_code == 400
         response_data = json.loads(response.data)
-        assert "Scale must be one of [2, 4]" in response_data["error"]
+        assert response_data["success"] is False
+        assert "Scale must be 2 or 4" in response_data["message"]
 
     def test_health_endpoint(self, client):
         """Test health check endpoint."""
