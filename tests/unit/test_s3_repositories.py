@@ -106,22 +106,20 @@ class TestS3ImageRepository:
         # Verify return value is S3 URL (Path normalizes s3:// to s3:/)
         assert str(result) == 's3:/test-bucket/images/test_image.png'
 
-    def test_save_image_different_formats(self, s3_image_repo, test_image):
-        """Test saving images with different formats."""
-        formats = [
-            (Path("test.jpg"), "image/jpeg"),
-            (Path("test.jpeg"), "image/jpeg"),
-            (Path("test.gif"), "image/gif"),
-            (Path("test.bmp"), "image/bmp"),
-            (Path("test.webp"), "image/webp")
-        ]
-
-        for file_path, expected_content_type in formats:
-            s3_image_repo.s3_client.reset_mock()
-            s3_image_repo.save_image(test_image, file_path)
-
-            call_args = s3_image_repo.s3_client.put_object.call_args
-            assert call_args[1]['ContentType'] == expected_content_type
+    @pytest.mark.parametrize("file_path,expected_content_type", [
+        (Path("test.jpg"), "image/jpeg"),
+        (Path("test.jpeg"), "image/jpeg"),
+        (Path("test.png"), "image/png"),
+        (Path("test.gif"), "image/gif"),
+        (Path("test.bmp"), "image/bmp"),
+        (Path("test.webp"), "image/webp"),
+    ])
+    def test_save_image_content_types(self, s3_image_repo, test_image,
+                                      file_path, expected_content_type):
+        """Test content type detection for different image formats."""
+        s3_image_repo.save_image(test_image, file_path)
+        call_args = s3_image_repo.s3_client.put_object.call_args
+        assert call_args[1]['ContentType'] == expected_content_type
 
     def test_save_image_failure(self, s3_image_repo, test_image):
         """Test image save failure handling."""

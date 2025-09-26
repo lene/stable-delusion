@@ -14,12 +14,7 @@ from nano_api.config import Config, ConfigManager
 from nano_api.exceptions import ConfigurationError
 
 
-# Setup to prevent .env file loading in all tests
-@pytest.fixture(autouse=True)
-def prevent_dotenv_loading():
-    """Prevent loading .env file during tests."""
-    with patch('nano_api.config.load_dotenv'):
-        yield
+# Note: .env file loading prevention is now handled globally in conftest.py
 
 
 class TestConfig:
@@ -124,23 +119,27 @@ class TestConfigManager:
         assert config.default_output_dir == Path(".")
         assert config.flask_debug is False
 
-    @patch.dict(os.environ, {
-        "GEMINI_API_KEY": "test-key",
-        "FLASK_DEBUG": "false"
-    })
-    def test_flask_debug_false_values(self):
-        """Test Flask debug recognizes false values."""
-        config = ConfigManager.get_config()
-        assert config.flask_debug is False
-
-    @patch.dict(os.environ, {
-        "GEMINI_API_KEY": "test-key",
-        "FLASK_DEBUG": "1"
-    })
-    def test_flask_debug_true_values(self):
-        """Test Flask debug recognizes various true values."""
-        config = ConfigManager.get_config()
-        assert config.flask_debug is True
+    @pytest.mark.parametrize("debug_value,expected", [
+        ("false", False),
+        ("False", False),
+        ("0", False),
+        ("", False),
+        ("no", False),
+        ("true", True),
+        ("True", True),
+        ("1", True),
+        ("yes", True),
+        ("YES", True),
+    ])
+    def test_flask_debug_parsing(self, debug_value, expected):
+        """Test Flask debug value parsing with various inputs."""
+        with patch.dict(os.environ, {
+            "GEMINI_API_KEY": "test-key",
+            "FLASK_DEBUG": debug_value
+        }):
+            ConfigManager.reset_config()
+            config = ConfigManager.get_config()
+            assert config.flask_debug is expected
 
     def test_config_missing_gemini_api_key(self):
         """Test ConfigManager raises error when GEMINI_API_KEY missing."""

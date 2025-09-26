@@ -16,12 +16,7 @@ from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 sys.path.append("nano_api")
 
 
-# Setup to prevent .env file loading in all tests
-@pytest.fixture(autouse=True)
-def prevent_dotenv_loading():
-    """Prevent loading .env file during tests."""
-    with patch('nano_api.config.load_dotenv'):
-        yield
+# Note: .env file loading prevention is now handled globally in conftest.py
 
 
 @pytest.fixture
@@ -171,6 +166,7 @@ class TestFlaskAPIIntegration:
             yield client
 
     @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         """Test API with actual file upload simulation."""
         mock_service = MagicMock()
@@ -218,6 +214,7 @@ class TestFlaskAPIIntegration:
             assert os.path.exists(saved_file)
 
     @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         """Test API with multiple file uploads."""
         mock_service = MagicMock()

@@ -1,4 +1,5 @@
 """Unit tests for factory implementations."""
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,42 +23,47 @@ from nano_api.services.interfaces import (
 class TestRepositoryFactory:
     """Test cases for RepositoryFactory."""
 
-    def test_create_image_repository(self):
+    def test_create_image_repository(self, base_env):
         """Test image repository creation."""
-        repo = RepositoryFactory.create_image_repository()
+        with patch.dict(os.environ, base_env):
+            repo = RepositoryFactory.create_image_repository()
 
-        assert isinstance(repo, ImageRepository)
-        assert isinstance(repo, LocalImageRepository)
+            assert isinstance(repo, ImageRepository)
+            assert isinstance(repo, LocalImageRepository)
 
-    def test_create_file_repository(self):
+    def test_create_file_repository(self, base_env):
         """Test file repository creation."""
-        repo = RepositoryFactory.create_file_repository()
+        with patch.dict(os.environ, base_env):
+            repo = RepositoryFactory.create_file_repository()
 
-        assert isinstance(repo, FileRepository)
-        assert isinstance(repo, LocalFileRepository)
+            assert isinstance(repo, FileRepository)
+            assert isinstance(repo, LocalFileRepository)
 
-    def test_create_upload_repository(self):
+    def test_create_upload_repository(self, base_env):
         """Test upload repository creation."""
-        repo = RepositoryFactory.create_upload_repository()
+        with patch.dict(os.environ, base_env):
+            repo = RepositoryFactory.create_upload_repository()
 
-        assert isinstance(repo, UploadRepository)
-        assert isinstance(repo, LocalUploadRepository)
+            assert isinstance(repo, UploadRepository)
+            assert isinstance(repo, LocalUploadRepository)
 
-    def test_create_all_repositories(self):
+    def test_create_all_repositories(self, base_env):
         """Test creating all repositories at once."""
-        image_repo, file_repo, upload_repo = RepositoryFactory.create_all_repositories()
+        with patch.dict(os.environ, base_env):
+            image_repo, file_repo, upload_repo = RepositoryFactory.create_all_repositories()
 
-        assert isinstance(image_repo, LocalImageRepository)
-        assert isinstance(file_repo, LocalFileRepository)
-        assert isinstance(upload_repo, LocalUploadRepository)
+            assert isinstance(image_repo, LocalImageRepository)
+            assert isinstance(file_repo, LocalFileRepository)
+            assert isinstance(upload_repo, LocalUploadRepository)
 
-    def test_repository_instances_are_independent(self):
+    def test_repository_instances_are_independent(self, base_env):
         """Test that each factory call creates new instances."""
-        repo1 = RepositoryFactory.create_image_repository()
-        repo2 = RepositoryFactory.create_image_repository()
+        with patch.dict(os.environ, base_env):
+            repo1 = RepositoryFactory.create_image_repository()
+            repo2 = RepositoryFactory.create_image_repository()
 
-        assert repo1 is not repo2
-        assert type(repo1) is type(repo2)
+            assert repo1 is not repo2
+            assert type(repo1) is type(repo2)
 
 
 class TestServiceFactory:
@@ -215,26 +221,28 @@ class TestFactoryIntegration:
         with tempfile.TemporaryDirectory() as temp_dir:
             yield Path(temp_dir)
 
-    def test_factory_creates_working_repositories(self, temp_dir):
+    def test_factory_creates_working_repositories(self, temp_dir, base_env):
         """Test that factory-created repositories work correctly."""
-        RepositoryFactory.create_image_repository()
-        file_repo = RepositoryFactory.create_file_repository()
-        RepositoryFactory.create_upload_repository()
+        with patch.dict(os.environ, base_env):
+            RepositoryFactory.create_image_repository()
+            file_repo = RepositoryFactory.create_file_repository()
+            RepositoryFactory.create_upload_repository()
 
-        # Test basic functionality
-        assert file_repo.exists(temp_dir) is True
-        test_dir = temp_dir / "test_subdir"
-        created_dir = file_repo.create_directory(test_dir)
-        assert created_dir == test_dir
-        assert test_dir.exists()
+            # Test basic functionality
+            assert file_repo.exists(temp_dir) is True
+            test_dir = temp_dir / "test_subdir"
+            created_dir = file_repo.create_directory(test_dir)
+            assert created_dir == test_dir
+            assert test_dir.exists()
 
-    def test_factory_creates_working_file_service(self, temp_dir):
+    def test_factory_creates_working_file_service(self, temp_dir, base_env):
         """Test that factory-created file service works correctly."""
-        file_service = ServiceFactory.create_file_service()
+        with patch.dict(os.environ, base_env):
+            file_service = ServiceFactory.create_file_service()
 
-        # Test basic functionality
-        assert hasattr(file_service, 'image_repository')
-        assert hasattr(file_service, 'file_repository')
+            # Test basic functionality
+            assert hasattr(file_service, 'image_repository')
+            assert hasattr(file_service, 'file_repository')
 
-        # These should be working repository instances
-        assert file_service.file_repository.exists(temp_dir) is True
+            # These should be working repository instances
+            assert file_service.file_repository.exists(temp_dir) is True

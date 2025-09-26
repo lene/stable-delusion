@@ -21,12 +21,7 @@ from ..conftest import create_mock_gemini_response
 sys.path.append("nano_api")
 
 
-# Setup to prevent .env file loading in all tests
-@pytest.fixture(autouse=True)
-def prevent_dotenv_loading():
-    """Prevent loading .env file during tests."""
-    with patch('nano_api.config.load_dotenv'):
-        yield
+# Note: .env file loading prevention is now handled globally in conftest.py
 
 
 class TestGeminiClient:
@@ -42,33 +37,29 @@ class TestGeminiClient:
             ):
                 GeminiClient()
 
-    def test_init_successful(self):
+    def test_init_successful(self, base_env, mock_gemini_setup):
         """Test successful GeminiClient initialization."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            with patch("nano_api.generate.genai.Client"):
-                with patch("nano_api.generate.aiplatform.init"):
-                    client = GeminiClient()
-                    assert client.project_id == DEFAULT_PROJECT_ID
-                    assert client.location == DEFAULT_LOCATION
-                    assert client.output_dir == Path(".")
+        with patch.dict(os.environ, base_env):
+            client = GeminiClient()
+            assert client.project_id == DEFAULT_PROJECT_ID
+            assert client.location == DEFAULT_LOCATION
+            assert client.output_dir == Path(".")
 
-    def test_init_with_custom_params(self):
+    def test_init_with_custom_params(self, base_env, mock_gemini_setup):
         """Test GeminiClient initialization with custom parameters."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            with patch("nano_api.generate.genai.Client"):
-                with patch("nano_api.generate.aiplatform.init"):
-                    custom_project = "custom-project"
-                    custom_location = "custom-location"
-                    custom_output_dir = Path("custom/output")
+        with patch.dict(os.environ, base_env):
+            custom_project = "custom-project"
+            custom_location = "custom-location"
+            custom_output_dir = Path("custom/output")
 
-                    client = GeminiClient(
-                        project_id=custom_project,
-                        location=custom_location,
-                        output_dir=custom_output_dir
-                    )
-                    assert client.project_id == custom_project
-                    assert client.location == custom_location
-                    assert client.output_dir == custom_output_dir
+            client = GeminiClient(
+                project_id=custom_project,
+                location=custom_location,
+                output_dir=custom_output_dir
+            )
+            assert client.project_id == custom_project
+            assert client.location == custom_location
+            assert client.output_dir == custom_output_dir
 
     def test_upload_files_success(self):
         """Test successful file upload."""

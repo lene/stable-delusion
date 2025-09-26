@@ -42,31 +42,7 @@ def client():
             yield client
 
 
-@pytest.fixture
-def mock_image_file():
-    """Create a mock image file for testing."""
-    return FileStorage(
-        stream=BytesIO(b"fake image data"),
-        filename="test_image.png",
-        content_type="image/png"
-    )
-
-
-@pytest.fixture
-def mock_image_files():
-    """Create multiple mock image files for testing."""
-    return [
-        FileStorage(
-            stream=BytesIO(b"fake image data 1"),
-            filename="test_image1.png",
-            content_type="image/png"
-        ),
-        FileStorage(
-            stream=BytesIO(b"fake image data 2"),
-            filename="test_image2.png",
-            content_type="image/png"
-        )
-    ]
+# Note: mock_image_file and mock_image_files are now provided by conftest.py
 
 
 class TestFlaskAPI:

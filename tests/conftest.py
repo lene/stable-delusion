@@ -16,6 +16,68 @@ sys.path.insert(
 )
 
 
+# Environment variable fixtures
+
+
+@pytest.fixture
+def base_env():
+    """Basic environment variables for most tests."""
+    return {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "local"
+    }
+
+
+@pytest.fixture
+def full_env():
+    """Complete environment setup for comprehensive tests."""
+    return {
+        "GEMINI_API_KEY": "test-key",
+        "GCP_PROJECT_ID": "test-project",
+        "GCP_LOCATION": "us-central1",
+        "UPLOAD_FOLDER": "test_uploads",
+        "DEFAULT_OUTPUT_DIR": "test_output",
+        "FLASK_DEBUG": "false",
+        "STORAGE_TYPE": "local"
+    }
+
+
+@pytest.fixture
+def s3_env():
+    """S3-specific environment variables."""
+    return {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "s3",
+        "AWS_S3_BUCKET": "test-bucket",
+        "AWS_S3_REGION": "us-east-1",
+        "AWS_ACCESS_KEY_ID": "test-access-key",
+        "AWS_SECRET_ACCESS_KEY": "test-secret-key"
+    }
+
+
+@pytest.fixture
+def mock_env(request):
+    """Parameterizable environment fixture."""
+    # Get env vars from test parameter or use base_env as default
+    env_vars = getattr(request, 'param', {
+        "GEMINI_API_KEY": "test-key",
+        "STORAGE_TYPE": "local"
+    })
+    with patch.dict(os.environ, env_vars, clear=True):
+        yield env_vars
+
+
+@pytest.fixture(autouse=True)
+def reset_config_manager():
+    """Automatically reset ConfigManager before each test."""
+    from nano_api.config import ConfigManager
+    # Patch load_dotenv to prevent .env file loading during tests
+    with patch('nano_api.config.load_dotenv'):
+        ConfigManager.reset_config()
+        yield
+        ConfigManager.reset_config()
+
+
 @pytest.fixture(scope="session")
 def test_env_vars():
     """Set up test environment variables for the entire test session."""
@@ -48,8 +110,38 @@ def mock_gemini_response():
 
 
 @pytest.fixture
+def mock_gemini_setup():
+    """Complete Gemini client setup with all necessary mocks."""
+    with patch("nano_api.generate.genai.Client") as mock_client_class:
+        with patch("nano_api.generate.aiplatform.init") as mock_init:
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+
+            # Standard file upload mock
+            mock_uploaded_file = MagicMock()
+            mock_uploaded_file.name = "test_file"
+            mock_uploaded_file.mime_type = "image/png"
+            mock_uploaded_file.size_bytes = 1024
+            mock_uploaded_file.uri = "test_uri"
+            from datetime import datetime
+            mock_uploaded_file.create_time = datetime.now()
+            mock_uploaded_file.expiration_time = datetime.now()
+            mock_client.files.upload.return_value = mock_uploaded_file
+
+            # Configure generate_content with default response
+            mock_client.models.generate_content.return_value = create_mock_gemini_response()
+
+            yield {
+                'client_class': mock_client_class,
+                'client': mock_client,
+                'init': mock_init,
+                'uploaded_file': mock_uploaded_file
+            }
+
+
+@pytest.fixture
 def mock_gemini_client():
-    """Create a mock Gemini client."""
+    """Create a mock Gemini client (legacy fixture for backward compatibility)."""
     with patch("nano_api.generate.genai.Client") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
@@ -190,6 +282,22 @@ def mock_pil_image():
 
 
 @pytest.fixture
+def mock_timestamp():
+    """Mock timestamp for predictable test outcomes."""
+    with patch("nano_api.utils.get_current_timestamp") as mock_ts:
+        mock_ts.return_value = "2024-01-01-12:00:00"
+        yield mock_ts
+
+
+@pytest.fixture
+def custom_mock_timestamp():
+    """Parameterizable timestamp mock factory."""
+    def _mock_timestamp(timestamp="2024-01-01-12:00:00"):
+        return patch("nano_api.utils.get_current_timestamp", return_value=timestamp)
+    return _mock_timestamp
+
+
+@pytest.fixture
 def mock_datetime():
     """Mock datetime for predictable timestamps."""
     with patch("nano_api.generate.datetime") as mock_dt:
@@ -320,13 +428,74 @@ def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_
     return mock_response
 
 
-def assert_successful_flask_response(response, expected_message="Image generated successfully"):
-    """Assert common Flask API response patterns."""
-
-    assert response.status_code == 200
+def assert_flask_response(response, expected_status=200, expected_success=True,
+                          required_fields=None, expected_message=None):
+    """Comprehensive Flask response assertion helper."""
+    assert response.status_code == expected_status
     response_data = json.loads(response.data)
-    assert response_data["message"] == expected_message
+
+    if expected_success is not None:
+        assert response_data.get("success") is expected_success
+
+    if expected_message:
+        assert response_data.get("message") == expected_message
+
+    if required_fields:
+        for field in required_fields:
+            assert field in response_data, f"Field '{field}' missing from response"
+
     return response_data
+
+
+def assert_successful_flask_response(response, expected_message="Image generated successfully"):
+    """Assert common Flask API response patterns (legacy function)."""
+    return assert_flask_response(response, expected_message=expected_message)
+
+
+# Factory functions for test data creation
+def create_mock_file_storage(content=b"fake image data",
+                             filename="test_image.png",
+                             content_type="image/png"):
+    """Factory function for creating mock FileStorage objects."""
+    from werkzeug.datastructures import FileStorage
+    from io import BytesIO
+    return FileStorage(
+        stream=BytesIO(content),
+        filename=filename,
+        content_type=content_type
+    )
+
+
+@pytest.fixture
+def mock_image_file():
+    """Single mock image file."""
+    return create_mock_file_storage()
+
+
+@pytest.fixture
+def mock_image_files():
+    """Multiple mock image files."""
+    return [
+        create_mock_file_storage(b"fake image data 1", "test1.png"),
+        create_mock_file_storage(b"fake image data 2", "test2.png"),
+    ]
+
+
+@pytest.fixture
+def malicious_mock_file():
+    """Mock file with malicious filename for security testing."""
+    return create_mock_file_storage(
+        filename="../../../malicious.png",
+        content_type="image/png"
+    )
+
+
+def create_test_png_data():
+    """Create minimal valid PNG data."""
+    return (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
+            b"\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82")
 
 
 def mock_image_operations():
