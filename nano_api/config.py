@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
+
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from nano_api.exceptions import ConfigurationError
 
@@ -83,7 +85,10 @@ class ConfigManager:
 
     @classmethod
     def _create_config(cls) -> Config:
-        """Create configuration from environment variables."""
+        """Create configuration from environment variables and .env file."""
+        # Load .env file if it exists (environment variables take precedence)
+        load_dotenv(override=False)
+
         return Config(
             project_id=os.getenv("GCP_PROJECT_ID") or DEFAULT_PROJECT_ID,
             location=os.getenv("GCP_LOCATION") or DEFAULT_LOCATION,

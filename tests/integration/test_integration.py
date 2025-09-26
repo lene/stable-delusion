@@ -16,6 +16,14 @@ from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 sys.path.append("nano_api")
 
 
+# Setup to prevent .env file loading in all tests
+@pytest.fixture(autouse=True)
+def prevent_dotenv_loading():
+    """Prevent loading .env file during tests."""
+    with patch('nano_api.config.load_dotenv'):
+        yield
+
+
 @pytest.fixture
 def temp_image_file():
     """Create a temporary test image file."""
@@ -85,7 +93,10 @@ class TestEndToEndWorkflow:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
-                with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+                with patch.dict(os.environ, {
+                    "GEMINI_API_KEY": "test-key",
+                    "STORAGE_TYPE": "local"
+                }):
                     # Test the complete workflow
                     client = GeminiClient()
                     temp_paths = [Path(img) for img in temp_images]
@@ -131,7 +142,10 @@ class TestEndToEndWorkflow:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
-                with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+                with patch.dict(os.environ, {
+                    "GEMINI_API_KEY": "test-key",
+                    "STORAGE_TYPE": "local"
+                }):
                     # Test the complete workflow with upscaling
                     client = GeminiClient()
                     temp_paths = [Path(img) for img in temp_images]
@@ -280,7 +294,10 @@ class TestCommandLineIntegration:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-15:30:00"
 
-                with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+                with patch.dict(os.environ, {
+                    "GEMINI_API_KEY": "test-key",
+                    "STORAGE_TYPE": "local"
+                }):
                     with patch("sys.argv", ["generate.py", "--prompt", "Test prompt",
                                             "--image", temp_image_file, "--scale", "2"]):
 
@@ -316,7 +333,7 @@ class TestErrorHandlingIntegration:
     def test_file_not_found_integration(self, _mock_init, mock_client):
         """Test integration behavior when image files are not found."""
         from nano_api.exceptions import FileOperationError
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient()
 
             with pytest.raises(FileOperationError,
@@ -331,7 +348,7 @@ class TestErrorHandlingIntegration:
         mock_client_instance.files.upload.side_effect = Exception("API Error")
         mock_client.return_value = mock_client_instance
 
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient()
 
             with pytest.raises(Exception, match="API Error"):
@@ -356,7 +373,7 @@ class TestConfigurationIntegration:
         custom_project = "test-project-override"
         custom_location = "test-location-override"
 
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient(project_id=custom_project, location=custom_location)
 
             assert client.project_id == custom_project
@@ -373,7 +390,7 @@ class TestPerformanceIntegration:
     @patch("nano_api.generate.aiplatform.init")
     def test_large_file_handling_simulation(self, _mock_init, _mock_client):
         """Test handling of larger file scenarios (simulated)."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient()
 
             # Simulate large file paths list

@@ -14,6 +14,14 @@ from nano_api.config import Config, ConfigManager
 from nano_api.exceptions import ConfigurationError
 
 
+# Setup to prevent .env file loading in all tests
+@pytest.fixture(autouse=True)
+def prevent_dotenv_loading():
+    """Prevent loading .env file during tests."""
+    with patch('nano_api.config.load_dotenv'):
+        yield
+
+
 class TestConfig:
     """Test Config dataclass functionality."""
 
@@ -137,6 +145,7 @@ class TestConfigManager:
     def test_config_missing_gemini_api_key(self):
         """Test ConfigManager raises error when GEMINI_API_KEY missing."""
         with patch.dict(os.environ, {}, clear=True):
+            ConfigManager.reset_config()
             with pytest.raises(ConfigurationError, match="GEMINI_API_KEY.*required"):
                 ConfigManager.get_config()
 

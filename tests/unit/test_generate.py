@@ -21,6 +21,14 @@ from ..conftest import create_mock_gemini_response
 sys.path.append("nano_api")
 
 
+# Setup to prevent .env file loading in all tests
+@pytest.fixture(autouse=True)
+def prevent_dotenv_loading():
+    """Prevent loading .env file during tests."""
+    with patch('nano_api.config.load_dotenv'):
+        yield
+
+
 class TestGeminiClient:
     """Test cases for GeminiClient functionality."""
     def test_init_missing_api_key(self):
@@ -36,7 +44,7 @@ class TestGeminiClient:
 
     def test_init_successful(self):
         """Test successful GeminiClient initialization."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             with patch("nano_api.generate.genai.Client"):
                 with patch("nano_api.generate.aiplatform.init"):
                     client = GeminiClient()
@@ -46,7 +54,7 @@ class TestGeminiClient:
 
     def test_init_with_custom_params(self):
         """Test GeminiClient initialization with custom parameters."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             with patch("nano_api.generate.genai.Client"):
                 with patch("nano_api.generate.aiplatform.init"):
                     custom_project = "custom-project"
@@ -64,7 +72,7 @@ class TestGeminiClient:
 
     def test_upload_files_success(self):
         """Test successful file upload."""
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             with patch("nano_api.generate.genai.Client") as mock_client_class:
                 with patch("nano_api.generate.aiplatform.init"):
                     mock_client = MagicMock()

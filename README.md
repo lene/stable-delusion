@@ -8,9 +8,23 @@ poetry install
 
 ## Setup
 
-### Environment Variables
+### Configuration
 
-Set the required environment variables:
+The application uses environment variables for configuration. You can set these either through:
+1. **`.env` file** (recommended) - Copy `.env.example` to `.env` and customize
+2. **Environment variables** - Set directly in your shell (overrides .env values)
+
+#### Option 1: Using .env File (Recommended)
+
+```bash
+# Copy the example file and edit it
+cp .env.example .env
+
+# Edit .env with your actual values
+# At minimum, you need to set GEMINI_API_KEY
+```
+
+#### Option 2: Using Environment Variables
 
 ```bash
 # Required: Gemini API key for image generation
@@ -21,12 +35,25 @@ export FLASK_DEBUG="true"  # Enable debug mode in development
 # export FLASK_DEBUG="false"  # Disable debug mode (default/production)
 ```
 
-**Security Note**: `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in development environments, never in production.
+**Security Notes**:
+- `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in development environments, never in production.
+- **Never commit your `.env` file to version control** - it contains sensitive information!
+- The `.env` file is already in `.gitignore` to prevent accidental commits.
 
 ### AWS S3 Configuration (Optional)
 
-The application supports storing generated images in AWS S3 instead of the local filesystem. To enable S3 storage, set the following environment variables:
+The application supports storing generated images in AWS S3 instead of the local filesystem. You can configure S3 either in your `.env` file or via environment variables:
 
+**Using .env file:**
+```bash
+# Add these to your .env file
+STORAGE_TYPE=s3
+AWS_S3_BUCKET=your-s3-bucket-name
+AWS_S3_REGION=us-east-1
+AWS_PROFILE=your-aws-profile  # or use direct credentials
+```
+
+**Using environment variables:**
 ```bash
 # S3 Storage Configuration
 export STORAGE_TYPE="s3"                    # Use "s3" for AWS S3, "local" for filesystem (default)
