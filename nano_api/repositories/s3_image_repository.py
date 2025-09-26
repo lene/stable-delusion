@@ -64,12 +64,13 @@ class S3ImageRepository(ImageRepository):
             image.save(image_buffer, format=file_format)
             image_bytes = image_buffer.getvalue()
 
-            # Upload to S3
+            # Upload to S3 with public read access
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
                 Body=image_bytes,
                 ContentType=f"image/{file_format.lower()}",
+                ACL='public-read',  # Make publicly accessible
                 Metadata={
                     'original_filename': file_path.name,
                     'uploaded_by': 'nano-api-client'

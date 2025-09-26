@@ -7,10 +7,13 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from PIL import Image
 from werkzeug.datastructures import FileStorage
+
+if TYPE_CHECKING:
+    from nano_api.models.metadata import GenerationMetadata
 
 
 class ImageRepository(ABC):
@@ -202,4 +205,62 @@ class UploadRepository(ABC):
 
         Raises:
             ValidationError: If file is invalid
+        """
+
+
+class MetadataRepository(ABC):
+    """Abstract repository interface for metadata storage and retrieval operations."""
+
+    @abstractmethod
+    def save_metadata(self, metadata: 'GenerationMetadata') -> str:
+        """
+        Save generation metadata to storage.
+
+        Args:
+            metadata: GenerationMetadata object to save
+
+        Returns:
+            Storage path/key where metadata was saved
+
+        Raises:
+            FileOperationError: If save operation fails
+        """
+
+    @abstractmethod
+    def load_metadata(self, metadata_key: str) -> 'GenerationMetadata':
+        """
+        Load metadata from storage by key.
+
+        Args:
+            metadata_key: Storage key for metadata
+
+        Returns:
+            GenerationMetadata object
+
+        Raises:
+            FileOperationError: If load operation fails
+        """
+
+    @abstractmethod
+    def metadata_exists(self, content_hash: str) -> Optional[str]:
+        """
+        Check if metadata exists for given content hash.
+
+        Args:
+            content_hash: SHA256 hash of generation inputs
+
+        Returns:
+            Metadata key if exists, None otherwise
+        """
+
+    @abstractmethod
+    def list_metadata_by_hash_prefix(self, hash_prefix: str) -> List[str]:
+        """
+        List metadata keys by content hash prefix.
+
+        Args:
+            hash_prefix: Hash prefix to search for
+
+        Returns:
+            List of metadata keys matching prefix
         """

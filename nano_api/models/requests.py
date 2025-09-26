@@ -89,22 +89,3 @@ class UpscaleImageRequest:
         # Ensure image_path is Path object if provided as string
         if isinstance(self.image_path, str):
             self.image_path = Path(self.image_path)
-
-
-@dataclass
-class ConfigurationRequest:
-    """Request DTO for configuration updates."""
-
-    project_id: Optional[str] = None
-    location: Optional[str] = None
-    upload_folder: Optional[Path] = None
-    default_output_dir: Optional[Path] = None
-    flask_debug: Optional[bool] = None
-
-    def __post_init__(self) -> None:
-        """Validate and normalize request data."""
-        # Convert string paths to Path objects if needed
-        if isinstance(self.upload_folder, str):
-            self.upload_folder = Path(self.upload_folder)
-        if isinstance(self.default_output_dir, str):
-            self.default_output_dir = Path(self.default_output_dir)

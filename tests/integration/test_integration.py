@@ -12,6 +12,7 @@ import pytest
 from nano_api.generate import GeminiClient, parse_command_line
 from nano_api.main import app
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.models.client_config import GeminiClientConfig, GCPConfig
 
 sys.path.append("nano_api")
 
@@ -304,7 +305,13 @@ class TestCommandLineIntegration:
                         project_id = getattr(args, "gcp_project_id") or DEFAULT_PROJECT_ID
                         location = getattr(args, "gcp_location") or DEFAULT_LOCATION
 
-                        GeminiClient(gcp_project_id=project_id, gcp_location=location)
+                        client_config = GeminiClientConfig(
+                            gcp=GCPConfig(
+                                project_id=project_id,
+                                location=location
+                            )
+                        )
+                        GeminiClient(client_config)
 
                         # This would be the main execution
                         assert args.prompt == "Test prompt"
@@ -371,7 +378,13 @@ class TestConfigurationIntegration:
         custom_location = "test-location-override"
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            client = GeminiClient(gcp_project_id=custom_project, gcp_location=custom_location)
+            client_config = GeminiClientConfig(
+                gcp=GCPConfig(
+                    project_id=custom_project,
+                    location=custom_location
+                )
+            )
+            client = GeminiClient(client_config)
 
             assert client.project_id == custom_project
             assert client.location == custom_location

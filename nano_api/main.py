@@ -141,12 +141,30 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         try:
             custom_path = request_dto.output_dir / request_dto.custom_output
             response_dto.generated_file.rename(custom_path)
-            response_dto.generated_file = custom_path
+            response_dto.image_config.generated_file = custom_path
         except OSError as e:
             error_response = ErrorResponse(f"Failed to rename output file: {e}")
             return jsonify(error_response.to_dict()), 500
 
     return jsonify(response_dto.to_dict()), 200
+
+
+@app.route("/metadata/<hash_prefix>", methods=["GET"])
+def get_metadata(hash_prefix: str) -> Tuple[Response, int]:
+    """Get metadata by content hash prefix."""
+    try:
+        metadata_repo = RepositoryFactory.create_metadata_repository()
+        metadata_keys = metadata_repo.list_metadata_by_hash_prefix(hash_prefix)
+
+        return jsonify({
+            "hash_prefix": hash_prefix,
+            "matching_metadata": len(metadata_keys),
+            "metadata_keys": metadata_keys[:10]  # Limit to first 10 for brevity
+        }), 200
+
+    except (FileOperationError, ConfigurationError) as e:
+        error_response = ErrorResponse(f"Failed to query metadata: {str(e)}")
+        return jsonify(error_response.to_dict()), 500
 
 
 if __name__ == "__main__":

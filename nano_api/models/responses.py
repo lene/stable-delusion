@@ -9,6 +9,8 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
+from nano_api.models.client_config import GCPConfig, ImageGenerationConfig
+
 
 @dataclass
 class BaseResponse:
@@ -38,36 +40,59 @@ class ErrorResponse(BaseResponse):
 
 
 @dataclass
-class GenerateImageResponse(BaseResponse):  # pylint: disable=too-many-instance-attributes
+class GenerateImageResponse(BaseResponse):
     """Response DTO for image generation endpoint."""
 
-    generated_file: Optional[Path]
-    prompt: str
-    project_id: str
-    location: str
-    scale: Optional[int]
-    saved_files: List[Path]
-    output_dir: Path
+    image_config: ImageGenerationConfig
+    gcp_config: GCPConfig
     upscaled: bool
 
-    def __init__(self, *, generated_file: Optional[Path], prompt: str,
-                 project_id: str, location: str, scale: Optional[int],
-                 saved_files: List[Path], output_dir: Path) -> None:
-        # pylint: disable=too-many-arguments
+    def __init__(self, *, image_config: ImageGenerationConfig,
+                 gcp_config: GCPConfig) -> None:
         """Initialize generation response."""
         super().__init__(
-            success=generated_file is not None,
-            message="Image generated successfully" if generated_file
+            success=image_config.generated_file is not None,
+            message="Image generated successfully" if image_config.generated_file
             else "Image generation failed"
         )
-        self.generated_file = generated_file
-        self.prompt = prompt
-        self.project_id = project_id
-        self.location = location
-        self.scale = scale
-        self.saved_files = saved_files
-        self.output_dir = output_dir
-        self.upscaled = scale is not None
+        self.image_config = image_config
+        self.gcp_config = gcp_config
+        self.upscaled = image_config.scale is not None
+
+    @property
+    def generated_file(self) -> Optional[Path]:
+        """Access generated_file for backward compatibility."""
+        return self.image_config.generated_file
+
+    @property
+    def prompt(self) -> str:
+        """Access prompt for backward compatibility."""
+        return self.image_config.prompt
+
+    @property
+    def scale(self) -> Optional[int]:
+        """Access scale for backward compatibility."""
+        return self.image_config.scale
+
+    @property
+    def saved_files(self) -> List[Path]:
+        """Access saved_files for backward compatibility."""
+        return self.image_config.saved_files or []
+
+    @property
+    def output_dir(self) -> Optional[Path]:
+        """Access output_dir for backward compatibility."""
+        return self.image_config.output_dir
+
+    @property
+    def project_id(self) -> Optional[str]:
+        """Access project_id from GCP config for backward compatibility."""
+        return self.gcp_config.project_id
+
+    @property
+    def location(self) -> Optional[str]:
+        """Access location from GCP config for backward compatibility."""
+        return self.gcp_config.location
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert response to dictionary for JSON serialization."""
@@ -76,7 +101,18 @@ class GenerateImageResponse(BaseResponse):  # pylint: disable=too-many-instance-
         if self.generated_file:
             data["generated_file"] = str(self.generated_file)
         data["saved_files"] = [str(f) for f in self.saved_files]
-        data["output_dir"] = str(self.output_dir)
+        if self.output_dir:
+            data["output_dir"] = str(self.output_dir)
+
+        # Flatten image config for API backward compatibility
+        data["prompt"] = self.prompt
+        data["scale"] = self.scale
+        data["upscaled"] = self.upscaled
+
+        # Flatten GCP config for API backward compatibility
+        data["project_id"] = self.gcp_config.project_id
+        data["location"] = self.gcp_config.location
+
         return data
 
 
@@ -87,12 +123,10 @@ class UpscaleImageResponse(BaseResponse):
     upscaled_file: Optional[Path]
     original_file: Path
     scale_factor: str
-    project_id: str
-    location: str
+    gcp_config: GCPConfig
 
     def __init__(self, *, upscaled_file: Optional[Path], original_file: Path,
-                 scale_factor: str, project_id: str, location: str) -> None:
-        # pylint: disable=too-many-arguments
+                 scale_factor: str, gcp_config: GCPConfig) -> None:
         """Initialize upscaling response."""
         super().__init__(
             success=upscaled_file is not None,
@@ -102,8 +136,17 @@ class UpscaleImageResponse(BaseResponse):
         self.upscaled_file = upscaled_file
         self.original_file = original_file
         self.scale_factor = scale_factor
-        self.project_id = project_id
-        self.location = location
+        self.gcp_config = gcp_config
+
+    @property
+    def project_id(self) -> Optional[str]:
+        """Access project_id from GCP config for backward compatibility."""
+        return self.gcp_config.project_id
+
+    @property
+    def location(self) -> Optional[str]:
+        """Access location from GCP config for backward compatibility."""
+        return self.gcp_config.location
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert response to dictionary for JSON serialization."""
@@ -112,6 +155,11 @@ class UpscaleImageResponse(BaseResponse):
         if self.upscaled_file:
             data["upscaled_file"] = str(self.upscaled_file)
         data["original_file"] = str(self.original_file)
+
+        # Flatten GCP config for API backward compatibility
+        data["project_id"] = self.gcp_config.project_id
+        data["location"] = self.gcp_config.location
+
         return data
 
 

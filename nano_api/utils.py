@@ -7,12 +7,11 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, Any, Dict, Union
+from typing import Optional, Tuple, Any
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
 
-from nano_api.exceptions import ValidationError, FileOperationError
-from nano_api.conf import VALID_SCALE_FACTORS, DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.exceptions import FileOperationError
 
 
 # Date/time format constants
@@ -66,45 +65,6 @@ def log_upload_info(image_path: Any, uploaded_file: Any) -> None:
         expiration_time_str,
         uploaded_file.uri
     )
-
-
-def validate_scale_parameter(scale_value: Union[str, int, None]) -> Optional[int]:
-    if scale_value is None:
-        return None
-
-    if isinstance(scale_value, int):
-        scale = scale_value
-    else:
-        try:
-            scale = int(scale_value)
-        except (ValueError, TypeError) as e:
-            raise ValidationError(
-                "Scale must be an integer",
-                field="scale",
-                value=str(scale_value)
-            ) from e
-
-    if scale not in VALID_SCALE_FACTORS:
-        raise ValidationError(
-            f"Scale must be one of {VALID_SCALE_FACTORS}",
-            field="scale",
-            value=str(scale)
-        )
-
-    return scale
-
-
-def get_project_config(source_dict: Dict[str, Any],
-                       key_project: str = "project_id",
-                       key_location: str = "location") -> Tuple[str, str]:
-    if hasattr(source_dict, 'get'):  # Dict-like object (request.form)
-        project_id = source_dict.get(key_project) or DEFAULT_PROJECT_ID
-        location = source_dict.get(key_location) or DEFAULT_LOCATION
-    else:  # Object with attributes (argparse Namespace)
-        project_id = getattr(source_dict, key_project, None) or DEFAULT_PROJECT_ID
-        location = getattr(source_dict, key_location, None) or DEFAULT_LOCATION
-
-    return project_id, location
 
 
 def generate_timestamped_filename(base_name: str,

@@ -10,6 +10,7 @@ from typing import Optional
 from nano_api.config import ConfigManager
 from nano_api.models.requests import UpscaleImageRequest
 from nano_api.models.responses import UpscaleImageResponse
+from nano_api.models.client_config import GCPConfig
 from nano_api.services.interfaces import ImageUpscalingService
 from nano_api.upscale import upscale_image
 
@@ -76,6 +77,8 @@ class VertexAIUpscalingService(ImageUpscalingService):
             upscaled_file=upscaled_file,
             original_file=request.image_path,
             scale_factor=request.scale_factor,
-            project_id=request.project_id or self.project_id,
-            location=request.location or self.location
+            gcp_config=GCPConfig(
+                project_id=request.project_id or self.project_id,
+                location=request.location or self.location
+            )
         )

@@ -1,0 +1,13 @@
+{
+  "content_hash": "669cf3774723f0f879643b77d6e76f160d8d7f036f2bc66630e578b7f5812f4b",
+  "gcp_location": "us-central1",
+  "gcp_project_id": "gen-lang-client-0216779332",
+  "generated_image": "generated_2024-01-01-12:00:00.png",
+  "images": [
+    "/tmp/tmpugr8t2ll_0.png",
+    "/tmp/tmpoq3gy7tb_1.png"
+  ],
+  "prompt": "Test prompt",
+  "scale": null,
+  "timestamp": "2025-09-26T15:32:26.144010+00:00"
+}

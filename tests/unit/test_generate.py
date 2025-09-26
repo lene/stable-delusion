@@ -15,6 +15,7 @@ from nano_api.generate import (
     parse_command_line,
     save_response_image,
 )
+from nano_api.models.client_config import GeminiClientConfig, GCPConfig, StorageConfig
 
 from ..conftest import create_mock_gemini_response
 
@@ -52,11 +53,16 @@ class TestGeminiClient:
             custom_location = "custom-location"
             custom_output_dir = Path("custom/output")
 
-            client = GeminiClient(
-                gcp_project_id=custom_project,
-                gcp_location=custom_location,
-                output_dir=custom_output_dir
+            client_config = GeminiClientConfig(
+                gcp=GCPConfig(
+                    project_id=custom_project,
+                    location=custom_location
+                ),
+                storage=StorageConfig(
+                    output_dir=custom_output_dir
+                )
             )
+            client = GeminiClient(client_config)
             assert client.project_id == custom_project
             assert client.location == custom_location
             assert client.output_dir == custom_output_dir
@@ -360,12 +366,13 @@ class TestGenerateFromImagesFunction:
                 config=config
             )
 
-            mock_client_class.assert_called_once_with(
-                gcp_project_id="test-project",
-                gcp_location="test-location",
-                output_dir=Path("./test_output"),
-                storage_type=None
-            )
+            # Check that GeminiClient was called with the correct config
+            mock_client_class.assert_called_once()
+            call_args = mock_client_class.call_args[0][0]  # Get config
+            assert call_args.gcp.project_id == "test-project"
+            assert call_args.gcp.location == "test-location"
+            assert call_args.storage.output_dir == Path("./test_output")
+            assert call_args.storage.storage_type is None
             mock_client.generate_from_images.assert_called_once_with(
                 "test prompt", [Path("test_image.png")]
             )
@@ -389,10 +396,11 @@ class TestGenerateFromImagesFunction:
                     config=config
                 )
 
-                mock_client_class.assert_called_once_with(
-                    gcp_project_id=DEFAULT_PROJECT_ID,
-                    gcp_location=DEFAULT_LOCATION,
-                    output_dir=custom_output_dir,
-                    storage_type=None
-                )
+                # Check that GeminiClient was called with the correct config
+                mock_client_class.assert_called_once()
+                call_args = mock_client_class.call_args[0][0]  # Get config
+                assert call_args.gcp.project_id == DEFAULT_PROJECT_ID
+                assert call_args.gcp.location == DEFAULT_LOCATION
+                assert call_args.storage.output_dir == custom_output_dir
+                assert call_args.storage.storage_type is None
             assert result == "test_result.png"

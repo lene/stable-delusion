@@ -11,6 +11,8 @@ from typing import List, Optional, TYPE_CHECKING
 from nano_api.config import ConfigManager
 from nano_api.models.requests import GenerateImageRequest
 from nano_api.models.responses import GenerateImageResponse
+from nano_api.models.client_config import (GeminiClientConfig, GCPConfig, StorageConfig,
+                                           ImageGenerationConfig)
 from nano_api.repositories.interfaces import ImageRepository
 from nano_api.services.interfaces import ImageGenerationService
 
@@ -52,11 +54,18 @@ class GeminiImageGenerationService(ImageGenerationService):
             Configured service instance
         """
         from nano_api.generate import GeminiClient
-        client = GeminiClient(
-            gcp_project_id=project_id,
-            gcp_location=location,
-            output_dir=output_dir
+
+        # Create configuration with provided parameters
+        client_config = GeminiClientConfig(
+            gcp=GCPConfig(
+                project_id=project_id,
+                location=location
+            ),
+            storage=StorageConfig(
+                output_dir=output_dir
+            )
         )
+        client = GeminiClient(client_config)
         return cls(client, image_repository)
 
     def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
@@ -72,13 +81,17 @@ class GeminiImageGenerationService(ImageGenerationService):
 
         # Create response DTO
         return GenerateImageResponse(
-            generated_file=generated_file,
-            prompt=request.prompt,
-            project_id=request.project_id or config.project_id,
-            location=request.location or config.location,
-            scale=request.scale,
-            saved_files=request.images,
-            output_dir=request.output_dir or config.default_output_dir
+            image_config=ImageGenerationConfig(
+                generated_file=generated_file,
+                prompt=request.prompt,
+                scale=request.scale,
+                saved_files=request.images,
+                output_dir=request.output_dir or config.default_output_dir
+            ),
+            gcp_config=GCPConfig(
+                project_id=request.project_id or config.project_id,
+                location=request.location or config.location
+            )
         )
 
     def upload_files(self, image_paths: List[Path]) -> List[str]:

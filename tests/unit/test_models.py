@@ -9,11 +9,11 @@ from pathlib import Path
 import pytest
 
 from nano_api.exceptions import ValidationError
-from nano_api.models.requests import (GenerateImageRequest, UpscaleImageRequest,
-                                      ConfigurationRequest)
+from nano_api.models.requests import (GenerateImageRequest, UpscaleImageRequest)
 from nano_api.models.responses import (GenerateImageResponse, UpscaleImageResponse,
                                        HealthResponse, APIInfoResponse,
                                        ErrorResponse)
+from nano_api.models.client_config import GCPConfig, ImageGenerationConfig
 
 
 class TestGenerateImageRequest:
@@ -127,36 +127,6 @@ class TestUpscaleImageRequest:
             assert request.image_path == Path(image_path_str)
 
 
-class TestConfigurationRequest:
-    """Test ConfigurationRequest DTO."""
-
-    def test_valid_request(self):
-        """Test creating a valid configuration request."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            request = ConfigurationRequest(
-                project_id="test-project",
-                location="us-central1",
-                upload_folder=temp_dir,
-                flask_debug=True
-            )
-
-            assert request.project_id == "test-project"
-            assert request.location == "us-central1"
-            assert isinstance(request.upload_folder, Path)
-            assert request.flask_debug is True
-
-    def test_string_to_path_conversion(self):
-        """Test automatic conversion of strings to Paths."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            request = ConfigurationRequest(
-                upload_folder=temp_dir,  # String
-                default_output_dir=temp_dir  # String
-            )
-
-            assert isinstance(request.upload_folder, Path)
-            assert isinstance(request.default_output_dir, Path)
-
-
 class TestGenerateImageResponse:
     """Test GenerateImageResponse DTO."""
 
@@ -168,13 +138,17 @@ class TestGenerateImageResponse:
             output_dir = Path(temp_dir)
 
             response = GenerateImageResponse(
-                generated_file=generated_file,
-                prompt="Test prompt",
-                project_id="test-project",
-                location="us-central1",
-                scale=2,
-                saved_files=saved_files,
-                output_dir=output_dir
+                image_config=ImageGenerationConfig(
+                    generated_file=generated_file,
+                    prompt="Test prompt",
+                    scale=2,
+                    saved_files=saved_files,
+                    output_dir=output_dir
+                ),
+                gcp_config=GCPConfig(
+                    project_id="test-project",
+                    location="us-central1"
+                )
             )
 
             assert response.success is True
@@ -189,13 +163,17 @@ class TestGenerateImageResponse:
             output_dir = Path(temp_dir)
 
             response = GenerateImageResponse(
-                generated_file=None,  # Failed generation
-                prompt="Test prompt",
-                project_id="test-project",
-                location="us-central1",
-                scale=None,
-                saved_files=saved_files,
-                output_dir=output_dir
+                image_config=ImageGenerationConfig(
+                    generated_file=None,  # Failed generation
+                    prompt="Test prompt",
+                    scale=None,
+                    saved_files=saved_files,
+                    output_dir=output_dir
+                ),
+                gcp_config=GCPConfig(
+                    project_id="test-project",
+                    location="us-central1"
+                )
             )
 
             assert response.success is False
@@ -210,13 +188,17 @@ class TestGenerateImageResponse:
             output_dir = Path(temp_dir)
 
             response = GenerateImageResponse(
-                generated_file=generated_file,
-                prompt="Test prompt",
-                project_id="test-project",
-                location="us-central1",
-                scale=2,
-                saved_files=saved_files,
-                output_dir=output_dir
+                image_config=ImageGenerationConfig(
+                    generated_file=generated_file,
+                    prompt="Test prompt",
+                    scale=2,
+                    saved_files=saved_files,
+                    output_dir=output_dir
+                ),
+                gcp_config=GCPConfig(
+                    project_id="test-project",
+                    location="us-central1"
+                )
             )
 
             data = response.to_dict()
@@ -241,8 +223,10 @@ class TestUpscaleImageResponse:
                 upscaled_file=upscaled_file,
                 original_file=original_file,
                 scale_factor="x4",
-                project_id="test-project",
-                location="us-central1"
+                gcp_config=GCPConfig(
+                    project_id="test-project",
+                    location="us-central1"
+                )
             )
 
             assert response.success is True
@@ -259,8 +243,10 @@ class TestUpscaleImageResponse:
                 upscaled_file=upscaled_file,
                 original_file=original_file,
                 scale_factor="x4",
-                project_id="test-project",
-                location="us-central1"
+                gcp_config=GCPConfig(
+                    project_id="test-project",
+                    location="us-central1"
+                )
             )
 
             data = response.to_dict()
