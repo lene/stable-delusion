@@ -81,12 +81,12 @@ def parse_command_line() -> argparse.Namespace:
         help="Path to a reference image. Can be repeated.",
     )
     parser.add_argument(
-        "--project-id",
+        "--gcp-project-id",
         type=str,
         help="Google Cloud Project ID (defaults to value in conf.py).",
     )
     parser.add_argument(
-        "--location",
+        "--gcp-location",
         type=str,
         help="Google Cloud region (defaults to value in conf.py).",
     )
@@ -110,40 +110,162 @@ def parse_command_line() -> argparse.Namespace:
         help="Storage backend: 'local' for local filesystem or 's3' for AWS S3 "
         "(overrides configuration file setting).",
     )
-    return parser.parse_args()
+
+    # Authentication parameters
+    parser.add_argument(
+        "--gemini-api-key",
+        type=str,
+        help="Gemini API key (WARNING: visible in process list - prefer environment variable).",
+    )
+
+    # AWS S3 parameters
+    parser.add_argument(
+        "--aws-s3-bucket",
+        type=str,
+        help="AWS S3 bucket name (required when using S3 storage).",
+    )
+    parser.add_argument(
+        "--aws-s3-region",
+        type=str,
+        help="AWS S3 region (required when using S3 storage).",
+    )
+    parser.add_argument(
+        "--aws-access-key-id",
+        type=str,
+        help="AWS access key ID (WARNING: visible in process list - prefer environment variable).",
+    )
+    parser.add_argument(
+        "--aws-secret-access-key",
+        type=str,
+        help="AWS secret access key (WARNING: visible in process list - "
+             "prefer environment variable).",
+    )
+
+    # Flask/Application parameters
+    parser.add_argument(
+        "--upload-folder",
+        type=Path,
+        help="Directory for uploaded files (used by Flask API).",
+    )
+    parser.add_argument(
+        "--default-output-dir",
+        type=Path,
+        help="Default output directory for generated images.",
+    )
+    parser.add_argument(
+        "--flask-debug",
+        action="store_true",
+        help="Enable Flask debug mode.",
+    )
+
+    args = parser.parse_args()
+
+    # Validation: if S3 storage is selected, require S3 credentials
+    if args.storage_type == "s3":
+        s3_params = [args.aws_s3_bucket, args.aws_s3_region,
+                     args.aws_access_key_id, args.aws_secret_access_key]
+        if not all(param is not None for param in s3_params):
+            # Check if they're available in environment variables
+            import os
+            env_s3_params = [
+                os.getenv("AWS_S3_BUCKET"),
+                os.getenv("AWS_S3_REGION"),
+                os.getenv("AWS_ACCESS_KEY_ID"),
+                os.getenv("AWS_SECRET_ACCESS_KEY")
+            ]
+            if not all(param for param in env_s3_params):
+                parser.error(
+                    "When using --storage-type s3, all S3 parameters are required: "
+                    "--aws-s3-bucket, --aws-s3-region, --aws-access-key-id, "
+                    "--aws-secret-access-key or set corresponding environment variables."
+                )
+
+    # Security warnings for sensitive parameters
+    if args.gemini_api_key:
+        logging.warning(
+            "API key passed via command line is visible in process list. "
+            "Consider using GEMINI_API_KEY environment variable instead."
+        )
+
+    if args.aws_access_key_id or args.aws_secret_access_key:
+        logging.warning(
+            "AWS credentials passed via command line are visible in process list. "
+            "Consider using AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY "
+            "environment variables instead."
+        )
+
+    return args
 
 
 class GeminiClient:
     """Client for generating images using Google Gemini API."""
     def __init__(
         self,
-        project_id: Optional[str] = None,
-        location: Optional[str] = None,
+        *,
+        gcp_project_id: Optional[str] = None,
+        gcp_location: Optional[str] = None,
         output_dir: Optional[Path] = None,
         storage_type: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
+        aws_s3_bucket: Optional[str] = None,
+        aws_s3_region: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        upload_folder: Optional[Path] = None,
+        default_output_dir: Optional[Path] = None,
+        flask_debug: Optional[bool] = None,
     ):
         config = ConfigManager.get_config()
 
-        self.project_id = project_id or config.project_id
-        self.location = location or config.location
-        self.output_dir = output_dir or config.default_output_dir
+        # CLI parameters take precedence over environment variables/config
+        self.project_id = gcp_project_id or config.project_id
+        self.location = gcp_location or config.location
+        self.output_dir = output_dir or (default_output_dir or config.default_output_dir)
 
-        # Override storage type if provided
-        if storage_type:
-            # Temporarily override config for repository creation
-            original_storage_type = config.storage_type
+        # Store original config values before applying CLI overrides
+        original_storage_type = config.storage_type
+        original_gemini_api_key = config.gemini_api_key
+        original_s3_bucket = config.s3_bucket
+        original_s3_region = config.s3_region
+        original_aws_access_key_id = config.aws_access_key_id
+        original_aws_secret_access_key = config.aws_secret_access_key
+        original_upload_folder = config.upload_folder
+        original_flask_debug = config.flask_debug
+
+        # Apply CLI overrides to config (temporary for repository creation)
+        if storage_type is not None:
             config.storage_type = storage_type
+        if gemini_api_key is not None:
+            config.gemini_api_key = gemini_api_key
+        if aws_s3_bucket is not None:
+            config.s3_bucket = aws_s3_bucket
+        if aws_s3_region is not None:
+            config.s3_region = aws_s3_region
+        if aws_access_key_id is not None:
+            config.aws_access_key_id = aws_access_key_id
+        if aws_secret_access_key is not None:
+            config.aws_secret_access_key = aws_secret_access_key
+        if upload_folder is not None:
+            config.upload_folder = upload_folder
+        if flask_debug is not None:
+            config.flask_debug = flask_debug
 
-        # Initialize repositories
+        # Initialize repositories with potentially overridden config
         self.image_repository = RepositoryFactory.create_image_repository()
         self.file_repository = RepositoryFactory.create_file_repository()
 
         # Get the effective storage type
         effective_storage_type = storage_type or config.storage_type
 
-        # Restore original config if we overrode it
-        if storage_type:
-            config.storage_type = original_storage_type
+        # Restore original config values
+        config.storage_type = original_storage_type
+        config.gemini_api_key = original_gemini_api_key
+        config.s3_bucket = original_s3_bucket
+        config.s3_region = original_s3_region
+        config.aws_access_key_id = original_aws_access_key_id
+        config.aws_secret_access_key = original_aws_secret_access_key
+        config.upload_folder = original_upload_folder
+        config.flask_debug = original_flask_debug
 
         # For local storage, create output directory if it doesn't exist
         if effective_storage_type == "local":
@@ -260,8 +382,8 @@ def generate_from_images(
         config = GenerationConfig()
 
     client = GeminiClient(
-        project_id=config.project_id,
-        location=config.location,
+        gcp_project_id=config.project_id,
+        gcp_location=config.location,
         output_dir=config.output_dir,
         storage_type=config.storage_type
     )
@@ -308,10 +430,18 @@ if __name__ == "__main__":
 
     # Pass command line arguments to GeminiClient, config provides defaults
     gemini = GeminiClient(
-        project_id=getattr(args, "project_id"),
-        location=getattr(args, "location"),
+        gcp_project_id=getattr(args, "gcp_project_id"),
+        gcp_location=getattr(args, "gcp_location"),
         output_dir=getattr(args, "output_dir"),
-        storage_type=getattr(args, "storage_type")
+        storage_type=getattr(args, "storage_type"),
+        gemini_api_key=getattr(args, "gemini_api_key"),
+        aws_s3_bucket=getattr(args, "aws_s3_bucket"),
+        aws_s3_region=getattr(args, "aws_s3_region"),
+        aws_access_key_id=getattr(args, "aws_access_key_id"),
+        aws_secret_access_key=getattr(args, "aws_secret_access_key"),
+        upload_folder=getattr(args, "upload_folder"),
+        default_output_dir=getattr(args, "default_output_dir"),
+        flask_debug=getattr(args, "flask_debug")
     )
 
     hires_file = gemini.generate_hires_image_in_one_shot(prompt, images, scale=args.scale)

@@ -53,8 +53,8 @@ class GeminiImageGenerationService(ImageGenerationService):
         """
         from nano_api.generate import GeminiClient
         client = GeminiClient(
-            project_id=project_id,
-            location=location,
+            gcp_project_id=project_id,
+            gcp_location=location,
             output_dir=output_dir
         )
         return cls(client, image_repository)

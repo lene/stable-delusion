@@ -301,10 +301,10 @@ class TestCommandLineIntegration:
                         # Import and test the main execution logic
 
                         args = parse_command_line()
-                        project_id = getattr(args, "project_id") or DEFAULT_PROJECT_ID
-                        location = getattr(args, "location") or DEFAULT_LOCATION
+                        project_id = getattr(args, "gcp_project_id") or DEFAULT_PROJECT_ID
+                        location = getattr(args, "gcp_location") or DEFAULT_LOCATION
 
-                        GeminiClient(project_id=project_id, location=location)
+                        GeminiClient(gcp_project_id=project_id, gcp_location=location)
 
                         # This would be the main execution
                         assert args.prompt == "Test prompt"
@@ -371,7 +371,7 @@ class TestConfigurationIntegration:
         custom_location = "test-location-override"
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            client = GeminiClient(project_id=custom_project, location=custom_location)
+            client = GeminiClient(gcp_project_id=custom_project, gcp_location=custom_location)
 
             assert client.project_id == custom_project
             assert client.location == custom_location

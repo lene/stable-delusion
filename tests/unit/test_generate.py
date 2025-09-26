@@ -53,8 +53,8 @@ class TestGeminiClient:
             custom_output_dir = Path("custom/output")
 
             client = GeminiClient(
-                project_id=custom_project,
-                location=custom_location,
+                gcp_project_id=custom_project,
+                gcp_location=custom_location,
                 output_dir=custom_output_dir
             )
             assert client.project_id == custom_project
@@ -303,8 +303,8 @@ class TestParseCommandLine:
             assert args.prompt is None
             assert args.output == Path("generated_gemini_image.png")
             assert args.image is None
-            assert args.project_id is None
-            assert args.location is None
+            assert args.gcp_project_id is None
+            assert args.gcp_location is None
             assert args.scale is None
             assert args.output_dir == Path(".")
 
@@ -316,8 +316,8 @@ class TestParseCommandLine:
             "--output", "custom_output.png",
             "--image", "image1.png",
             "--image", "image2.png",
-            "--project-id", "test-project",
-            "--location", "test-location",
+            "--gcp-project-id", "test-project",
+            "--gcp-location", "test-location",
             "--scale", "4",
             "--output-dir", "/custom/output"
         ]
@@ -327,8 +327,8 @@ class TestParseCommandLine:
             assert args.prompt == "test prompt"
             assert args.output == Path("custom_output.png")
             assert args.image == [Path("image1.png"), Path("image2.png")]
-            assert args.project_id == "test-project"
-            assert args.location == "test-location"
+            assert args.gcp_project_id == "test-project"
+            assert args.gcp_location == "test-location"
             assert args.scale == 4
             assert args.output_dir == Path("/custom/output")
 
@@ -361,8 +361,8 @@ class TestGenerateFromImagesFunction:
             )
 
             mock_client_class.assert_called_once_with(
-                project_id="test-project",
-                location="test-location",
+                gcp_project_id="test-project",
+                gcp_location="test-location",
                 output_dir=Path("./test_output"),
                 storage_type=None
             )
@@ -390,8 +390,8 @@ class TestGenerateFromImagesFunction:
                 )
 
                 mock_client_class.assert_called_once_with(
-                    project_id=DEFAULT_PROJECT_ID,
-                    location=DEFAULT_LOCATION,
+                    gcp_project_id=DEFAULT_PROJECT_ID,
+                    gcp_location=DEFAULT_LOCATION,
                     output_dir=custom_output_dir,
                     storage_type=None
                 )
