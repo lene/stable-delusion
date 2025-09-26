@@ -349,18 +349,23 @@ class TestGenerateFromImagesFunction:
             mock_client_class.return_value = mock_client
             mock_client.generate_from_images.return_value = Path("test_result.png")
 
-            result = generate_from_images(
-                "test prompt",
-                [Path("test_image.png")],
+            from nano_api.generate import GenerationConfig
+            config = GenerationConfig(
                 project_id="test-project",
                 location="test-location",
                 output_dir=Path("./test_output")
+            )
+            result = generate_from_images(
+                "test prompt",
+                [Path("test_image.png")],
+                config=config
             )
 
             mock_client_class.assert_called_once_with(
                 project_id="test-project",
                 location="test-location",
-                output_dir=Path("./test_output")
+                output_dir=Path("./test_output"),
+                storage_type=None
             )
             mock_client.generate_from_images.assert_called_once_with(
                 "test prompt", [Path("test_image.png")]
@@ -377,15 +382,18 @@ class TestGenerateFromImagesFunction:
             with tempfile.TemporaryDirectory() as temp_dir:
                 custom_output_dir = Path(temp_dir) / "custom"
 
+                from nano_api.generate import GenerationConfig
+                config = GenerationConfig(output_dir=custom_output_dir)
                 result = generate_from_images(
                     "test prompt",
                     [Path("test_image.png")],
-                    output_dir=custom_output_dir
+                    config=config
                 )
 
                 mock_client_class.assert_called_once_with(
                     project_id=DEFAULT_PROJECT_ID,
                     location=DEFAULT_LOCATION,
-                    output_dir=custom_output_dir
+                    output_dir=custom_output_dir,
+                    storage_type=None
                 )
             assert result == "test_result.png"

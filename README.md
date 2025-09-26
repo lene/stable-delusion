@@ -23,6 +23,37 @@ export FLASK_DEBUG="true"  # Enable debug mode in development
 
 **Security Note**: `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in development environments, never in production.
 
+### AWS S3 Configuration (Optional)
+
+The application supports storing generated images in AWS S3 instead of the local filesystem. To enable S3 storage, set the following environment variables:
+
+```bash
+# S3 Storage Configuration
+export STORAGE_TYPE="s3"                    # Use "s3" for AWS S3, "local" for filesystem (default)
+export AWS_S3_BUCKET="your-s3-bucket-name" # S3 bucket name for image storage
+export AWS_S3_REGION="us-east-1"           # AWS region where your bucket is located
+
+# AWS Credentials (use one of the following methods)
+# Method 1: Environment variables
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+
+# Method 2: AWS CLI profiles (recommended)
+# Configure with: aws configure --profile your-profile
+export AWS_PROFILE="your-profile"
+
+# Method 3: IAM roles (for EC2/Lambda deployment)
+# No additional configuration needed if running on AWS with proper IAM roles
+```
+
+**S3 Setup Requirements:**
+1. Create an S3 bucket in your desired AWS region
+2. Ensure your AWS credentials have the following permissions for the bucket:
+   - `s3:PutObject` - Upload generated images
+   - `s3:GetObject` - Download images (if needed)
+   - `s3:DeleteObject` - Clean up old images
+   - `s3:ListBucket` - List bucket contents
+
 ## Usage
 
 ### CLI
@@ -47,6 +78,23 @@ $ poetry run python nano_api/generate.py \
     --scale 4
 ```
 
+#### S3 storage examples
+```bash
+# Use S3 storage (requires S3 environment variables to be set)
+$ poetry run python nano_api/generate.py \
+    --prompt "a beautiful landscape" \
+    --image samples/base.png \
+    --storage-type s3 \
+    --output-dir generated-images
+
+# Force local storage (override S3 configuration)
+$ poetry run python nano_api/generate.py \
+    --prompt "a city at night" \
+    --image samples/base.png \
+    --storage-type local \
+    --output-dir ./local-output
+```
+
 #### Command line parameters
 - `--prompt`: Text prompt for image generation (optional, defaults to sample prompt)
 - `--image`: Path to reference image(s), can be used multiple times
@@ -55,6 +103,7 @@ $ poetry run python nano_api/generate.py \
 - `--project-id`: Google Cloud Project ID (defaults to value in conf.py)
 - `--location`: Google Cloud region (defaults to value in conf.py)
 - `--scale`: Upscale factor, 2 or 4 (optional, enables automatic upscaling)
+- `--storage-type`: Storage backend - "local" for filesystem or "s3" for AWS S3 (overrides configuration)
 
 ### Web server
 
@@ -85,12 +134,30 @@ $ curl -X POST \
     -F "images=@samples/image2.png" \
     -F "output_dir=./results" \
     http://127.0.0.1:5000/generate
+
+# S3 storage examples
+# Save to S3 (requires S3 environment variables to be set)
+$ curl -X POST \
+    -F "prompt=a mountain landscape" \
+    -F "images=@samples/base.png" \
+    -F "storage_type=s3" \
+    -F "output_dir=generated-images" \
+    http://127.0.0.1:5000/generate
+
+# Force local storage (override S3 configuration)
+$ curl -X POST \
+    -F "prompt=a city skyline" \
+    -F "images=@samples/base.png" \
+    -F "storage_type=local" \
+    -F "output_dir=./local-results" \
+    http://127.0.0.1:5000/generate
 ```
 
 #### API Parameters
 - `prompt`: Text prompt for image generation (required)
 - `images`: Image file(s) to upload (required, can be multiple)
 - `output_dir`: Directory where generated files will be saved (optional, default: ".")
+- `storage_type`: Storage backend - "local" for filesystem or "s3" for AWS S3 (optional, uses configuration default)
 
 #### API Response
 ```json

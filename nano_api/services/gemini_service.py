@@ -6,20 +6,22 @@ Wraps the existing GeminiClient functionality in a service interface.
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from nano_api.config import ConfigManager
-from nano_api.generate import GeminiClient
 from nano_api.models.requests import GenerateImageRequest
 from nano_api.models.responses import GenerateImageResponse
 from nano_api.repositories.interfaces import ImageRepository
 from nano_api.services.interfaces import ImageGenerationService
 
+if TYPE_CHECKING:
+    from nano_api.generate import GeminiClient
+
 
 class GeminiImageGenerationService(ImageGenerationService):
     """Concrete implementation of image generation using Gemini API."""
 
-    def __init__(self, client: GeminiClient,
+    def __init__(self, client: 'GeminiClient',
                  image_repository: Optional[ImageRepository] = None) -> None:
         """
         Initialize with a configured GeminiClient.
@@ -49,6 +51,7 @@ class GeminiImageGenerationService(ImageGenerationService):
         Returns:
             Configured service instance
         """
+        from nano_api.generate import GeminiClient
         client = GeminiClient(
             project_id=project_id,
             location=location,

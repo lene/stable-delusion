@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NanoAPIClient API",
-    "description": "Flask web API for image generation using Google Gemini AI. Supports multi-image input, custom prompts, and automatic upscaling integration.",
+    "description": "Flask web API for image generation using Google Gemini AI. Supports multi-image input, custom prompts, automatic upscaling integration, and flexible storage backends (local filesystem or AWS S3).",
     "version": "1.0.0",
     "contact": {
       "name": "Lene Preuss",
@@ -60,7 +60,7 @@
     "/generate": {
       "post": {
         "summary": "Generate image from prompt and reference images",
-        "description": "Upload reference images and generate new images using Google Gemini AI with optional upscaling",
+        "description": "Upload reference images and generate new images using Google Gemini AI with optional upscaling. Supports both local filesystem and AWS S3 storage backends.",
         "operationId": "generateImage",
         "requestBody": {
           "required": true,
@@ -213,6 +213,12 @@
             "type": "string",
             "description": "Directory where generated files will be saved. Defaults to current directory.",
             "example": "./output"
+          },
+          "storage_type": {
+            "type": "string",
+            "enum": ["local", "s3"],
+            "description": "Storage backend for generated images. 'local' saves to filesystem, 's3' saves to AWS S3. Uses configuration default if not provided.",
+            "example": "s3"
           }
         },
         "required": ["images"]

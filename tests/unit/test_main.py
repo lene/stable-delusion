@@ -20,10 +20,26 @@ sys.path.append("nano_api")
 @pytest.fixture
 def client():
     """Create a test client for the Flask app."""
-    app.config["TESTING"] = True
-    app.config["UPLOAD_FOLDER"] = Path(tempfile.mkdtemp())
-    with app.test_client() as client:
-        yield client
+    # Mock the configuration to avoid dependency on GEMINI_API_KEY
+    with patch('nano_api.main.ConfigManager.get_config') as mock_config:
+        from nano_api.config import Config
+        mock_config.return_value = Config(
+            project_id="test-project",
+            location="us-central1",
+            gemini_api_key="test-key",
+            upload_folder=Path(tempfile.mkdtemp()),
+            default_output_dir=Path("."),
+            flask_debug=False,
+            storage_type="local",
+            s3_bucket=None,
+            s3_region=None,
+            aws_access_key_id=None,
+            aws_secret_access_key=None
+        )
+        app.config["TESTING"] = True
+        app.config["UPLOAD_FOLDER"] = Path(tempfile.mkdtemp())
+        with app.test_client() as client:
+            yield client
 
 
 @pytest.fixture

@@ -24,12 +24,33 @@ from nano_api.factories import ServiceFactory, RepositoryFactory
 from nano_api.utils import create_error_response
 
 
-config = ConfigManager.get_config()
+# Lazy initialization to avoid config loading at import time
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = config.upload_folder
 
-# Initialize upload repository
-upload_repository = RepositoryFactory.create_upload_repository()
+
+class _AppState:
+    """Application state container to avoid global variables."""
+    def __init__(self):
+        self.config = None
+        self.upload_repository = None
+
+
+_state = _AppState()
+
+
+def get_config():
+    """Get configuration instance, creating it if needed."""
+    if _state.config is None:
+        _state.config = ConfigManager.get_config()
+        app.config["UPLOAD_FOLDER"] = _state.config.upload_folder
+    return _state.config
+
+
+def get_upload_repository():
+    """Get upload repository instance, creating it if needed."""
+    if _state.upload_repository is None:
+        _state.upload_repository = RepositoryFactory.create_upload_repository()
+    return _state.upload_repository
 
 
 @app.route("/health", methods=["GET"])
@@ -65,11 +86,12 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
 
         # Extract and save uploaded files using repository
         images = request.files.getlist("images")
-        saved_files = upload_repository.save_uploaded_files(
+        saved_files = get_upload_repository().save_uploaded_files(
             images, app.config["UPLOAD_FOLDER"]
         )
 
         # Create request DTO with validation
+        config = get_config()
         request_dto = GenerateImageRequest(
             prompt=request.form.get("prompt") or DEFAULT_PROMPT,
             images=saved_files,
@@ -79,7 +101,8 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
                 request.form.get("output_dir") or config.default_output_dir
             ),
             scale=int(request.form["scale"]) if request.form.get("scale") else None,
-            custom_output=request.form.get("output")
+            custom_output=request.form.get("output"),
+            storage_type=request.form.get("storage_type")
         )
 
     except ValidationError as e:
@@ -94,7 +117,8 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         service = ServiceFactory.create_image_generation_service(
             project_id=request_dto.project_id,
             location=request_dto.location,
-            output_dir=request_dto.output_dir
+            output_dir=request_dto.output_dir,
+            storage_type=request_dto.storage_type
         )
     except (ConfigurationError, ValidationError) as e:
         error_response = ErrorResponse(str(e))
@@ -127,4 +151,5 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
 
 if __name__ == "__main__":
     # Use configuration for debug mode
+    config = get_config()
     app.run(debug=config.flask_debug)

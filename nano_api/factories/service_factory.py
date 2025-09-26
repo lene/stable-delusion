@@ -40,7 +40,8 @@ class ServiceFactory:
     def create_image_generation_service(
             project_id: Optional[str] = None,
             location: Optional[str] = None,
-            output_dir: Optional[Path] = None) -> ImageGenerationService:
+            output_dir: Optional[Path] = None,
+            storage_type: Optional[str] = None) -> ImageGenerationService:
         """
         Create image generation service with dependencies.
 
@@ -48,11 +49,22 @@ class ServiceFactory:
             project_id: Google Cloud project ID
             location: Google Cloud region
             output_dir: Output directory for generated images
+            storage_type: Storage backend type ('local' or 's3')
 
         Returns:
             Configured image generation service instance
         """
-        image_repo = RepositoryFactory.create_image_repository()
+        # Handle storage type override
+        if storage_type:
+            from nano_api.config import ConfigManager
+            config = ConfigManager.get_config()
+            original_storage_type = config.storage_type
+            config.storage_type = storage_type
+            image_repo = RepositoryFactory.create_image_repository()
+            config.storage_type = original_storage_type
+        else:
+            image_repo = RepositoryFactory.create_image_repository()
+
         return GeminiImageGenerationService.create(
             project_id=project_id,
             location=location,

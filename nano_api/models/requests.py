@@ -23,6 +23,7 @@ class GenerateImageRequest:
     output_dir: Optional[Path] = None
     scale: Optional[int] = None
     custom_output: Optional[str] = None
+    storage_type: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Validate request data after initialization."""
@@ -45,6 +46,14 @@ class GenerateImageRequest:
                 "Scale must be 2 or 4",
                 field="scale",
                 value=str(self.scale)
+            )
+
+        # Validate storage_type if provided
+        if self.storage_type is not None and self.storage_type not in ["local", "s3"]:
+            raise ValidationError(
+                "Storage type must be 'local' or 's3'",
+                field="storage_type",
+                value=self.storage_type
             )
 
         # Ensure output_dir is Path object if provided as string
