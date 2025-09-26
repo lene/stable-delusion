@@ -33,6 +33,7 @@ class TestGenerationMetadata:
             gcp_project_id="test-project",
             gcp_location="us-central1",
             scale=4,
+            model="gemini-2.5-flash-image-preview",
             timestamp=timestamp
         )
 
@@ -40,6 +41,7 @@ class TestGenerationMetadata:
         assert metadata.gcp_project_id == "test-project"
         assert metadata.gcp_location == "us-central1"
         assert metadata.scale == 4
+        assert metadata.model == "gemini-2.5-flash-image-preview"
         assert metadata.timestamp == timestamp
         assert metadata.content_hash is not None
 

@@ -12,3 +12,7 @@ DEFAULT_LOCATION = "us-central1"
 
 # Valid scale factors for image upscaling
 VALID_SCALE_FACTORS = [2, 4]
+
+# Model configuration
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-image-preview"
+DEFAULT_UPSCALE_MODEL = "imagegeneration@002"

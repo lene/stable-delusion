@@ -20,7 +20,7 @@ from google.genai.types import GenerateContentResponse
 from PIL import Image
 
 from nano_api.config import ConfigManager
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION, DEFAULT_GEMINI_MODEL
 from nano_api.exceptions import ImageGenerationError, FileOperationError
 from nano_api.factories import RepositoryFactory
 from nano_api.models.metadata import GenerationMetadata
@@ -341,7 +341,8 @@ class GeminiClient:
             generated_image="",  # Will be set after generation
             gcp_project_id=self.project_id,
             gcp_location=self.location,
-            scale=scale
+            scale=scale,
+            model=DEFAULT_GEMINI_MODEL
         )
 
         # Check for existing generation with same inputs
@@ -373,7 +374,7 @@ class GeminiClient:
         uploaded_files = self.upload_files(image_paths)
 
         response = self.client.models.generate_content(
-            model="gemini-2.5-flash-image-preview",
+            model=DEFAULT_GEMINI_MODEL,
             contents=[
                 prompt_text,
                 *uploaded_files

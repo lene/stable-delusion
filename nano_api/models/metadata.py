@@ -22,6 +22,7 @@ class GenerationMetadata:
     gcp_project_id: Optional[str] = None
     gcp_location: Optional[str] = None
     scale: Optional[int] = None
+    model: Optional[str] = None
     timestamp: Optional[str] = None
     content_hash: Optional[str] = None
 
@@ -45,7 +46,8 @@ class GenerationMetadata:
             'images': sorted(self.images),  # Sort for consistency
             'gcp_project_id': self.gcp_project_id,
             'gcp_location': self.gcp_location,
-            'scale': self.scale
+            'scale': self.scale,
+            'model': self.model
         }
 
         # Convert to JSON string with sorted keys for consistency

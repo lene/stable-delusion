@@ -226,3 +226,6 @@ uploads/
 samples/
 *.png
 
+# Local metadata storage
+metadata/
+
