@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import List, Optional, Any, TYPE_CHECKING
 
 from google import genai
 from google.cloud import aiplatform
@@ -23,11 +23,18 @@ from nano_api.config import ConfigManager
 from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION, DEFAULT_GEMINI_MODEL
 from nano_api.exceptions import ImageGenerationError, FileOperationError
 from nano_api.factories import RepositoryFactory
-from nano_api.models.metadata import GenerationMetadata
 from nano_api.models.client_config import GeminiClientConfig
+from nano_api.models.metadata import GenerationMetadata
 from nano_api.upscale import upscale_image
-from nano_api.utils import (log_upload_info, validate_image_file,
-                            ensure_directory_exists, generate_timestamped_filename)
+from nano_api.utils import (
+    log_upload_info,
+    validate_image_file,
+    ensure_directory_exists,
+    generate_timestamped_filename,
+)
+
+if TYPE_CHECKING:
+    from nano_api.models.client_config import AWSConfig
 
 DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
@@ -37,6 +44,7 @@ logging.basicConfig(level=logging.INFO)
 @dataclass
 class GenerationConfig:
     """Configuration for image generation parameters."""
+
     project_id: str = DEFAULT_PROJECT_ID
     location: str = DEFAULT_LOCATION
     output_dir: Path = Path(".")
@@ -59,18 +67,13 @@ def log_failure_reason(response: GenerateContentResponse) -> None:
     # Log any other response properties that might give clues
     logging.error("Response type: %s", type(response))
     logging.error(
-        "Response attributes: %s",
-        [attr for attr in dir(response) if not attr.startswith("_")]
+        "Response attributes: %s", [attr for attr in dir(response) if not attr.startswith("_")]
     )
 
 
 def parse_command_line() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate an image using the Gemini API."
-    )
-    parser.add_argument(
-        "--prompt", type=str, help="The prompt text for image generation."
-    )
+    parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
+    parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
     parser.add_argument(
         "--output",
         type=Path,
@@ -97,14 +100,20 @@ def parse_command_line() -> argparse.Namespace:
         "--scale",
         type=int,
         choices=[2, 4],
-        help="Upscale factor: 2 or 4 (optional).",
+        help="Upscale factor: 2 or 4 (optional, Gemini only).",
+    )
+    parser.add_argument(
+        "--size",
+        type=str,
+        help="Image size for generation (optional, Seedream only). "
+        "Can be '1K', '2K', '4K', or '{width}x{height}' "
+        "where width is 1280-4096 and height is 720-4096. Examples: '2K', '1920x1080'.",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=Path("."),
-        help="Directory where generated files will be saved "
-        "(default: current directory).",
+        help="Directory where generated files will be saved " "(default: current directory).",
     )
     parser.add_argument(
         "--storage-type",
@@ -112,6 +121,13 @@ def parse_command_line() -> argparse.Namespace:
         choices=["local", "s3"],
         help="Storage backend: 'local' for local filesystem or 's3' for AWS S3 "
         "(overrides configuration file setting).",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=["gemini", "seedream"],
+        help="AI model to use for image generation: 'gemini' for Gemini 2.5 Flash "
+        "or 'seedream' for SeeEdit Seedream 4.0 (defaults to 'gemini').",
     )
 
     # Authentication parameters
@@ -141,7 +157,7 @@ def parse_command_line() -> argparse.Namespace:
         "--aws-secret-access-key",
         type=str,
         help="AWS secret access key (WARNING: visible in process list - "
-             "prefer environment variable).",
+        "prefer environment variable).",
     )
 
     # Flask/Application parameters
@@ -163,25 +179,27 @@ def parse_command_line() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    # Validation: if S3 storage is selected, require S3 credentials
+    # Load .env file before validation to ensure environment variables are available
+    from dotenv import load_dotenv
+
+    load_dotenv(override=False)
+
+    # Validation: if S3 storage is selected, require bucket and region
     if args.storage_type == "s3":
-        s3_params = [args.aws_s3_bucket, args.aws_s3_region,
-                     args.aws_access_key_id, args.aws_secret_access_key]
-        if not all(param is not None for param in s3_params):
-            # Check if they're available in environment variables
-            import os
-            env_s3_params = [
-                os.getenv("AWS_S3_BUCKET"),
-                os.getenv("AWS_S3_REGION"),
-                os.getenv("AWS_ACCESS_KEY_ID"),
-                os.getenv("AWS_SECRET_ACCESS_KEY")
-            ]
-            if not all(param for param in env_s3_params):
-                parser.error(
-                    "When using --storage-type s3, all S3 parameters are required: "
-                    "--aws-s3-bucket, --aws-s3-region, --aws-access-key-id, "
-                    "--aws-secret-access-key or set corresponding environment variables."
-                )
+        # Only require bucket and region - credentials can come from AWS credential chain
+        import os
+
+        bucket = args.aws_s3_bucket or os.getenv("AWS_S3_BUCKET")
+        region = args.aws_s3_region or os.getenv("AWS_S3_REGION")
+
+        if not bucket or not region:
+            parser.error(
+                "When using --storage-type s3, bucket and region are required: "
+                "--aws-s3-bucket and --aws-s3-region or set AWS_S3_BUCKET and "
+                "AWS_S3_REGION environment variables. "
+                "Credentials will be read from AWS credential chain "
+                "(~/.aws/credentials, environment variables, IAM roles)."
+            )
 
     # Security warnings for sensitive parameters
     if args.gemini_api_key:
@@ -203,121 +221,144 @@ def parse_command_line() -> argparse.Namespace:
 class GeminiClient:
     """Client for generating images using Google Gemini API."""
 
-    def __init__(self, client_config: Optional[GeminiClientConfig] = None):
+    def __init__(self, client_config: GeminiClientConfig) -> None:
         config = ConfigManager.get_config()
 
-        # Initialize client config if not provided
-        if client_config is None:
-            client_config = GeminiClientConfig()
+        self._validate_client_config(client_config)
+        self._initialize_client_properties(config, client_config)
 
-        # Extract values with precedence: client_config > environment config
-        # Note: client_config.gcp is guaranteed to be non-None by __post_init__
+        # Apply temporary config overrides and initialize repositories
+        original_values = self._store_original_config_values(config)
+        self._apply_config_overrides(config, client_config)
+        self._initialize_repositories()
+
+        # Get effective storage type and restore original config
+        assert client_config.storage is not None  # nosec  # Guaranteed by _validate_client_config
+        effective_storage_type = client_config.storage.storage_type or config.storage_type
+        self._restore_original_config_values(config, original_values)
+
+        # Setup storage and initialize clients
+        self._setup_storage(effective_storage_type)
+        self._validate_and_initialize_clients(config)
+
+    def _validate_client_config(self, client_config: GeminiClientConfig) -> None:
+        """Validate that all required client config sections are present."""
+        if client_config.gcp is None:
+            raise TypeError("GCP config is required but was None")
+        if client_config.storage is None:
+            raise TypeError("Storage config is required but was None")
+        if client_config.aws is None:
+            raise TypeError("AWS config is required but was None")
+        if client_config.app is None:
+            raise TypeError("App config is required but was None")
+
+    def _initialize_client_properties(self, config, client_config: GeminiClientConfig) -> None:
+        """Initialize client properties from config with precedence."""
+        # Type assertions for MyPy - these are guaranteed by _validate_client_config
         assert client_config.gcp is not None  # nosec
         assert client_config.storage is not None  # nosec
-        assert client_config.aws is not None  # nosec
-        assert client_config.app is not None  # nosec
 
         self.project_id = client_config.gcp.project_id or config.project_id
         self.location = client_config.gcp.location or config.location
         output_options = [
             client_config.storage.output_dir,
             client_config.storage.default_output_dir,
-            config.default_output_dir
+            config.default_output_dir,
         ]
         self.output_dir = next(option for option in output_options if option)
 
-        # Store original config values before applying client overrides
-        original_values = {
-            'storage_type': config.storage_type,
-            'gemini_api_key': config.gemini_api_key,
-            's3_bucket': config.s3_bucket,
-            's3_region': config.s3_region,
-            'aws_access_key_id': config.aws_access_key_id,
-            'aws_secret_access_key': config.aws_secret_access_key,
-            'upload_folder': config.upload_folder,
-            'flask_debug': config.flask_debug
+    def _store_original_config_values(self, config) -> dict:
+        """Store original config values before applying overrides."""
+        return {
+            "storage_type": config.storage_type,
+            "gemini_api_key": config.gemini_api_key,
+            "s3_bucket": config.s3_bucket,
+            "s3_region": config.s3_region,
+            "aws_access_key_id": config.aws_access_key_id,
+            "aws_secret_access_key": config.aws_secret_access_key,
+            "upload_folder": config.upload_folder,
+            "flask_debug": config.flask_debug,
         }
 
-        # Apply client config overrides to global config (temporary for repository creation)
-        if client_config.storage.storage_type is not None:
-            config.storage_type = client_config.storage.storage_type
-        if client_config.gcp.gemini_api_key is not None:
-            config.gemini_api_key = client_config.gcp.gemini_api_key
-        if client_config.aws.s3_bucket is not None:
-            config.s3_bucket = client_config.aws.s3_bucket
-        if client_config.aws.s3_region is not None:
-            config.s3_region = client_config.aws.s3_region
-        if client_config.aws.aws_access_key_id is not None:
-            config.aws_access_key_id = client_config.aws.aws_access_key_id
-        if client_config.aws.aws_secret_access_key is not None:
-            config.aws_secret_access_key = client_config.aws.aws_secret_access_key
-        if client_config.storage.upload_folder is not None:
-            config.upload_folder = client_config.storage.upload_folder
-        if client_config.app.flask_debug is not None:
-            config.flask_debug = client_config.app.flask_debug
-        # Initialize repositories with potentially overridden config
+    def _apply_config_overrides(self, config, client_config: GeminiClientConfig) -> None:
+        """Apply client config overrides to global config temporarily."""
+        # Type assertions for MyPy - these are guaranteed by _validate_client_config
+        assert client_config.storage is not None  # nosec
+        assert client_config.gcp is not None  # nosec
+        assert client_config.aws is not None  # nosec
+        assert client_config.app is not None  # nosec
+
+        overrides = [
+            (client_config.storage.storage_type, "storage_type"),
+            (client_config.gcp.gemini_api_key, "gemini_api_key"),
+            (client_config.aws.s3_bucket, "s3_bucket"),
+            (client_config.aws.s3_region, "s3_region"),
+            (client_config.aws.aws_access_key_id, "aws_access_key_id"),
+            (client_config.aws.aws_secret_access_key, "aws_secret_access_key"),
+            (client_config.storage.upload_folder, "upload_folder"),
+            (client_config.app.flask_debug, "flask_debug"),
+        ]
+
+        for override_value, config_attr in overrides:
+            if override_value is not None:
+                setattr(config, config_attr, override_value)
+
+    def _initialize_repositories(self) -> None:
+        """Initialize repositories with potentially overridden config."""
         self.image_repository = RepositoryFactory.create_image_repository()
         self.file_repository = RepositoryFactory.create_file_repository()
         self.metadata_repository = RepositoryFactory.create_metadata_repository()
 
-        # Get the effective storage type
-        effective_storage_type = (
-            client_config.storage.storage_type or config.storage_type
-        )
-
-        # Restore original config values
+    def _restore_original_config_values(self, config, original_values: dict) -> None:
+        """Restore original config values after repository initialization."""
         for key, value in original_values.items():
             setattr(config, key, value)
 
-        # For local storage, create output directory if it doesn't exist
+    def _setup_storage(self, effective_storage_type: str) -> None:
+        """Setup storage based on effective storage type."""
         if effective_storage_type == "local":
             ensure_directory_exists(self.output_dir)
         else:
             # For S3, create directory marker
             self.file_repository.create_directory(self.output_dir)
 
+    def _validate_and_initialize_clients(self, config) -> None:
+        """Validate API key and initialize Gemini clients."""
+        if not config.gemini_api_key:
+            from nano_api.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "GEMINI_API_KEY environment variable is required but not set",
+                config_key="GEMINI_API_KEY",
+            )
+
         self.client = genai.Client()
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
 
     @classmethod
-    def create_with_gcp(cls, project_id: Optional[str] = None,
-                        location: Optional[str] = None,
-                        output_dir: Optional[Path] = None) -> 'GeminiClient':
-        """
-        Convenience method to create GeminiClient with GCP configuration.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-            output_dir: Output directory for generated images
-
-        Returns:
-            Configured GeminiClient instance
-        """
+    def create_with_gcp(
+        cls,
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
+    ) -> "GeminiClient":
         from nano_api.models.client_config import GCPConfig, StorageConfig
+
         config = GeminiClientConfig(
             gcp=GCPConfig(project_id=project_id, location=location),
-            storage=StorageConfig(output_dir=output_dir)
+            storage=StorageConfig(output_dir=output_dir),
         )
         return cls(config)
 
     @classmethod
-    def create_with_s3(cls, *,
-                       project_id: Optional[str] = None,
-                       location: Optional[str] = None,
-                       aws_config: Optional['AWSConfig'] = None) -> 'GeminiClient':
-        """
-        Convenience method to create GeminiClient with S3 configuration.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-            aws_config: AWS configuration object with S3 settings
-
-        Returns:
-            Configured GeminiClient instance
-        """
+    def create_with_s3(
+        cls,
+        *,
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        aws_config: Optional["AWSConfig"] = None,
+    ) -> "GeminiClient":
         from nano_api.models.client_config import GCPConfig, AWSConfig, StorageConfig
 
         if aws_config is None:
@@ -326,7 +367,7 @@ class GeminiClient:
         config = GeminiClientConfig(
             gcp=GCPConfig(project_id=project_id, location=location),
             aws=aws_config,
-            storage=StorageConfig(storage_type="s3")
+            storage=StorageConfig(storage_type="s3"),
         )
         return cls(config)
 
@@ -342,7 +383,7 @@ class GeminiClient:
             gcp_project_id=self.project_id,
             gcp_location=self.location,
             scale=scale,
-            model=DEFAULT_GEMINI_MODEL
+            model=DEFAULT_GEMINI_MODEL,
         )
 
         # Check for existing generation with same inputs
@@ -353,7 +394,7 @@ class GeminiClient:
         if existing_metadata_key:
             logging.info(
                 "Found existing generation with hash %s, reusing result",
-                (temp_metadata.content_hash or "unknown")[:8]
+                (temp_metadata.content_hash or "unknown")[:8],
             )
             try:
                 existing_metadata = self.metadata_repository.load_metadata(existing_metadata_key)
@@ -361,7 +402,7 @@ class GeminiClient:
                 # Return the existing generated image path
                 if existing_metadata.generated_image:
                     # Convert S3 URL back to Path if needed
-                    if existing_metadata.generated_image.startswith('s3://'):
+                    if existing_metadata.generated_image.startswith("s3://"):
                         # For S3 URLs, return the URL as a Path
                         return Path(existing_metadata.generated_image)
                     return Path(existing_metadata.generated_image)
@@ -374,24 +415,20 @@ class GeminiClient:
         uploaded_files = self.upload_files(image_paths)
 
         response = self.client.models.generate_content(
-            model=DEFAULT_GEMINI_MODEL,
-            contents=[
-                prompt_text,
-                *uploaded_files
-            ]
+            model=DEFAULT_GEMINI_MODEL, contents=[prompt_text, *uploaded_files]
         )
         if not response.candidates:
             log_failure_reason(response)
             raise ImageGenerationError(
                 "Image generation failed - no candidates returned",
                 prompt=prompt_text,
-                api_response=str(response)
+                api_response=str(response),
             )
         logging.info(
             "Generated image with %d candidates, finish_reason: %s, tokens: %d",
             len(response.candidates),
             response.candidates[0].finish_reason,
-            response.usage_metadata.total_token_count if response.usage_metadata else 0
+            response.usage_metadata.total_token_count if response.usage_metadata else 0,
         )
 
         # Save the new image and metadata
@@ -409,20 +446,17 @@ class GeminiClient:
         return generated_image_path
 
     def save_response_image(self, response: GenerateContentResponse) -> Optional[Path]:
-        """Save response image using the configured image repository."""
         if not response.candidates:
             logging.warning("No candidates found in the API response.")
             raise ImageGenerationError(
-                "No candidates returned from the API",
-                api_response=str(response)
+                "No candidates returned from the API", api_response=str(response)
             )
 
         candidate = response.candidates[0]
         if not candidate.content or not candidate.content.parts:
             logging.warning("No content parts found in the API response.")
             raise ImageGenerationError(
-                "No content parts in the candidate",
-                api_response=str(candidate)
+                "No content parts in the candidate", api_response=str(candidate)
             )
 
         for part in candidate.content.parts:
@@ -456,8 +490,7 @@ class GeminiClient:
             upscaled_filename = self.output_dir / f"upscaled_{preview_image.name}"
             upscale_factor = f"x{scale}"
             upscaled_image = upscale_image(
-                preview_image, self.project_id, self.location,
-                upscale_factor=upscale_factor
+                preview_image, self.project_id, self.location, upscale_factor=upscale_factor
             )
             # Save upscaled image using image repository
             saved_path = self.image_repository.save_image(upscaled_image, upscaled_filename)
@@ -467,33 +500,16 @@ class GeminiClient:
 
 
 def generate_from_images(
-    prompt_text: str,
-    image_paths: List[Path],
-    config: Optional[GenerationConfig] = None
+    prompt_text: str, image_paths: List[Path], config: Optional[GenerationConfig] = None
 ) -> Optional[Path]:
-    """Generate images from prompt and reference images with configuration.
-
-    Args:
-        prompt_text: Text prompt for image generation
-        image_paths: List of reference image paths
-        config: Generation configuration (uses defaults if None)
-
-    Returns:
-        Path to generated image file
-    """
     if config is None:
         config = GenerationConfig()
 
     from nano_api.models.client_config import GCPConfig, StorageConfig
+
     client_config = GeminiClientConfig(
-        gcp=GCPConfig(
-            project_id=config.project_id,
-            location=config.location
-        ),
-        storage=StorageConfig(
-            output_dir=config.output_dir,
-            storage_type=config.storage_type
-        )
+        gcp=GCPConfig(project_id=config.project_id, location=config.location),
+        storage=StorageConfig(output_dir=config.output_dir, storage_type=config.storage_type),
     )
     client = GeminiClient(client_config)
     return client.generate_from_images(prompt_text, image_paths)
@@ -505,17 +521,13 @@ def save_response_image(
     if not response.candidates:
         logging.warning("No candidates found in the API response.")
         raise ImageGenerationError(
-            "No candidates returned from the API",
-            api_response=str(response)
+            "No candidates returned from the API", api_response=str(response)
         )
 
     candidate = response.candidates[0]
     if not candidate.content or not candidate.content.parts:
         logging.warning("No content parts found in the API response.")
-        raise ImageGenerationError(
-            "No content parts in the candidate",
-            api_response=str(candidate)
-        )
+        raise ImageGenerationError("No content parts in the candidate", api_response=str(candidate))
 
     for part in candidate.content.parts:
         if part.text is not None:
@@ -537,37 +549,45 @@ if __name__ == "__main__":
         prompt = DEFAULT_PROMPT
     images = args.image if args.image else []
 
-    # Pass command line arguments to GeminiClient, config provides defaults
-    from nano_api.models.client_config import GCPConfig, AWSConfig, StorageConfig, AppConfig
-    client_config = GeminiClientConfig(
-        gcp=GCPConfig(
+    # Create request using service factory pattern (consistent with Flask API)
+    from nano_api.models.requests import GenerateImageRequest
+    from nano_api.factories import ServiceFactory
+
+    try:
+        # Create request DTO with validation
+        request_dto = GenerateImageRequest(
+            prompt=prompt,
+            images=images,
             project_id=getattr(args, "gcp_project_id"),
             location=getattr(args, "gcp_location"),
-            gemini_api_key=getattr(args, "gemini_api_key")
-        ),
-        aws=AWSConfig(
-            s3_bucket=getattr(args, "aws_s3_bucket"),
-            s3_region=getattr(args, "aws_s3_region"),
-            aws_access_key_id=getattr(args, "aws_access_key_id"),
-            aws_secret_access_key=getattr(args, "aws_secret_access_key")
-        ),
-        storage=StorageConfig(
             output_dir=getattr(args, "output_dir"),
+            scale=getattr(args, "scale"),
+            image_size=getattr(args, "size"),
             storage_type=getattr(args, "storage_type"),
-            upload_folder=getattr(args, "upload_folder"),
-            default_output_dir=getattr(args, "default_output_dir")
-        ),
-        app=AppConfig(
-            flask_debug=getattr(args, "flask_debug")
+            model=getattr(args, "model"),
         )
-    )
-    gemini = GeminiClient(client_config)
 
-    hires_file = gemini.generate_hires_image_in_one_shot(prompt, images, scale=args.scale)
-    if hires_file:
-        if args.scale:
-            logging.info("High Res Image saved to %s", hires_file)
+        # Create image generation service based on model selection
+        service = ServiceFactory.create_image_generation_service(
+            project_id=request_dto.project_id,
+            location=request_dto.location,
+            output_dir=request_dto.output_dir,
+            storage_type=request_dto.storage_type,
+            model=request_dto.model,
+        )
+
+        # Generate image using service
+        response = service.generate_image(request_dto)
+
+        if response.generated_file:
+            if args.scale:
+                logging.info("High Res Image saved to %s", response.generated_file)
+            else:
+                logging.info("Image saved to %s", response.generated_file)
         else:
-            logging.info("Image saved to %s", hires_file)
-    else:
-        logging.error("Image generation failed.")
+            logging.error("Image generation failed.")
+
+    except (ImageGenerationError, FileOperationError) as e:
+        logging.error("Image generation failed: %s", e)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.error("Unexpected error during image generation: %s", e)

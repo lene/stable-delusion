@@ -7,8 +7,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from nano_api.services.file_service import LocalFileService
 from nano_api.services.gemini_service import GeminiImageGenerationService
-from nano_api.services.interfaces import (ImageGenerationService,
-                                          ImageUpscalingService, FileService)
+from nano_api.services.interfaces import ImageGenerationService, ImageUpscalingService, FileService
 from nano_api.services.upscaling_service import VertexAIUpscalingService
 
 __all__ = [
@@ -17,5 +16,5 @@ __all__ = [
     "FileService",
     "GeminiImageGenerationService",
     "VertexAIUpscalingService",
-    "LocalFileService"
+    "LocalFileService",
 ]

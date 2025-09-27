@@ -27,73 +27,56 @@ class GenerationMetadata:
     content_hash: Optional[str] = None
 
     def __post_init__(self):
-        """Initialize computed fields."""
         if self.timestamp is None:
             self.timestamp = datetime.now(timezone.utc).isoformat()
         if self.content_hash is None:
             self.content_hash = self._compute_content_hash()
 
     def _compute_content_hash(self) -> str:
-        """
-        Compute SHA256 hash of input parameters for deduplication.
-
-        Returns:
-            Hexadecimal SHA256 hash string
-        """
         # Create deterministic string from inputs
         hash_input = {
-            'prompt': self.prompt,
-            'images': sorted(self.images),  # Sort for consistency
-            'gcp_project_id': self.gcp_project_id,
-            'gcp_location': self.gcp_location,
-            'scale': self.scale,
-            'model': self.model
+            "prompt": self.prompt,
+            "images": sorted(self.images),  # Sort for consistency
+            "gcp_project_id": self.gcp_project_id,
+            "gcp_location": self.gcp_location,
+            "scale": self.scale,
+            "model": self.model,
         }
 
         # Convert to JSON string with sorted keys for consistency
-        json_str = json.dumps(hash_input, sort_keys=True, separators=(',', ':'))
+        json_str = json.dumps(hash_input, sort_keys=True, separators=(",", ":"))
 
         # Compute SHA256 hash
-        return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+        return hashlib.sha256(json_str.encode("utf-8")).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
         return asdict(self)
 
     def to_json(self) -> str:
-        """Convert to JSON string."""
         return json.dumps(self.to_dict(), indent=2, sort_keys=True)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'GenerationMetadata':
+    def from_dict(cls, data: Dict[str, Any]) -> "GenerationMetadata":
         """Create instance from dictionary."""
         return cls(**data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'GenerationMetadata':
+    def from_json(cls, json_str: str) -> "GenerationMetadata":
         """Create instance from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def get_metadata_filename(self) -> str:
-        """
-        Generate standardized filename for metadata.
-
-        Format: metadata_{content_hash}_{timestamp}.json
-
-        Returns:
-            Metadata filename
-        """
         # Extract date from timestamp for readability
         if self.timestamp:
             try:
-                dt = datetime.fromisoformat(self.timestamp.replace('Z', '+00:00'))
-                date_str = dt.strftime('%Y%m%d_%H%M%S')
+                dt = datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
+                date_str = dt.strftime("%Y%m%d_%H%M%S")
             except ValueError:
-                date_str = 'unknown'
+                date_str = "unknown"
         else:
-            date_str = 'unknown'
+            date_str = "unknown"
 
         # Use first 8 characters of hash for brevity
-        hash_prefix = self.content_hash[:8] if self.content_hash else 'nohash'
+        hash_prefix = self.content_hash[:8] if self.content_hash else "nohash"
 
         return f"metadata_{hash_prefix}_{date_str}.json"

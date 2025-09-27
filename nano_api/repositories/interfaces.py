@@ -145,8 +145,7 @@ class UploadRepository(ABC):
     """Abstract repository interface for handling uploaded file operations."""
 
     @abstractmethod
-    def save_uploaded_files(self, files: List[FileStorage],
-                            upload_dir: Path) -> List[Path]:
+    def save_uploaded_files(self, files: List[FileStorage], upload_dir: Path) -> List[Path]:
         """
         Save uploaded files to the specified directory.
 
@@ -162,8 +161,9 @@ class UploadRepository(ABC):
         """
 
     @abstractmethod
-    def generate_secure_filename(self, filename: Optional[str],
-                                 timestamp: Optional[str] = None) -> str:
+    def generate_secure_filename(
+        self, filename: Optional[str], timestamp: Optional[str] = None
+    ) -> str:
         """
         Generate a secure filename for upload.
 
@@ -176,8 +176,7 @@ class UploadRepository(ABC):
         """
 
     @abstractmethod
-    def cleanup_old_uploads(self, upload_dir: Path,
-                            max_age_hours: int = 24) -> int:
+    def cleanup_old_uploads(self, upload_dir: Path, max_age_hours: int = 24) -> int:
         """
         Clean up old uploaded files.
 
@@ -212,7 +211,7 @@ class MetadataRepository(ABC):
     """Abstract repository interface for metadata storage and retrieval operations."""
 
     @abstractmethod
-    def save_metadata(self, metadata: 'GenerationMetadata') -> str:
+    def save_metadata(self, metadata: "GenerationMetadata") -> str:
         """
         Save generation metadata to storage.
 
@@ -227,7 +226,7 @@ class MetadataRepository(ABC):
         """
 
     @abstractmethod
-    def load_metadata(self, metadata_key: str) -> 'GenerationMetadata':
+    def load_metadata(self, metadata_key: str) -> "GenerationMetadata":
         """
         Load metadata from storage by key.
 

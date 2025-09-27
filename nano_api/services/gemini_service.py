@@ -11,8 +11,12 @@ from typing import List, Optional, TYPE_CHECKING
 from nano_api.config import ConfigManager
 from nano_api.models.requests import GenerateImageRequest
 from nano_api.models.responses import GenerateImageResponse
-from nano_api.models.client_config import (GeminiClientConfig, GCPConfig, StorageConfig,
-                                           ImageGenerationConfig)
+from nano_api.models.client_config import (
+    GeminiClientConfig,
+    GCPConfig,
+    StorageConfig,
+    ImageGenerationConfig,
+)
 from nano_api.repositories.interfaces import ImageRepository
 from nano_api.services.interfaces import ImageGenerationService
 
@@ -23,60 +27,36 @@ if TYPE_CHECKING:
 class GeminiImageGenerationService(ImageGenerationService):
     """Concrete implementation of image generation using Gemini API."""
 
-    def __init__(self, client: 'GeminiClient',
-                 image_repository: Optional[ImageRepository] = None) -> None:
-        """
-        Initialize with a configured GeminiClient.
-
-        Args:
-            client: Configured GeminiClient instance
-            image_repository: Optional image repository for advanced operations
-        """
+    def __init__(
+        self, client: "GeminiClient", image_repository: Optional[ImageRepository] = None
+    ) -> None:
         self.client = client
         self.image_repository = image_repository
 
     @classmethod
-    def create(cls, project_id: Optional[str] = None,
-               location: Optional[str] = None,
-               output_dir: Optional[Path] = None,
-               image_repository: Optional[ImageRepository] = None) -> \
-            'GeminiImageGenerationService':
-        """
-        Create service instance with default configuration.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-            output_dir: Output directory for generated images
-            image_repository: Optional image repository for advanced operations
-
-        Returns:
-            Configured service instance
-        """
+    def create(
+        cls,
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
+        image_repository: Optional[ImageRepository] = None,
+    ) -> "GeminiImageGenerationService":
         from nano_api.generate import GeminiClient
 
         # Create configuration with provided parameters
         client_config = GeminiClientConfig(
-            gcp=GCPConfig(
-                project_id=project_id,
-                location=location
-            ),
-            storage=StorageConfig(
-                output_dir=output_dir
-            )
+            gcp=GCPConfig(project_id=project_id, location=location),
+            storage=StorageConfig(output_dir=output_dir),
         )
         client = GeminiClient(client_config)
         return cls(client, image_repository)
 
     def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
-        """Generate an image using Gemini API."""
         config = ConfigManager.get_config()
 
         # Generate the image
         generated_file = self.client.generate_hires_image_in_one_shot(
-            request.prompt,
-            request.images,
-            scale=request.scale
+            request.prompt, request.images, scale=request.scale
         )
 
         # Create response DTO
@@ -86,15 +66,14 @@ class GeminiImageGenerationService(ImageGenerationService):
                 prompt=request.prompt,
                 scale=request.scale,
                 saved_files=request.images,
-                output_dir=request.output_dir or config.default_output_dir
+                output_dir=request.output_dir or config.default_output_dir,
             ),
             gcp_config=GCPConfig(
                 project_id=request.project_id or config.project_id,
-                location=request.location or config.location
-            )
+                location=request.location or config.location,
+            ),
         )
 
     def upload_files(self, image_paths: List[Path]) -> List[str]:
-        """Upload files using the Gemini client."""
         uploaded_files = self.client.upload_files(image_paths)
         return [str(file.uri) for file in uploaded_files]

@@ -27,7 +27,7 @@ def format_timestamp(dt: Optional[datetime], format_type: str = "standard") -> s
     formats = {
         "standard": STANDARD_DATETIME_FORMAT,
         "filename": FILENAME_DATETIME_FORMAT,
-        "compact": COMPACT_DATETIME_FORMAT
+        "compact": COMPACT_DATETIME_FORMAT,
     }
     return dt.strftime(formats.get(format_type, STANDARD_DATETIME_FORMAT))
 
@@ -40,8 +40,9 @@ def create_error_response(message: str, status_code: int = 400) -> Tuple[Respons
     return jsonify({"error": message}), status_code
 
 
-def safe_format_timestamps(create_time: Optional[datetime],
-                           expiration_time: Optional[datetime]) -> Tuple[str, str]:
+def safe_format_timestamps(
+    create_time: Optional[datetime], expiration_time: Optional[datetime]
+) -> Tuple[str, str]:
     create_time_str = format_timestamp(create_time, "standard")
     expiration_time_str = format_timestamp(expiration_time, "standard")
     return create_time_str, expiration_time_str
@@ -63,14 +64,13 @@ def log_upload_info(image_path: Any, uploaded_file: Any) -> None:
         uploaded_file.size_bytes,
         create_time_str,
         expiration_time_str,
-        uploaded_file.uri
+        uploaded_file.uri,
     )
 
 
-def generate_timestamped_filename(base_name: str,
-                                  extension: str = "png",
-                                  format_type: str = "filename",
-                                  secure: bool = False) -> str:
+def generate_timestamped_filename(
+    base_name: str, extension: str = "png", format_type: str = "filename", secure: bool = False
+) -> str:
     timestamp = get_current_timestamp(format_type)
     filename = f"{base_name}_{timestamp}.{extension}"
 
@@ -83,9 +83,7 @@ def generate_timestamped_filename(base_name: str,
 def validate_image_file(path: Path) -> None:
     if not path.is_file():
         raise FileOperationError(
-            f"Image file not found: {path}",
-            file_path=str(path),
-            operation="read"
+            f"Image file not found: {path}", file_path=str(path), operation="read"
         )
 
 

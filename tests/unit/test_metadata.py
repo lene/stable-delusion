@@ -7,11 +7,8 @@ class TestGenerationMetadata:
     """Test cases for GenerationMetadata model."""
 
     def test_metadata_creation_with_defaults(self):
-        """Test creating metadata with default values."""
         metadata = GenerationMetadata(
-            prompt="Test prompt",
-            images=["image1.jpg", "image2.jpg"],
-            generated_image="output.png"
+            prompt="Test prompt", images=["image1.jpg", "image2.jpg"], generated_image="output.png"
         )
 
         assert metadata.prompt == "Test prompt"
@@ -24,7 +21,6 @@ class TestGenerationMetadata:
         assert metadata.content_hash is not None
 
     def test_metadata_creation_with_full_params(self):
-        """Test creating metadata with all parameters."""
         timestamp = "2024-01-01T12:00:00Z"
         metadata = GenerationMetadata(
             prompt="Full test prompt",
@@ -34,7 +30,7 @@ class TestGenerationMetadata:
             gcp_location="us-central1",
             scale=4,
             model="gemini-2.5-flash-image-preview",
-            timestamp=timestamp
+            timestamp=timestamp,
         )
 
         assert metadata.prompt == "Full test prompt"
@@ -46,13 +42,12 @@ class TestGenerationMetadata:
         assert metadata.content_hash is not None
 
     def test_content_hash_consistency(self):
-        """Test that content hash is consistent for same inputs."""
         metadata1 = GenerationMetadata(
             prompt="Same prompt",
             images=["image1.jpg", "image2.jpg"],
             generated_image="output.png",
             gcp_project_id="project",
-            scale=2
+            scale=2,
         )
 
         metadata2 = GenerationMetadata(
@@ -60,51 +55,44 @@ class TestGenerationMetadata:
             images=["image1.jpg", "image2.jpg"],
             generated_image="different_output.png",  # This shouldn't affect hash
             gcp_project_id="project",
-            scale=2
+            scale=2,
         )
 
         assert metadata1.content_hash == metadata2.content_hash
 
     def test_content_hash_different_for_different_inputs(self):
-        """Test that different inputs produce different hashes."""
         metadata1 = GenerationMetadata(
-            prompt="Prompt 1",
-            images=["image1.jpg"],
-            generated_image="output.png"
+            prompt="Prompt 1", images=["image1.jpg"], generated_image="output.png"
         )
 
         metadata2 = GenerationMetadata(
             prompt="Prompt 2",  # Different prompt
             images=["image1.jpg"],
-            generated_image="output.png"
+            generated_image="output.png",
         )
 
         assert metadata1.content_hash != metadata2.content_hash
 
     def test_content_hash_image_order_independence(self):
-        """Test that image order doesn't affect content hash."""
         metadata1 = GenerationMetadata(
-            prompt="Test",
-            images=["image1.jpg", "image2.jpg"],
-            generated_image="output.png"
+            prompt="Test", images=["image1.jpg", "image2.jpg"], generated_image="output.png"
         )
 
         metadata2 = GenerationMetadata(
             prompt="Test",
             images=["image2.jpg", "image1.jpg"],  # Different order
-            generated_image="output.png"
+            generated_image="output.png",
         )
 
         assert metadata1.content_hash == metadata2.content_hash
 
     def test_to_json_and_from_json(self):
-        """Test JSON serialization and deserialization."""
         original = GenerationMetadata(
             prompt="JSON test",
             images=["image1.jpg", "image2.jpg"],
             generated_image="output.png",
             gcp_project_id="test-project",
-            scale=2
+            scale=2,
         )
 
         # Serialize to JSON
@@ -122,19 +110,18 @@ class TestGenerationMetadata:
         assert restored.content_hash == original.content_hash
 
     def test_to_dict_and_from_dict(self):
-        """Test dictionary conversion."""
         original = GenerationMetadata(
             prompt="Dict test",
             images=["image1.jpg"],
             generated_image="output.png",
-            timestamp="2024-01-01T12:00:00Z"
+            timestamp="2024-01-01T12:00:00Z",
         )
 
         # Convert to dict
         data_dict = original.to_dict()
         assert isinstance(data_dict, dict)
-        assert data_dict['prompt'] == "Dict test"
-        assert data_dict['timestamp'] == "2024-01-01T12:00:00Z"
+        assert data_dict["prompt"] == "Dict test"
+        assert data_dict["timestamp"] == "2024-01-01T12:00:00Z"
 
         # Create from dict
         restored = GenerationMetadata.from_dict(data_dict)
@@ -143,12 +130,11 @@ class TestGenerationMetadata:
         assert restored.content_hash == original.content_hash
 
     def test_metadata_filename_generation(self):
-        """Test metadata filename generation."""
         metadata = GenerationMetadata(
             prompt="Filename test",
             images=["image.jpg"],
             generated_image="output.png",
-            timestamp="2024-01-01T12:30:45Z"
+            timestamp="2024-01-01T12:30:45Z",
         )
 
         filename = metadata.get_metadata_filename()
@@ -164,12 +150,11 @@ class TestGenerationMetadata:
         assert len(parts[1]) == 8  # hash prefix length
 
     def test_metadata_filename_with_invalid_timestamp(self):
-        """Test filename generation with invalid timestamp."""
         metadata = GenerationMetadata(
             prompt="Invalid timestamp test",
             images=["image.jpg"],
             generated_image="output.png",
-            timestamp="invalid-timestamp"
+            timestamp="invalid-timestamp",
         )
 
         filename = metadata.get_metadata_filename()

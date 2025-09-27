@@ -18,54 +18,24 @@ from nano_api.upscale import upscale_image
 class VertexAIUpscalingService(ImageUpscalingService):
     """Concrete implementation of image upscaling using Vertex AI."""
 
-    def __init__(self, project_id: Optional[str] = None,
-                 location: Optional[str] = None) -> None:
-        """
-        Initialize with optional project configuration.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-        """
+    def __init__(self, project_id: Optional[str] = None, location: Optional[str] = None) -> None:
         config = ConfigManager.get_config()
         self.project_id = project_id or config.project_id
         self.location = location or config.location
 
     @classmethod
-    def create(cls, project_id: Optional[str] = None,
-               location: Optional[str] = None) -> 'VertexAIUpscalingService':
-        """
-        Create service instance with default configuration.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-
-        Returns:
-            Configured service instance
-        """
+    def create(
+        cls, project_id: Optional[str] = None, location: Optional[str] = None
+    ) -> "VertexAIUpscalingService":
         return cls(project_id=project_id, location=location)
 
     def upscale_image(self, request: UpscaleImageRequest) -> UpscaleImageResponse:
-        """
-        Upscale an image using Vertex AI.
-
-        Args:
-            request: Upscaling request containing image and scale parameters
-
-        Returns:
-            Response containing upscaled image and metadata
-
-        Raises:
-            UpscalingError: If upscaling fails
-            AuthenticationError: If authentication fails
-        """
         # Use the existing upscale_image function
         upscale_image(
             request.image_path,
             request.project_id or self.project_id,
             request.location or self.location,
-            upscale_factor=request.scale_factor
+            upscale_factor=request.scale_factor,
         )
 
         # For now, we don't save the upscaled image to a file
@@ -79,6 +49,6 @@ class VertexAIUpscalingService(ImageUpscalingService):
             scale_factor=request.scale_factor,
             gcp_config=GCPConfig(
                 project_id=request.project_id or self.project_id,
-                location=request.location or self.location
-            )
+                location=request.location or self.location,
+            ),
         )

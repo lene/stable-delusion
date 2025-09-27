@@ -5,6 +5,7 @@ Provides centralized service creation and dependency injection.
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -14,7 +15,7 @@ from nano_api.services.gemini_service import GeminiImageGenerationService
 from nano_api.services.interfaces import (
     FileService as FileServiceInterface,
     ImageGenerationService,
-    ImageUpscalingService
+    ImageUpscalingService,
 )
 from nano_api.services.upscaling_service import VertexAIUpscalingService
 
@@ -24,24 +25,17 @@ class ServiceFactory:
 
     @staticmethod
     def create_file_service() -> FileServiceInterface:
-        """
-        Create file service with repository dependencies.
-
-        Returns:
-            Configured file service instance
-        """
         image_repo, file_repo, _ = RepositoryFactory.create_all_repositories()
-        return LocalFileService(
-            image_repository=image_repo,
-            file_repository=file_repo
-        )
+        return LocalFileService(image_repository=image_repo, file_repository=file_repo)
 
     @staticmethod
     def create_image_generation_service(
-            project_id: Optional[str] = None,
-            location: Optional[str] = None,
-            output_dir: Optional[Path] = None,
-            storage_type: Optional[str] = None) -> ImageGenerationService:
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
+        storage_type: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> ImageGenerationService:
         """
         Create image generation service with dependencies.
 
@@ -50,6 +44,7 @@ class ServiceFactory:
             location: Google Cloud region
             output_dir: Output directory for generated images
             storage_type: Storage backend type ('local' or 's3')
+            model: Model to use ('gemini' or 'seedream')
 
         Returns:
             Configured image generation service instance
@@ -57,6 +52,7 @@ class ServiceFactory:
         # Handle storage type override
         if storage_type:
             from nano_api.config import ConfigManager
+
             config = ConfigManager.get_config()
             original_storage_type = config.storage_type
             config.storage_type = storage_type
@@ -65,17 +61,35 @@ class ServiceFactory:
         else:
             image_repo = RepositoryFactory.create_image_repository()
 
-        return GeminiImageGenerationService.create(
+        # Create service based on model selection
+        model = model or "gemini"  # Default to gemini for backward compatibility
+
+        logging.info("🏭 ServiceFactory creating service for model: %s", model)
+
+        if model == "seedream":
+            logging.info("🌱 Creating SeedreamImageGenerationService")
+            from nano_api.services.seedream_service import SeedreamImageGenerationService
+
+            service = SeedreamImageGenerationService.create(
+                output_dir=output_dir, image_repository=image_repo
+            )
+            logging.info("✅ SeedreamImageGenerationService created: %s", service)
+            return service
+        # Default to Gemini
+        logging.info("🔷 Creating GeminiImageGenerationService")
+        gemini_service = GeminiImageGenerationService.create(
             project_id=project_id,
             location=location,
             output_dir=output_dir,
-            image_repository=image_repo
+            image_repository=image_repo,
         )
+        logging.info("✅ GeminiImageGenerationService created: %s", gemini_service)
+        return gemini_service
 
     @staticmethod
     def create_upscaling_service(
-            project_id: Optional[str] = None,
-            location: Optional[str] = None) -> ImageUpscalingService:
+        project_id: Optional[str] = None, location: Optional[str] = None
+    ) -> ImageUpscalingService:
         """
         Create image upscaling service.
 
@@ -86,19 +100,15 @@ class ServiceFactory:
         Returns:
             Configured image upscaling service instance
         """
-        return VertexAIUpscalingService.create(
-            project_id=project_id,
-            location=location
-        )
+        return VertexAIUpscalingService.create(project_id=project_id, location=location)
 
     @classmethod
     def create_all_services(
-            cls,
-            project_id: Optional[str] = None,
-            location: Optional[str] = None,
-            output_dir: Optional[Path] = None) -> tuple[FileServiceInterface,
-                                                        ImageGenerationService,
-                                                        ImageUpscalingService]:
+        cls,
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
+    ) -> tuple[FileServiceInterface, ImageGenerationService, ImageUpscalingService]:
         """
         Create all service instances with dependencies.
 
@@ -113,12 +123,7 @@ class ServiceFactory:
         return (
             cls.create_file_service(),
             cls.create_image_generation_service(
-                project_id=project_id,
-                location=location,
-                output_dir=output_dir
+                project_id=project_id, location=location, output_dir=output_dir
             ),
-            cls.create_upscaling_service(
-                project_id=project_id,
-                location=location
-            )
+            cls.create_upscaling_service(project_id=project_id, location=location),
         )

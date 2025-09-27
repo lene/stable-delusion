@@ -1,4 +1,5 @@
 """Integration tests for end-to-end workflows and API functionality."""
+
 import json
 import os
 import sys
@@ -22,13 +23,14 @@ sys.path.append("nano_api")
 
 @pytest.fixture
 def temp_image_file():
-    """Create a temporary test image file."""
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
         # Write minimal PNG header to make it a valid image file
-        png_header = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-                      b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
-                      b"\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
-                      b"\x00\x00\x00\x00IEND\xaeB`\x82")
+        png_header = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
+            b"\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
+            b"\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
         temp_file.write(png_header)
         temp_file.flush()
         yield temp_file.name
@@ -37,14 +39,15 @@ def temp_image_file():
 
 @pytest.fixture
 def temp_images():
-    """Create multiple temporary test image files."""
     files = []
     for i in range(2):
         with tempfile.NamedTemporaryFile(suffix=f"_{i}.png", delete=False) as temp_file:
-            png_header = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-                          b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
-                          b"\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
-                          b"\x00\x00\x00\x00IEND\xaeB`\x82")
+            png_header = (
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+                b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
+                b"\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb"
+                b"\x00\x00\x00\x00IEND\xaeB`\x82"
+            )
             temp_file.write(png_header)
             temp_file.flush()
             files.append(temp_file.name)
@@ -62,7 +65,6 @@ class TestEndToEndWorkflow:
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_complete_image_generation_workflow(self, _mock_init, mock_client, temp_images):
-        """Test complete image generation from command line to output."""
         # Mock the Gemini API response
         mock_response = MagicMock()
         mock_candidate = MagicMock()
@@ -89,12 +91,11 @@ class TestEndToEndWorkflow:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
-                with patch.dict(os.environ, {
-                    "GEMINI_API_KEY": "test-key",
-                    "STORAGE_TYPE": "local"
-                }):
+                with patch.dict(
+                    os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}
+                ):
                     # Test the complete workflow
-                    client = GeminiClient()
+                    client = GeminiClient(GeminiClientConfig())
                     temp_paths = [Path(img) for img in temp_images]
                     result = client.generate_from_images("Test prompt", temp_paths)
 
@@ -105,9 +106,7 @@ class TestEndToEndWorkflow:
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     @patch("nano_api.generate.upscale_image")
-    def test_complete_upscaling_workflow(self, mock_upscale, _mock_init,
-                                         mock_client, temp_images):
-        """Test complete workflow including upscaling."""
+    def test_complete_upscaling_workflow(self, mock_upscale, _mock_init, mock_client, temp_images):
         # Mock the Gemini API response
         mock_response = MagicMock()
         mock_candidate = MagicMock()
@@ -138,15 +137,15 @@ class TestEndToEndWorkflow:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
-                with patch.dict(os.environ, {
-                    "GEMINI_API_KEY": "test-key",
-                    "STORAGE_TYPE": "local"
-                }):
+                with patch.dict(
+                    os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}
+                ):
                     # Test the complete workflow with upscaling
-                    client = GeminiClient()
+                    client = GeminiClient(GeminiClientConfig())
                     temp_paths = [Path(img) for img in temp_images]
                     result = client.generate_hires_image_in_one_shot(
-                        "Test prompt", temp_paths, scale=4)
+                        "Test prompt", temp_paths, scale=4
+                    )
 
                     # Should return upscaled filename
                     expected_result = Path("./upscaled_generated_2024-01-01-12:00:00.png")
@@ -160,7 +159,6 @@ class TestFlaskAPIIntegration:
 
     @pytest.fixture
     def client(self):
-        """Create a test client for the Flask app."""
         app.config["TESTING"] = True
         app.config["UPLOAD_FOLDER"] = Path(tempfile.mkdtemp())
         with app.test_client() as client:
@@ -169,12 +167,10 @@ class TestFlaskAPIIntegration:
     @patch("nano_api.main.ServiceFactory.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
-        """Test API with actual file upload simulation."""
         mock_service = MagicMock()
         mock_service_create.return_value = mock_service
 
         def create_mock_response(request_dto):
-            """Create a dynamic mock response based on request."""
             mock_response = MagicMock()
             mock_response.to_dict.return_value = {
                 "generated_file": "generated_test_image.png",
@@ -186,7 +182,7 @@ class TestFlaskAPIIntegration:
                 "output_dir": str(request_dto.output_dir),
                 "upscaled": request_dto.scale is not None,
                 "success": True,
-                "message": "Image generated successfully"
+                "message": "Image generated successfully",
             }
             return mock_response
 
@@ -196,11 +192,10 @@ class TestFlaskAPIIntegration:
         with open(temp_image_file, "rb") as image_file:
             data = {
                 "prompt": "Generate a beautiful landscape",
-                "images": (image_file, "test_image.png")
+                "images": (image_file, "test_image.png"),
             }
 
-            response = client.post("/generate", data=data,
-                                   content_type="multipart/form-data")
+            response = client.post("/generate", data=data, content_type="multipart/form-data")
 
             assert response.status_code == 200
             response_data = json.loads(response.data)
@@ -217,12 +212,10 @@ class TestFlaskAPIIntegration:
     @patch("nano_api.main.ServiceFactory.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
-        """Test API with multiple file uploads."""
         mock_service = MagicMock()
         mock_service_create.return_value = mock_service
 
         def create_mock_response(request_dto):
-            """Create a dynamic mock response based on request."""
             mock_response = MagicMock()
             mock_response.to_dict.return_value = {
                 "generated_file": "generated_multi_image.png",
@@ -234,7 +227,7 @@ class TestFlaskAPIIntegration:
                 "output_dir": str(request_dto.output_dir),
                 "upscaled": request_dto.scale is not None,
                 "success": True,
-                "message": "Image generated successfully"
+                "message": "Image generated successfully",
             }
             return mock_response
 
@@ -242,9 +235,7 @@ class TestFlaskAPIIntegration:
 
         # Simulate multiple file upload using proper context management
         files = []
-        data = {
-            "prompt": "Generate from multiple images"
-        }
+        data = {"prompt": "Generate from multiple images"}
 
         # Open files with proper context management
         for i, temp_file in enumerate(temp_images):
@@ -253,8 +244,7 @@ class TestFlaskAPIIntegration:
                 file_content = file_handle.read()
                 files.append(("images", (BytesIO(file_content), f"test_image_{i}.png")))
 
-        response = client.post("/generate", data=data,
-                               content_type="multipart/form-data")
+        response = client.post("/generate", data=data, content_type="multipart/form-data")
 
         # Note: This might fail due to the way files are handled in testing
         # The test demonstrates the intended behavior
@@ -269,7 +259,6 @@ class TestCommandLineIntegration:
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_command_line_execution_simulation(self, _mock_init, mock_client, temp_image_file):
-        """Test command line execution simulation."""
         # This simulates what would happen when running the script from command line
         mock_response = MagicMock()
         mock_candidate = MagicMock()
@@ -292,12 +281,21 @@ class TestCommandLineIntegration:
             with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-15:30:00"
 
-                with patch.dict(os.environ, {
-                    "GEMINI_API_KEY": "test-key",
-                    "STORAGE_TYPE": "local"
-                }):
-                    with patch("sys.argv", ["generate.py", "--prompt", "Test prompt",
-                                            "--image", temp_image_file, "--scale", "2"]):
+                with patch.dict(
+                    os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}
+                ):
+                    with patch(
+                        "sys.argv",
+                        [
+                            "generate.py",
+                            "--prompt",
+                            "Test prompt",
+                            "--image",
+                            temp_image_file,
+                            "--scale",
+                            "2",
+                        ],
+                    ):
 
                         # Import and test the main execution logic
 
@@ -306,10 +304,7 @@ class TestCommandLineIntegration:
                         location = getattr(args, "gcp_location") or DEFAULT_LOCATION
 
                         client_config = GeminiClientConfig(
-                            gcp=GCPConfig(
-                                project_id=project_id,
-                                location=location
-                            )
+                            gcp=GCPConfig(project_id=project_id, location=location)
                         )
                         GeminiClient(client_config)
 
@@ -323,37 +318,36 @@ class TestErrorHandlingIntegration:
     """Test error handling in integrated scenarios."""
 
     def test_missing_api_key_integration(self, temp_images):
-        """Test integration behavior when API key is missing."""
         from nano_api.config import ConfigManager
         from nano_api.exceptions import ConfigurationError
+
         with patch.dict(os.environ, {}, clear=True):
             ConfigManager.reset_config()  # Ensure clean config state
-            with pytest.raises(ConfigurationError,
-                               match="GEMINI_API_KEY environment variable is required"):
-                GeminiClient()
+            with pytest.raises(
+                ConfigurationError, match="GEMINI_API_KEY environment variable is required"
+            ):
+                GeminiClient(GeminiClientConfig())
 
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_file_not_found_integration(self, _mock_init, mock_client):
-        """Test integration behavior when image files are not found."""
         from nano_api.exceptions import FileOperationError
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            client = GeminiClient()
 
-            with pytest.raises(FileOperationError,
-                               match="Image file not found: nonexistent.png"):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
+            client = GeminiClient(GeminiClientConfig())
+
+            with pytest.raises(FileOperationError, match="Image file not found: nonexistent.png"):
                 client.upload_files([Path("nonexistent.png")])
 
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_api_error_integration(self, _mock_init, mock_client, temp_images):
-        """Test integration behavior when API calls fail."""
         mock_client_instance = MagicMock()
         mock_client_instance.files.upload.side_effect = Exception("API Error")
         mock_client.return_value = mock_client_instance
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            client = GeminiClient()
+            client = GeminiClient(GeminiClientConfig())
 
             with pytest.raises(Exception, match="API Error"):
                 client.upload_files([Path(img) for img in temp_images])
@@ -363,7 +357,6 @@ class TestConfigurationIntegration:
     """Test configuration integration across modules."""
 
     def test_default_configuration_usage(self):
-        """Test that default configuration values are used correctly."""
         # Test that constants are properly imported and used
         assert DEFAULT_PROJECT_ID is not None
         assert DEFAULT_LOCATION is not None
@@ -373,24 +366,19 @@ class TestConfigurationIntegration:
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_custom_configuration_override(self, mock_init, mock_client):
-        """Test that custom configuration properly overrides defaults."""
         custom_project = "test-project-override"
         custom_location = "test-location-override"
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client_config = GeminiClientConfig(
-                gcp=GCPConfig(
-                    project_id=custom_project,
-                    location=custom_location
-                )
+                gcp=GCPConfig(project_id=custom_project, location=custom_location)
             )
             client = GeminiClient(client_config)
 
             assert client.project_id == custom_project
             assert client.location == custom_location
 
-            mock_init.assert_called_once_with(project=custom_project,
-                                              location=custom_location)
+            mock_init.assert_called_once_with(project=custom_project, location=custom_location)
 
 
 class TestPerformanceIntegration:
@@ -399,9 +387,8 @@ class TestPerformanceIntegration:
     @patch("nano_api.generate.genai.Client")
     @patch("nano_api.generate.aiplatform.init")
     def test_large_file_handling_simulation(self, _mock_init, _mock_client):
-        """Test handling of larger file scenarios (simulated)."""
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            client = GeminiClient()
+            client = GeminiClient(GeminiClientConfig())
 
             # Simulate large file paths list
             large_file_list = [Path(f"image_{i}.png") for i in range(10)]

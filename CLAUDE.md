@@ -1,15 +1,15 @@
-- Keep line length to maximum 100 characters
-- Follow the PEP8 rules for code formatting
-- Thi project is managed with Poetry. Add any new dependencies with `poetry add <package>` and run any scripts using `poetry run <command>`
-- After executing a command that edits code, check if the test suite still runs. 
+- This is a Python project is managed with Poetry. Add any new dependencies with `poetry add <package>` (or `poetry add --group dev <package>` for dev dependencies) and run any scripts using `poetry run <command>`.
+- Follow the PEP8 rules for code formatting. Keep line length to maximum 100 characters. After every code change, run `poetry run black --line-length=100 nano_api tests ` to ensure code is properly formatted.
+- add docstrings for modules and classes, but do not add docstrings for functions.
+- After executing a command that edits code, check if the test suite still runs. Use `poetry run pytest -n auto` for normal testing, or `poetry run pytest -n auto` for parallel execution when running larger test suites. 
 - After making significant code changes, check if the test suite needs to be extended or altered. Propose these changes, if needed.
-- when dealing with temporary files, always use the tempfile module instead of using the "/tmp" directory
-- When dealing with path-like objects, always use the pathlib module
 - After finishing a task, review the code with focus on readability, reusability and brevity. Factor out repeated code into functions or methods.
 - After making code changes, run `poetry run flake8 nano_api tests` to ensure no PEP 8 violations were introduced, and fix any detected issues.
 - When running flake8, always explicitly specify the directories to check, e.g., `flake8 nano_api tests`, to avoid unintended files being checked .
-- also run pylint checks with `poetry run pylint nano_api/ tests/` and fix any detected issues.
+- also run pylint checks with `poetry run pylint -j 0 nano_api/ tests/` and fix any detected issues.
 - run type checking with `poetry run mypy nano_api/` and fix any type-related issues. All functions and methods should have type annotations for input parameters and return values.
 - run security analysis with `poetry run bandit -r nano_api/` to check for security vulnerabilities in source code.
 - whenever adding a feature to the CLI, also add it to the flask API, and vice versa.
 - whenever changing the flask API, update the OpenAPI specification to reflect the change.
+- when dealing with temporary files, always use the `tempfile` module instead of using the "/tmp" directory
+- When dealing with path-like objects, always use the `pathlib` module

@@ -20,21 +20,7 @@ from nano_api.utils import get_current_timestamp
 class LocalUploadRepository(UploadRepository):
     """Local filesystem implementation of upload repository."""
 
-    def save_uploaded_files(self, files: List[FileStorage],
-                            upload_dir: Path) -> List[Path]:
-        """
-        Save uploaded files to the specified directory.
-
-        Args:
-            files: List of uploaded FileStorage objects
-            upload_dir: Directory to save files
-
-        Returns:
-            List of saved file paths
-
-        Raises:
-            FileOperationError: If save operation fails
-        """
+    def save_uploaded_files(self, files: List[FileStorage], upload_dir: Path) -> List[Path]:
         try:
             # Ensure upload directory exists
             upload_dir.mkdir(parents=True, exist_ok=True)
@@ -59,21 +45,12 @@ class LocalUploadRepository(UploadRepository):
             raise FileOperationError(
                 f"Failed to save uploaded files to {upload_dir}",
                 file_path=str(upload_dir),
-                operation="save_uploads"
+                operation="save_uploads",
             ) from e
 
-    def generate_secure_filename(self, filename: Optional[str],
-                                 timestamp: Optional[str] = None) -> str:
-        """
-        Generate a secure filename for upload.
-
-        Args:
-            filename: Original filename (can be None)
-            timestamp: Optional timestamp string
-
-        Returns:
-            Secure filename string
-        """
+    def generate_secure_filename(
+        self, filename: Optional[str], timestamp: Optional[str] = None
+    ) -> str:
         if not filename:
             timestamp = timestamp or get_current_timestamp("compact")
             return f"uploaded_file_{timestamp}.bin"
@@ -89,19 +66,6 @@ class LocalUploadRepository(UploadRepository):
         return secure_name
 
     def cleanup_old_uploads(self, upload_dir: Path, max_age_hours: int = 24) -> int:
-        """
-        Clean up old uploaded files.
-
-        Args:
-            upload_dir: Upload directory to clean
-            max_age_hours: Maximum age of files to keep
-
-        Returns:
-            Number of files cleaned up
-
-        Raises:
-            FileOperationError: If cleanup fails
-        """
         if not upload_dir.exists():
             return 0
 
@@ -122,22 +86,10 @@ class LocalUploadRepository(UploadRepository):
             raise FileOperationError(
                 f"Failed to cleanup uploads in {upload_dir}",
                 file_path=str(upload_dir),
-                operation="cleanup"
+                operation="cleanup",
             ) from e
 
     def validate_uploaded_file(self, file: FileStorage) -> bool:
-        """
-        Validate an uploaded file.
-
-        Args:
-            file: FileStorage object to validate
-
-        Returns:
-            True if file is valid
-
-        Raises:
-            ValidationError: If file is invalid
-        """
         if file is None:
             raise ValidationError("No file provided")
 
@@ -145,11 +97,11 @@ class LocalUploadRepository(UploadRepository):
             raise ValidationError("No filename provided")
 
         # Check if file has content
-        if not hasattr(file, 'stream') or not file.stream:
+        if not hasattr(file, "stream") or not file.stream:
             raise ValidationError("File has no content")
 
         # Basic content type validation for images
-        if file.content_type and not file.content_type.startswith('image/'):
+        if file.content_type and not file.content_type.startswith("image/"):
             raise ValidationError(
                 f"Invalid file type: {file.content_type}. Only images are allowed."
             )

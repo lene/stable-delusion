@@ -20,7 +20,6 @@ class BaseResponse:
     message: str
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert response to dictionary for JSON serialization."""
         return asdict(self)
 
 
@@ -31,8 +30,9 @@ class ErrorResponse(BaseResponse):
     error_code: Optional[str] = None
     details: Optional[str] = None
 
-    def __init__(self, message: str, error_code: Optional[str] = None,
-                 details: Optional[str] = None) -> None:
+    def __init__(
+        self, message: str, error_code: Optional[str] = None, details: Optional[str] = None
+    ) -> None:
         """Initialize error response."""
         super().__init__(success=False, message=message)
         self.error_code = error_code
@@ -47,13 +47,15 @@ class GenerateImageResponse(BaseResponse):
     gcp_config: GCPConfig
     upscaled: bool
 
-    def __init__(self, *, image_config: ImageGenerationConfig,
-                 gcp_config: GCPConfig) -> None:
+    def __init__(self, *, image_config: ImageGenerationConfig, gcp_config: GCPConfig) -> None:
         """Initialize generation response."""
         super().__init__(
             success=image_config.generated_file is not None,
-            message="Image generated successfully" if image_config.generated_file
-            else "Image generation failed"
+            message=(
+                "Image generated successfully"
+                if image_config.generated_file
+                else "Image generation failed"
+            ),
         )
         self.image_config = image_config
         self.gcp_config = gcp_config
@@ -61,41 +63,33 @@ class GenerateImageResponse(BaseResponse):
 
     @property
     def generated_file(self) -> Optional[Path]:
-        """Access generated_file for backward compatibility."""
         return self.image_config.generated_file
 
     @property
     def prompt(self) -> str:
-        """Access prompt for backward compatibility."""
         return self.image_config.prompt
 
     @property
     def scale(self) -> Optional[int]:
-        """Access scale for backward compatibility."""
         return self.image_config.scale
 
     @property
     def saved_files(self) -> List[Path]:
-        """Access saved_files for backward compatibility."""
         return self.image_config.saved_files or []
 
     @property
     def output_dir(self) -> Optional[Path]:
-        """Access output_dir for backward compatibility."""
         return self.image_config.output_dir
 
     @property
     def project_id(self) -> Optional[str]:
-        """Access project_id from GCP config for backward compatibility."""
         return self.gcp_config.project_id
 
     @property
     def location(self) -> Optional[str]:
-        """Access location from GCP config for backward compatibility."""
         return self.gcp_config.location
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert response to dictionary for JSON serialization."""
         data = super().to_dict()
         # Convert Path objects to strings for JSON serialization
         if self.generated_file:
@@ -125,13 +119,18 @@ class UpscaleImageResponse(BaseResponse):
     scale_factor: str
     gcp_config: GCPConfig
 
-    def __init__(self, *, upscaled_file: Optional[Path], original_file: Path,
-                 scale_factor: str, gcp_config: GCPConfig) -> None:
+    def __init__(
+        self,
+        *,
+        upscaled_file: Optional[Path],
+        original_file: Path,
+        scale_factor: str,
+        gcp_config: GCPConfig,
+    ) -> None:
         """Initialize upscaling response."""
         super().__init__(
             success=upscaled_file is not None,
-            message="Image upscaled successfully" if upscaled_file
-            else "Image upscaling failed"
+            message="Image upscaled successfully" if upscaled_file else "Image upscaling failed",
         )
         self.upscaled_file = upscaled_file
         self.original_file = original_file
@@ -140,16 +139,13 @@ class UpscaleImageResponse(BaseResponse):
 
     @property
     def project_id(self) -> Optional[str]:
-        """Access project_id from GCP config for backward compatibility."""
         return self.gcp_config.project_id
 
     @property
     def location(self) -> Optional[str]:
-        """Access location from GCP config for backward compatibility."""
         return self.gcp_config.location
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert response to dictionary for JSON serialization."""
         data = super().to_dict()
         # Convert Path objects to strings for JSON serialization
         if self.upscaled_file:
@@ -171,8 +167,9 @@ class HealthResponse(BaseResponse):
     version: str
     status: str
 
-    def __init__(self, service: str = "NanoAPIClient", version: str = "1.0.0",
-                 status: str = "healthy") -> None:
+    def __init__(
+        self, service: str = "NanoAPIClient", version: str = "1.0.0", status: str = "healthy"
+    ) -> None:
         """Initialize health response."""
         super().__init__(success=True, message=f"Service {status}")
         self.service = service
@@ -190,7 +187,6 @@ class APIInfoResponse(BaseResponse):
     endpoints: Dict[str, str]
 
     def __init__(self) -> None:
-        """Initialize API info response."""
         super().__init__(success=True, message="API information retrieved")
         self.name = "NanoAPIClient API"
         self.description = "Flask web API for image generation using Google Gemini AI"
@@ -199,5 +195,5 @@ class APIInfoResponse(BaseResponse):
             "/": "API information",
             "/health": "Health check",
             "/generate": "Generate images from prompt and reference images",
-            "/openapi.json": "OpenAPI specification"
+            "/openapi.json": "OpenAPI specification",
         }

@@ -15,4 +15,9 @@ VALID_SCALE_FACTORS = [2, 4]
 
 # Model configuration
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-image-preview"
+# DEFAULT_SEEDREAM_MODEL = "bytedance/seedream-v4-edit"
+DEFAULT_SEEDREAM_MODEL = "seedream-4-0-250828"
 DEFAULT_UPSCALE_MODEL = "imagegeneration@002"
+
+# Supported models for image generation
+SUPPORTED_MODELS = ["gemini", "seedream"]

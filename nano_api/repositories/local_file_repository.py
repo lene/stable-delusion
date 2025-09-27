@@ -46,7 +46,7 @@ class LocalFileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to create directory: {dir_path}",
                 file_path=str(dir_path),
-                operation="create_directory"
+                operation="create_directory",
             ) from e
 
     def delete_file(self, file_path: Path) -> bool:
@@ -70,9 +70,7 @@ class LocalFileRepository(FileRepository):
             return True
         except (OSError, IOError) as e:
             raise FileOperationError(
-                f"Failed to delete file: {file_path}",
-                file_path=str(file_path),
-                operation="delete"
+                f"Failed to delete file: {file_path}", file_path=str(file_path), operation="delete"
             ) from e
 
     def move_file(self, source: Path, destination: Path) -> Path:
@@ -100,5 +98,5 @@ class LocalFileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to move file from {source} to {destination}",
                 file_path=str(source),
-                operation="move"
+                operation="move",
             ) from e

@@ -30,6 +30,14 @@ class AWSConfig:
 
 
 @dataclass
+class SeedreamConfig:
+    """SeeEdit Seedream API configuration."""
+
+    api_key: Optional[str] = None
+    api_endpoint: Optional[str] = None
+
+
+@dataclass
 class StorageConfig:
     """Storage and file system configuration."""
 
@@ -53,6 +61,7 @@ class ImageGenerationConfig:
     generated_file: Optional[Path] = None
     prompt: str = ""
     scale: Optional[int] = None
+    image_size: Optional[str] = None
     saved_files: Optional[List[Path]] = None
     output_dir: Optional[Path] = None
 
@@ -65,9 +74,9 @@ class GeminiClientConfig:
     aws: Optional[AWSConfig] = None
     storage: Optional[StorageConfig] = None
     app: Optional[AppConfig] = None
+    seedream: Optional[SeedreamConfig] = None
 
     def __post_init__(self):
-        """Initialize nested configs if not provided."""
         if self.gcp is None:
             self.gcp = GCPConfig()
         if self.aws is None:
@@ -76,3 +85,5 @@ class GeminiClientConfig:
             self.storage = StorageConfig()
         if self.app is None:
             self.app = AppConfig()
+        if self.seedream is None:
+            self.seedream = SeedreamConfig()

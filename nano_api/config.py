@@ -5,7 +5,6 @@ Provides environment-based configuration with validation and defaults.
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
-import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,25 +35,19 @@ class Config:
     aws_secret_access_key: Optional[str]
 
     def __post_init__(self) -> None:
-        """Validate configuration after initialization."""
-        if not self.gemini_api_key:
-            logging.error("%s", os.environ)
-            raise ConfigurationError(
-                "GEMINI_API_KEY environment variable is required but not set",
-                config_key="GEMINI_API_KEY"
-            )
+        # GEMINI_API_KEY validation is now done only when needed in GeminiClient
 
         # Validate S3 configuration if S3 storage is enabled
         if self.storage_type == "s3":
             if not self.s3_bucket:
                 raise ConfigurationError(
                     "AWS_S3_BUCKET environment variable is required when storage_type is 's3'",
-                    config_key="AWS_S3_BUCKET"
+                    config_key="AWS_S3_BUCKET",
                 )
             if not self.s3_region:
                 raise ConfigurationError(
                     "AWS_S3_REGION environment variable is required when storage_type is 's3'",
-                    config_key="AWS_S3_REGION"
+                    config_key="AWS_S3_REGION",
                 )
 
         # Ensure local directories exist only for local storage
@@ -70,22 +63,16 @@ class ConfigManager:
 
     @classmethod
     def get_config(cls) -> Config:
-        """
-        Get the application configuration.
-        Uses singleton pattern to ensure consistent configuration across the app.
-        """
         if cls._instance is None:
             cls._instance = cls._create_config()
         return cls._instance
 
     @classmethod
     def reset_config(cls) -> None:
-        """Reset the configuration instance (useful for testing)."""
         cls._instance = None
 
     @classmethod
     def _create_config(cls) -> Config:
-        """Create configuration from environment variables and .env file."""
         # Load .env file if it exists (environment variables take precedence)
         load_dotenv(override=False)
 
@@ -95,13 +82,11 @@ class ConfigManager:
             gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
             upload_folder=Path(os.getenv("UPLOAD_FOLDER", "uploads")),
             default_output_dir=Path(os.getenv("DEFAULT_OUTPUT_DIR", ".")),
-            flask_debug=os.getenv("FLASK_DEBUG", "False").lower() in (
-                "true", "1", "yes"
-            ),
+            flask_debug=os.getenv("FLASK_DEBUG", "False").lower() in ("true", "1", "yes"),
             # Storage configuration
             storage_type=os.getenv("STORAGE_TYPE", "local").lower(),
             s3_bucket=os.getenv("AWS_S3_BUCKET"),
             s3_region=os.getenv("AWS_S3_REGION"),
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         )

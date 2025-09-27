@@ -50,7 +50,7 @@ class LocalMetadataRepository(MetadataRepository):
             file_path = self.metadata_dir / filename
 
             # Write JSON to file
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(metadata.to_json())
 
             logging.info("Metadata saved locally: %s", file_path)
@@ -60,7 +60,7 @@ class LocalMetadataRepository(MetadataRepository):
             raise FileOperationError(
                 f"Failed to save metadata locally: {str(e)}",
                 operation="save_metadata",
-                file_path=str(file_path) if 'file_path' in locals() else "unknown"
+                file_path=str(file_path) if "file_path" in locals() else "unknown",
             ) from e
 
     def load_metadata(self, metadata_key: str) -> GenerationMetadata:
@@ -83,11 +83,11 @@ class LocalMetadataRepository(MetadataRepository):
                 raise FileOperationError(
                     f"Metadata file not found: {metadata_key}",
                     operation="load_metadata",
-                    file_path=metadata_key
+                    file_path=metadata_key,
                 )
 
             # Read JSON content
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 json_content = f.read()
 
             # Parse metadata
@@ -100,7 +100,7 @@ class LocalMetadataRepository(MetadataRepository):
             raise FileOperationError(
                 f"Failed to load metadata locally: {str(e)}",
                 operation="load_metadata",
-                file_path=metadata_key
+                file_path=metadata_key,
             ) from e
 
     def metadata_exists(self, content_hash: str) -> Optional[str]:

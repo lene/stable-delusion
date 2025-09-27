@@ -13,13 +13,16 @@ from typing import Tuple
 from flask import Flask, jsonify, request, Response
 
 from nano_api.config import ConfigManager
-from nano_api.exceptions import (ValidationError, ImageGenerationError,
-                                 UpscalingError, FileOperationError,
-                                 ConfigurationError)
+from nano_api.exceptions import (
+    ValidationError,
+    ImageGenerationError,
+    UpscalingError,
+    FileOperationError,
+    ConfigurationError,
+)
 from nano_api.generate import DEFAULT_PROMPT
 from nano_api.models.requests import GenerateImageRequest
-from nano_api.models.responses import (ErrorResponse, HealthResponse,
-                                       APIInfoResponse)
+from nano_api.models.responses import ErrorResponse, HealthResponse, APIInfoResponse
 from nano_api.factories import ServiceFactory, RepositoryFactory
 from nano_api.utils import create_error_response
 
@@ -30,6 +33,7 @@ app = Flask(__name__)
 
 class _AppState:
     """Application state container to avoid global variables."""
+
     def __init__(self):
         self.config = None
         self.upload_repository = None
@@ -39,7 +43,6 @@ _state = _AppState()
 
 
 def get_config():
-    """Get configuration instance, creating it if needed."""
     if _state.config is None:
         _state.config = ConfigManager.get_config()
         app.config["UPLOAD_FOLDER"] = _state.config.upload_folder
@@ -47,7 +50,6 @@ def get_config():
 
 
 def get_upload_repository():
-    """Get upload repository instance, creating it if needed."""
     if _state.upload_repository is None:
         _state.upload_repository = RepositoryFactory.create_upload_repository()
     return _state.upload_repository
@@ -97,12 +99,12 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
             images=saved_files,
             project_id=request.form.get("project_id") or config.project_id,
             location=request.form.get("location") or config.location,
-            output_dir=Path(
-                request.form.get("output_dir") or config.default_output_dir
-            ),
+            output_dir=Path(request.form.get("output_dir") or config.default_output_dir),
             scale=int(request.form["scale"]) if request.form.get("scale") else None,
+            image_size=request.form.get("size"),
             custom_output=request.form.get("output"),
-            storage_type=request.form.get("storage_type")
+            storage_type=request.form.get("storage_type"),
+            model=request.form.get("model"),
         )
 
     except ValidationError as e:
@@ -118,7 +120,8 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
             project_id=request_dto.project_id,
             location=request_dto.location,
             output_dir=request_dto.output_dir,
-            storage_type=request_dto.storage_type
+            storage_type=request_dto.storage_type,
+            model=request_dto.model,
         )
     except (ConfigurationError, ValidationError) as e:
         error_response = ErrorResponse(str(e))
@@ -136,8 +139,7 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
         return jsonify(error_response.to_dict()), 500
 
     # Handle custom output filename if provided
-    if response_dto.generated_file and request_dto.custom_output and \
-            request_dto.output_dir:
+    if response_dto.generated_file and request_dto.custom_output and request_dto.output_dir:
         try:
             custom_path = request_dto.output_dir / request_dto.custom_output
             response_dto.generated_file.rename(custom_path)
@@ -151,16 +153,20 @@ def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-state
 
 @app.route("/metadata/<hash_prefix>", methods=["GET"])
 def get_metadata(hash_prefix: str) -> Tuple[Response, int]:
-    """Get metadata by content hash prefix."""
     try:
         metadata_repo = RepositoryFactory.create_metadata_repository()
         metadata_keys = metadata_repo.list_metadata_by_hash_prefix(hash_prefix)
 
-        return jsonify({
-            "hash_prefix": hash_prefix,
-            "matching_metadata": len(metadata_keys),
-            "metadata_keys": metadata_keys[:10]  # Limit to first 10 for brevity
-        }), 200
+        return (
+            jsonify(
+                {
+                    "hash_prefix": hash_prefix,
+                    "matching_metadata": len(metadata_keys),
+                    "metadata_keys": metadata_keys[:10],  # Limit to first 10 for brevity
+                }
+            ),
+            200,
+        )
 
     except (FileOperationError, ConfigurationError) as e:
         error_response = ErrorResponse(f"Failed to query metadata: {str(e)}")

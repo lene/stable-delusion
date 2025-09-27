@@ -25,33 +25,25 @@ def _get_authenticated_headers() -> Dict[str, str]:
     credentials, _ = default()
     auth_req = Request()
     credentials.refresh(auth_req)
-    return {
-        "Authorization": f"Bearer {credentials.token}",
-        "Content-Type": "application/json"
-    }
+    return {"Authorization": f"Bearer {credentials.token}", "Content-Type": "application/json"}
 
 
 def _build_upscale_url(project_id: str, location: str) -> str:
-    return (f"https://{location}-aiplatform.googleapis.com/v1/projects/"
-            f"{project_id}/locations/{location}/publishers/google/models/"
-            f"imagegeneration@002:predict")
+    return (
+        f"https://{location}-aiplatform.googleapis.com/v1/projects/"
+        f"{project_id}/locations/{location}/publishers/google/models/"
+        f"imagegeneration@002:predict"
+    )
 
 
 def _create_upscale_payload(base64_image: str, upscale_factor: str) -> Dict[str, Any]:
     return {
-        "instances": [{
-            "prompt": "",
-            "image": {
-                "bytesBase64Encoded": base64_image
-            }
-        }],
+        "instances": [{"prompt": "", "image": {"bytesBase64Encoded": base64_image}}],
         "parameters": {
             "sampleCount": 1,
             "mode": "upscale",
-            "upscaleConfig": {
-                "upscaleFactor": upscale_factor
-            }
-        }
+            "upscaleConfig": {"upscaleFactor": upscale_factor},
+        },
     }
 
 
@@ -71,42 +63,36 @@ def upscale_image(
         # Get authentication headers first (preserves original error behavior)
         headers = _get_authenticated_headers()
     except Exception as e:
-        raise AuthenticationError(
-            f"Failed to get authentication credentials: {e}"
-        ) from e
+        raise AuthenticationError(f"Failed to get authentication credentials: {e}") from e
 
     try:
         # Load and encode image to base64
         base64_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
     except (IOError, OSError) as e:
-        raise UpscalingError(
-            f"Failed to read image file: {e}",
-            image_path=str(image_path)
-        ) from e
+        raise UpscalingError(f"Failed to read image file: {e}", image_path=str(image_path)) from e
 
     try:
         # Make the API call
         response = requests.post(
             _build_upscale_url(project_id, location),
             json=_create_upscale_payload(base64_image, upscale_factor),
-            headers=headers, timeout=60
+            headers=headers,
+            timeout=60,
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
         if response.status_code == 401:
-            raise AuthenticationError(
-                "Authentication failed with Vertex AI"
-            ) from e
+            raise AuthenticationError("Authentication failed with Vertex AI") from e
         raise APIError(
             f"Upscaling API request failed: {e}",
             status_code=response.status_code,
-            response_body=response.text
+            response_body=response.text,
         ) from e
     except requests.exceptions.RequestException as e:
         raise UpscalingError(
             f"Network error during upscaling: {e}",
             scale_factor=upscale_factor,
-            image_path=str(image_path)
+            image_path=str(image_path),
         ) from e
 
     try:
@@ -115,7 +101,7 @@ def upscale_image(
         raise UpscalingError(
             f"Failed to decode upscaled image: {e}",
             scale_factor=upscale_factor,
-            image_path=str(image_path)
+            image_path=str(image_path),
         ) from e
 
 
@@ -126,14 +112,13 @@ def upscale_image(
 
 # --- Run the upscaling process ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Upscale an image using Google Vertex AI."
-    )
+    parser = argparse.ArgumentParser(description="Upscale an image using Google Vertex AI.")
+    parser.add_argument("image_path", type=Path, help="Path to the image to upscale.")
     parser.add_argument(
-        "image_path", type=Path, help="Path to the image to upscale."
-    )
-    parser.add_argument(
-        "--scale", type=int, default=4, choices=[2, 4],
+        "--scale",
+        type=int,
+        default=4,
+        choices=[2, 4],
         help="Upscale factor: 2 or 4 (default: 4).",
     )
     args = parser.parse_args()
@@ -141,7 +126,10 @@ if __name__ == "__main__":
     config = ConfigManager.get_config()
     input_path = args.image_path
     upscaled_img = upscale_image(
-        input_path, config.project_id, config.location, upscale_factor=f"x{args.scale}",
+        input_path,
+        config.project_id,
+        config.location,
+        upscale_factor=f"x{args.scale}",
     )
     output_path = input_path.parent / f"upscaled_{input_path.name}"
     upscaled_img.save(str(output_path))

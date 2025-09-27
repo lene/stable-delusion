@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "NanoAPIClient API",
-    "description": "Flask web API for image generation using Google Gemini AI. Supports multi-image input, custom prompts, automatic upscaling integration, and flexible storage backends (local filesystem or AWS S3).",
+    "description": "Flask web API for image generation using multiple AI models including Google Gemini 2.5 Flash and SeeEdit Seedream 4.0. Supports multi-image input, custom prompts, automatic upscaling integration, and flexible storage backends (local filesystem or AWS S3).",
     "version": "1.0.0",
     "contact": {
       "name": "Lene Preuss",
@@ -60,7 +60,7 @@
     "/generate": {
       "post": {
         "summary": "Generate image from prompt and reference images",
-        "description": "Upload reference images and generate new images using Google Gemini AI with optional upscaling. Supports both local filesystem and AWS S3 storage backends.",
+        "description": "Upload reference images and generate new images using AI models (Google Gemini 2.5 Flash or SeeEdit Seedream 4.0) with optional upscaling. Supports both local filesystem and AWS S3 storage backends.",
         "operationId": "generateImage",
         "requestBody": {
           "required": true,
@@ -219,6 +219,12 @@
             "enum": ["local", "s3"],
             "description": "Storage backend for generated images. 'local' saves to filesystem, 's3' saves to AWS S3. Uses configuration default if not provided.",
             "example": "s3"
+          },
+          "model": {
+            "type": "string",
+            "enum": ["gemini", "seedream"],
+            "description": "AI model to use for image generation. 'gemini' uses Google Gemini 2.5 Flash, 'seedream' uses SeeEdit Seedream 4.0. Defaults to 'gemini' if not provided.",
+            "example": "gemini"
           }
         },
         "required": ["images"]

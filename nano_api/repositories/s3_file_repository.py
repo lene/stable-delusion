@@ -13,8 +13,12 @@ from typing import TYPE_CHECKING, List, Optional
 from nano_api.config import Config
 from nano_api.exceptions import FileOperationError, ValidationError
 from nano_api.repositories.interfaces import FileRepository
-from nano_api.repositories.s3_client import (S3ClientManager, generate_s3_key,
-                                             build_s3_url, parse_s3_url)
+from nano_api.repositories.s3_client import (
+    S3ClientManager,
+    generate_s3_key,
+    build_s3_url,
+    parse_s3_url,
+)
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -31,7 +35,7 @@ class S3FileRepository(FileRepository):
             config: Application configuration containing S3 settings
         """
         self.config = config
-        self.s3_client: 'S3Client' = S3ClientManager.create_s3_client(config)
+        self.s3_client: "S3Client" = S3ClientManager.create_s3_client(config)
         # S3ClientManager validation ensures bucket_name is not None
         self.bucket_name: str = config.s3_bucket  # type: ignore[assignment]
         self.key_prefix = "files/"
@@ -74,19 +78,16 @@ class S3FileRepository(FileRepository):
             s3_key = generate_s3_key(f"{str(dir_path).strip('/')}/", self.key_prefix)
 
             # Ensure the key ends with / to indicate directory
-            if not s3_key.endswith('/'):
-                s3_key += '/'
+            if not s3_key.endswith("/"):
+                s3_key += "/"
 
             # Create empty object as directory marker
             self.s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=s3_key,
-                Body=b'',
-                ContentType='application/x-directory',
-                Metadata={
-                    'type': 'directory_marker',
-                    'created_by': 'nano-api-client'
-                }
+                Body=b"",
+                ContentType="application/x-directory",
+                Metadata={"type": "directory_marker", "created_by": "nano-api-client"},
             )
 
             logging.info("S3 directory marker created: %s", s3_key)
@@ -96,7 +97,7 @@ class S3FileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to create S3 directory marker: {str(e)}",
                 file_path=str(dir_path),
-                operation="create_directory_s3"
+                operation="create_directory_s3",
             ) from e
 
     def delete_file(self, file_path: Path) -> bool:
@@ -144,7 +145,7 @@ class S3FileRepository(FileRepository):
                 CopySource=copy_source,
                 Bucket=self.bucket_name,
                 Key=dest_key,
-                MetadataDirective='COPY'
+                MetadataDirective="COPY",
             )
 
             # Delete original object
@@ -157,7 +158,7 @@ class S3FileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to move S3 file: {str(e)}",
                 file_path=f"{source} -> {destination}",
-                operation="move_file_s3"
+                operation="move_file_s3",
             ) from e
 
     def list_files(self, directory_path: Path, pattern: Optional[str] = None) -> List[Path]:
@@ -176,20 +177,20 @@ class S3FileRepository(FileRepository):
         """
         try:
             # Generate S3 prefix
-            dir_prefix = generate_s3_key(str(directory_path).strip('/') + '/', self.key_prefix)
+            dir_prefix = generate_s3_key(str(directory_path).strip("/") + "/", self.key_prefix)
 
             # List objects with prefix
-            paginator = self.s3_client.get_paginator('list_objects_v2')
+            paginator = self.s3_client.get_paginator("list_objects_v2")
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=dir_prefix)
 
             file_paths = []
             for page in pages:
-                contents = page.get('Contents', [])
+                contents = page.get("Contents", [])
                 for obj in contents:
-                    key = obj['Key']
+                    key = obj["Key"]
 
                     # Skip directory markers
-                    if key.endswith('/'):
+                    if key.endswith("/"):
                         continue
 
                     filename = Path(key).name
@@ -203,7 +204,7 @@ class S3FileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to list S3 files: {str(e)}",
                 file_path=str(directory_path),
-                operation="list_files_s3"
+                operation="list_files_s3",
             ) from e
 
     def get_file_size(self, file_path: Path) -> int:
@@ -222,13 +223,13 @@ class S3FileRepository(FileRepository):
         try:
             s3_key = self._extract_s3_key(file_path)
             response = self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
-            return response['ContentLength']
+            return response["ContentLength"]
 
         except Exception as e:
             raise FileOperationError(
                 f"Failed to get S3 file size: {str(e)}",
                 file_path=str(file_path),
-                operation="get_file_size_s3"
+                operation="get_file_size_s3",
             ) from e
 
     def cleanup_old_files(self, directory_path: Path, max_age_hours: int = 24) -> int:
@@ -250,20 +251,20 @@ class S3FileRepository(FileRepository):
 
             # List all files in directory
             files_to_delete = []
-            dir_prefix = generate_s3_key(str(directory_path).strip('/') + '/', self.key_prefix)
+            dir_prefix = generate_s3_key(str(directory_path).strip("/") + "/", self.key_prefix)
 
-            paginator = self.s3_client.get_paginator('list_objects_v2')
+            paginator = self.s3_client.get_paginator("list_objects_v2")
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=dir_prefix)
 
             for page in pages:
-                if 'Contents' in page:
-                    for obj in page['Contents']:
-                        key = obj['Key']
-                        last_modified = obj['LastModified'].replace(tzinfo=None)
+                if "Contents" in page:
+                    for obj in page["Contents"]:
+                        key = obj["Key"]
+                        last_modified = obj["LastModified"].replace(tzinfo=None)
 
                         # Skip directory markers and check age
-                        if not key.endswith('/') and last_modified < cutoff_time:
-                            files_to_delete.append({'Key': key})
+                        if not key.endswith("/") and last_modified < cutoff_time:
+                            files_to_delete.append({"Key": key})
 
             # Delete old files in batches
             deleted_count = 0
@@ -275,7 +276,7 @@ class S3FileRepository(FileRepository):
 
                     self.s3_client.delete_objects(
                         Bucket=self.bucket_name,
-                        Delete={'Objects': batch}  # type: ignore[typeddict-item]
+                        Delete={"Objects": batch},  # type: ignore[typeddict-item]
                     )
                     deleted_count += len(batch)
 
@@ -286,7 +287,7 @@ class S3FileRepository(FileRepository):
             raise FileOperationError(
                 f"Failed to cleanup old S3 files: {str(e)}",
                 file_path=str(directory_path),
-                operation="cleanup_old_files_s3"
+                operation="cleanup_old_files_s3",
             ) from e
 
     def _extract_s3_key(self, file_path: Path) -> str:
@@ -305,25 +306,23 @@ class S3FileRepository(FileRepository):
         path_str = str(file_path)
 
         # Handle S3 URLs
-        if path_str.startswith('s3://'):
+        if path_str.startswith("s3://"):
             try:
                 bucket, key = parse_s3_url(path_str)
                 if bucket != self.bucket_name:
                     raise ValidationError(
                         f"S3 bucket mismatch: expected {self.bucket_name}, got {bucket}",
                         field="file_path",
-                        value=path_str
+                        value=path_str,
                     )
                 return key
             except ValueError as e:
                 raise ValidationError(
-                    f"Invalid S3 URL format: {path_str}",
-                    field="file_path",
-                    value=path_str
+                    f"Invalid S3 URL format: {path_str}", field="file_path", value=path_str
                 ) from e
 
         # Handle direct keys (remove leading slash if present)
-        return path_str.lstrip('/')
+        return path_str.lstrip("/")
 
     def _matches_pattern(self, filename: str, pattern: str) -> bool:
         """
@@ -337,4 +336,5 @@ class S3FileRepository(FileRepository):
             True if filename matches pattern
         """
         import fnmatch
+
         return fnmatch.fnmatch(filename, pattern)

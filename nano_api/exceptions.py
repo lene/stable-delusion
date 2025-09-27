@@ -22,7 +22,6 @@ class NanoAPIError(Exception):
         super().__init__(self.message)
 
     def __str__(self) -> str:
-        """Return string representation of the exception."""
         if self.details:
             return f"{self.message}: {self.details}"
         return self.message
@@ -70,8 +69,7 @@ class ImageGenerationError(NanoAPIError):
 class UpscalingError(NanoAPIError):
     """Exception raised when image upscaling fails."""
 
-    def __init__(self, message: str, scale_factor: str = "",
-                 image_path: str = "") -> None:
+    def __init__(self, message: str, scale_factor: str = "", image_path: str = "") -> None:
         """
         Initialize upscaling error.
 
@@ -140,8 +138,7 @@ class FileOperationError(NanoAPIError):
 class APIError(NanoAPIError):
     """Exception raised for external API errors."""
 
-    def __init__(self, message: str, status_code: int = 0,
-                 response_body: str = "") -> None:
+    def __init__(self, message: str, status_code: int = 0, response_body: str = "") -> None:
         """
         Initialize API error.
 
