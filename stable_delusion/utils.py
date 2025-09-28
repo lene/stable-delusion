@@ -89,3 +89,92 @@ def validate_image_file(path: Path) -> None:
 
 def ensure_directory_exists(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+# Logging utilities for consistent service and operation logging
+def log_service_creation(service_name: str, model: str = "", **kwargs) -> None:
+    """Log service creation with standardized format."""
+    import logging  # pylint: disable=import-outside-toplevel
+
+    if model:
+        logging.info("🏗️ Creating %s for model: %s", service_name, model)
+    else:
+        logging.info("🏗️ Creating %s", service_name)
+
+    for key, value in kwargs.items():
+        if value is not None:
+            logging.info("   %s: %s", key, value)
+
+
+def log_operation_start(operation: str, **details) -> None:
+    """Log operation start with standardized format."""
+    import logging  # pylint: disable=import-outside-toplevel
+
+    logging.info("🚀 Starting %s", operation)
+    for key, value in details.items():
+        if value is not None:
+            logging.info("   %s: %s", key, value)
+
+
+def log_operation_success(operation: str, result_count: Optional[int] = None, **details) -> None:
+    """Log operation success with standardized format."""
+    import logging  # pylint: disable=import-outside-toplevel
+
+    if result_count is not None:
+        logging.info("✅ %s completed: %d items", operation, result_count)
+    else:
+        logging.info("✅ %s completed", operation)
+
+    for key, value in details.items():
+        if value is not None:
+            logging.info("   %s: %s", key, value)
+
+
+def log_operation_failure(operation: str, error: Exception) -> None:
+    """Log operation failure with standardized format."""
+    import logging  # pylint: disable=import-outside-toplevel
+
+    logging.error("❌ %s failed: %s", operation, str(error))
+
+
+# Error handling utilities
+def handle_file_operation_error(operation: str, file_path: str, error: Exception) -> None:
+    """Handle file operation errors with consistent logging and re-raising."""
+    import logging  # pylint: disable=import-outside-toplevel
+
+    logging.error("File operation '%s' failed for %s: %s", operation, file_path, str(error))
+    raise FileOperationError(
+        f"Failed to {operation}: {str(error)}",
+        file_path=file_path,
+        operation=operation,
+    ) from error
+
+
+def safe_file_operation(operation_name: str, file_path: str, operation_func):
+    """Execute file operation with standardized error handling."""
+    try:
+        return operation_func()
+    except (OSError, IOError) as e:
+        handle_file_operation_error(operation_name, file_path, e)
+        return None  # This line will never be reached due to exception, but satisfies pylint
+
+
+# Path and URL utilities
+def normalize_path_for_key(path: str) -> str:
+    """Normalize file path for use as S3 key or similar identifier."""
+    return str(path).strip("/")
+
+
+def is_s3_url(url: str) -> bool:
+    """Check if a URL is an S3 URL."""
+    return url.startswith("s3://")
+
+
+def is_https_s3_url(url: str) -> bool:
+    """Check if a URL is an HTTPS S3 URL."""
+    return url.startswith("https://") and (".s3." in url or ".s3-" in url)
+
+
+def is_any_s3_url(url: str) -> bool:
+    """Check if a URL is any form of S3 URL."""
+    return is_s3_url(url) or is_https_s3_url(url)

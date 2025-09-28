@@ -5,18 +5,17 @@ Provides direct instantiation with clear dependencies.
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
-import logging
 from pathlib import Path
 from typing import Optional
 
 from stable_delusion.config import ConfigManager
+from stable_delusion.utils import log_service_creation
 from stable_delusion.repositories.interfaces import (
     ImageRepository,
     FileRepository,
     MetadataRepository,
 )
 from stable_delusion.services.interfaces import (
-    FileService as FileServiceInterface,
     ImageGenerationService,
     ImageUpscalingService,
 )
@@ -61,15 +60,6 @@ def create_metadata_repository(storage_type: Optional[str] = None) -> MetadataRe
     return LocalMetadataRepository(config)
 
 
-def create_file_service() -> FileServiceInterface:
-    """Create file service with repositories."""
-    from stable_delusion.services.file_service import LocalFileService
-
-    image_repo = create_image_repository()
-    file_repo = create_file_repository()
-    return LocalFileService(image_repository=image_repo, file_repository=file_repo)
-
-
 def create_image_generation_service(
     project_id: Optional[str] = None,
     location: Optional[str] = None,
@@ -81,27 +71,26 @@ def create_image_generation_service(
     image_repo = create_image_repository(storage_type)
     model = model or "gemini"  # Default to gemini for backward compatibility
 
-    logging.info("🏗️ Creating image generation service for model: %s", model)
+    log_service_creation(
+        "image generation service",
+        model=model,
+        storage_type=storage_type,
+        output_dir=output_dir,
+    )
 
     if model == "seedream":
         from stable_delusion.services.seedream_service import SeedreamImageGenerationService
-        logging.info("🌱 Creating SeedreamImageGenerationService")
-        service = SeedreamImageGenerationService.create(
+        return SeedreamImageGenerationService.create(
             output_dir=output_dir, image_repository=image_repo
         )
-        logging.info("✅ SeedreamImageGenerationService created")
-        return service
 
     from stable_delusion.services.gemini_service import GeminiImageGenerationService
-    logging.info("🔷 Creating GeminiImageGenerationService")
-    gemini_service = GeminiImageGenerationService.create(
+    return GeminiImageGenerationService.create(
         project_id=project_id,
         location=location,
         output_dir=output_dir,
         image_repository=image_repo,
     )
-    logging.info("✅ GeminiImageGenerationService created")
-    return gemini_service
 
 
 def create_upscaling_service(
@@ -116,10 +105,9 @@ def create_all_services(
     project_id: Optional[str] = None,
     location: Optional[str] = None,
     output_dir: Optional[Path] = None,
-) -> tuple[FileServiceInterface, ImageGenerationService, ImageUpscalingService]:
-    """Create all services."""
+) -> tuple[ImageGenerationService, ImageUpscalingService]:
+    """Create core services."""
     return (
-        create_file_service(),
         create_image_generation_service(
             project_id=project_id, location=location, output_dir=output_dir
         ),
