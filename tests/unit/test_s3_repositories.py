@@ -404,7 +404,7 @@ class TestS3RepositoryIntegration:
 
     def test_repository_factory_creates_s3_repositories(self):
         with patch(
-            "stable_delusion.factories.repository_factory.ConfigManager.get_config"
+            "stable_delusion.builders.ConfigManager.get_config"
         ) as mock_config:
             mock_config.return_value = MagicMock(storage_type="s3")
 
@@ -414,10 +414,10 @@ class TestS3RepositoryIntegration:
                 with patch(
                     "stable_delusion.repositories.s3_file_repository.S3ClientManager.create_s3_client"  # noqa: E501  # pylint: disable=line-too-long
                 ):
-                    from stable_delusion.factories.repository_factory import RepositoryFactory
+                    from stable_delusion import builders
 
-                    image_repo = RepositoryFactory.create_image_repository()
-                    file_repo = RepositoryFactory.create_file_repository()
+                    image_repo = builders.create_image_repository()
+                    file_repo = builders.create_file_repository()
 
                     assert isinstance(image_repo, S3ImageRepository)
                     assert isinstance(file_repo, S3FileRepository)

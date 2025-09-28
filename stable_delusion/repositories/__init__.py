@@ -8,17 +8,15 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 from stable_delusion.repositories.interfaces import (
     ImageRepository,
     FileRepository,
-    UploadRepository,
+    MetadataRepository,
 )
 from stable_delusion.repositories.local_file_repository import LocalFileRepository
 from stable_delusion.repositories.local_image_repository import LocalImageRepository
-from stable_delusion.repositories.upload_repository import LocalUploadRepository
 
 __all__ = [
     "ImageRepository",
     "FileRepository",
-    "UploadRepository",
+    "MetadataRepository",
     "LocalImageRepository",
     "LocalFileRepository",
-    "LocalUploadRepository",
 ]

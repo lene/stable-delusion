@@ -20,9 +20,9 @@ from google.genai.types import GenerateContentResponse
 from PIL import Image
 
 from stable_delusion.config import ConfigManager
-from stable_delusion.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION, DEFAULT_GEMINI_MODEL
+from stable_delusion.config import DEFAULT_PROJECT_ID, DEFAULT_LOCATION, DEFAULT_GEMINI_MODEL
 from stable_delusion.exceptions import ImageGenerationError, FileOperationError
-from stable_delusion.factories import RepositoryFactory
+from stable_delusion import builders
 from stable_delusion.models.client_config import GeminiClientConfig
 from stable_delusion.models.metadata import GenerationMetadata
 from stable_delusion.upscale import upscale_image
@@ -311,9 +311,9 @@ class GeminiClient:
                 setattr(config, config_attr, override_value)
 
     def _initialize_repositories(self) -> None:
-        self.image_repository = RepositoryFactory.create_image_repository()
-        self.file_repository = RepositoryFactory.create_file_repository()
-        self.metadata_repository = RepositoryFactory.create_metadata_repository()
+        self.image_repository = builders.create_image_repository()
+        self.file_repository = builders.create_file_repository()
+        self.metadata_repository = builders.create_metadata_repository()
 
     def _restore_original_config_values(self, config, original_values: dict) -> None:
         for key, value in original_values.items():
@@ -606,9 +606,7 @@ def _create_cli_request_dto(
 def _execute_image_generation(
     request_dto: "GenerateImageRequest",
 ) -> "GenerateImageResponse":
-    from stable_delusion.factories import ServiceFactory
-
-    service = ServiceFactory.create_image_generation_service(
+    service = builders.create_image_generation_service(
         project_id=request_dto.project_id,
         location=request_dto.location,
         output_dir=request_dto.output_dir,

@@ -23,7 +23,7 @@ from stable_delusion.exceptions import (
 from stable_delusion.generate import DEFAULT_PROMPT
 from stable_delusion.models.requests import GenerateImageRequest
 from stable_delusion.models.responses import ErrorResponse, HealthResponse, APIInfoResponse
-from stable_delusion.factories import ServiceFactory, RepositoryFactory
+from stable_delusion import builders
 from stable_delusion.utils import create_error_response
 
 
@@ -36,7 +36,7 @@ class _AppState:
 
     def __init__(self):
         self.config = None
-        self.upload_repository = None
+        self.file_repository = None
 
 
 _state = _AppState()
@@ -49,10 +49,10 @@ def get_config():
     return _state.config
 
 
-def get_upload_repository():
-    if _state.upload_repository is None:
-        _state.upload_repository = RepositoryFactory.create_upload_repository()
-    return _state.upload_repository
+def get_file_repository():
+    if _state.file_repository is None:
+        _state.file_repository = builders.create_file_repository()
+    return _state.file_repository
 
 
 @app.route("/health", methods=["GET"])
@@ -83,7 +83,7 @@ def _validate_and_save_uploaded_files() -> List[Path]:
         raise ValueError("Missing 'images' parameter")
 
     images = request.files.getlist("images")
-    return get_upload_repository().save_uploaded_files(
+    return get_file_repository().save_uploaded_files(
         images, app.config["UPLOAD_FOLDER"]
     )
 
@@ -112,7 +112,7 @@ def _create_request_dto(saved_files: List[Path]) -> GenerateImageRequest:
 
 
 def _create_generation_service(request_dto: GenerateImageRequest) -> Any:
-    return ServiceFactory.create_image_generation_service(
+    return builders.create_image_generation_service(
         project_id=request_dto.project_id,
         location=request_dto.location,
         output_dir=request_dto.output_dir,
@@ -165,7 +165,7 @@ def generate() -> Tuple[Response, int]:
 @app.route("/metadata/<hash_prefix>", methods=["GET"])
 def get_metadata(hash_prefix: str) -> Tuple[Response, int]:
     try:
-        metadata_repo = RepositoryFactory.create_metadata_repository()
+        metadata_repo = builders.create_metadata_repository()
         metadata_keys = metadata_repo.list_metadata_by_hash_prefix(hash_prefix)
 
         return (

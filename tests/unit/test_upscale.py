@@ -9,7 +9,7 @@ import pytest
 import requests
 from PIL import Image
 
-from stable_delusion.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from stable_delusion.config import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
 from stable_delusion.exceptions import UpscalingError, APIError
 from stable_delusion.upscale import upscale_image
 

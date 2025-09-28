@@ -13,7 +13,6 @@ from werkzeug.datastructures import FileStorage
 from stable_delusion.exceptions import FileOperationError, ValidationError
 from stable_delusion.repositories.local_file_repository import LocalFileRepository
 from stable_delusion.repositories.local_image_repository import LocalImageRepository
-from stable_delusion.repositories.upload_repository import LocalUploadRepository
 
 
 class TestLocalImageRepository:
@@ -206,12 +205,12 @@ class TestLocalFileRepository:
         assert destination.parent.exists()
 
 
-class TestLocalUploadRepository:
-    """Test cases for LocalUploadRepository."""
+class TestLocalFileRepositoryUploads:
+    """Test cases for LocalFileRepository upload functionality."""
 
     @pytest.fixture
     def repository(self):
-        return LocalUploadRepository()
+        return LocalFileRepository()
 
     @pytest.fixture
     def temp_dir(self):

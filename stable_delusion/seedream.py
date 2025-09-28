@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from byteplussdkarkruntime import Ark  # type: ignore
 
-from stable_delusion.conf import DEFAULT_SEEDREAM_MODEL
+from stable_delusion.config import DEFAULT_SEEDREAM_MODEL
 from stable_delusion.exceptions import ImageGenerationError, AuthenticationError
 from stable_delusion.utils import generate_timestamped_filename
 

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stable_delusion.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from stable_delusion.config import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
 from stable_delusion.exceptions import ImageGenerationError, FileOperationError, ConfigurationError
 from stable_delusion.generate import (
     GeminiClient,

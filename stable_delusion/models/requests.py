@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from stable_delusion.exceptions import ValidationError
-from stable_delusion.conf import SUPPORTED_MODELS
+from stable_delusion.config import SUPPORTED_MODELS
 
 
 def _validate_image_size(size: str) -> bool:

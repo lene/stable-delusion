@@ -169,7 +169,7 @@ def mock_upscale_function():
 @pytest.fixture
 def mock_main_gemini_service():
     with patch(
-        "stable_delusion.main.ServiceFactory.create_image_generation_service"
+        "stable_delusion.main.builders.create_image_generation_service"
     ) as mock_service_create:
         mock_service = MagicMock()
         mock_service_create.return_value = mock_service
@@ -841,10 +841,10 @@ def create_mock_s3_error(error_code="NoSuchKey"):
 
 @pytest.fixture
 def mock_service_factory():
-    with patch("stable_delusion.factories.service_factory.ServiceFactory") as mock_factory:
+    with patch("stable_delusion.builders") as mock_builders:
         # Configure different service creation methods
-        mock_factory.create_image_generation_service.return_value = MagicMock()
-        mock_factory.create_file_service.return_value = MagicMock()
-        mock_factory.create_upscaling_service.return_value = MagicMock()
+        mock_builders.create_image_generation_service.return_value = MagicMock()
+        mock_builders.create_file_service.return_value = MagicMock()
+        mock_builders.create_upscaling_service.return_value = MagicMock()
 
-        yield mock_factory
+        yield mock_builders

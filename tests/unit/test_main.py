@@ -135,7 +135,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -164,7 +164,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_generation_exception(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -189,7 +189,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_response_format(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -233,7 +233,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_content_type_handling(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -253,7 +253,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_with_output_dir(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -276,7 +276,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_scale_parameter(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -300,7 +300,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_model_parameter_gemini(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -326,7 +326,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_model_parameter_seedream(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -357,7 +357,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_model_defaults_to_none(self, client, mock_image_files):
         with patch(
-            "stable_delusion.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.builders.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service

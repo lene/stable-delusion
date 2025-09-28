@@ -12,7 +12,7 @@ import pytest
 
 from stable_delusion.generate import GeminiClient, parse_command_line
 from stable_delusion.main import app
-from stable_delusion.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from stable_delusion.config import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from stable_delusion.models.client_config import GeminiClientConfig, GCPConfig
 
 sys.path.append("stable_delusion")
@@ -168,7 +168,7 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("stable_delusion.main.ServiceFactory.create_image_generation_service")
+    @patch("stable_delusion.main.builders.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         mock_service = MagicMock()
@@ -213,7 +213,7 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("stable_delusion.main.ServiceFactory.create_image_generation_service")
+    @patch("stable_delusion.main.builders.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         mock_service = MagicMock()

@@ -37,7 +37,7 @@ class ImageRepository(ABC):
 
 
 class FileRepository(ABC):
-    """Abstract repository interface for generic file operations."""
+    """Abstract repository interface for file operations including uploads."""
 
     @abstractmethod
     def exists(self, file_path: Path) -> bool:
@@ -54,10 +54,6 @@ class FileRepository(ABC):
     @abstractmethod
     def move_file(self, source: Path, destination: Path) -> Path:
         pass
-
-
-class UploadRepository(ABC):
-    """Abstract repository interface for handling uploaded file operations."""
 
     @abstractmethod
     def save_uploaded_files(self, files: List[FileStorage], upload_dir: Path) -> List[Path]:

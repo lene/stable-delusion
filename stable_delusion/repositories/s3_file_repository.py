@@ -1,6 +1,6 @@
 """
 S3-based file repository implementation.
-Provides cloud storage for general files using Amazon S3.
+Provides cloud storage for files including uploads using Amazon S3.
 """
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
@@ -9,6 +9,9 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional
+
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
 
 from stable_delusion.config import Config
 from stable_delusion.exceptions import FileOperationError, ValidationError
@@ -19,6 +22,7 @@ from stable_delusion.repositories.s3_client import (
     build_s3_url,
     parse_s3_url,
 )
+from stable_delusion.utils import get_current_timestamp
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -234,3 +238,92 @@ class S3FileRepository(FileRepository):
         import fnmatch
 
         return fnmatch.fnmatch(filename, pattern)
+
+    def save_uploaded_files(self, files: List[FileStorage], upload_dir: Path) -> List[Path]:
+        try:
+            # Create upload directory marker if needed
+            self.create_directory(upload_dir)
+
+            saved_files = []
+            for file in files:
+                # Validate the uploaded file
+                if not self.validate_uploaded_file(file):
+                    continue
+
+                # Generate secure filename
+                timestamp = get_current_timestamp("compact")
+                filename = self.generate_secure_filename(file.filename, timestamp)
+
+                # Create S3 key
+                upload_path = f"{str(upload_dir).strip('/')}/{filename}"
+                s3_key = generate_s3_key(upload_path, self.key_prefix)
+
+                # Determine content type
+                content_type = file.content_type or "application/octet-stream"
+
+                # Upload to S3
+                file.stream.seek(0)  # Reset stream position
+                self.s3_client.put_object(
+                    Bucket=self.bucket_name,
+                    Key=s3_key,
+                    Body=file.stream.read(),
+                    ContentType=content_type,
+                    Metadata={
+                        "original_filename": filename,
+                        "uploaded_by": "nano-api-client",
+                        "upload_timestamp": timestamp,
+                    },
+                )
+
+                # Return S3 URL
+                s3_url = build_s3_url(self.bucket_name, s3_key)
+                saved_files.append(Path(s3_url))
+                logging.info("File uploaded to S3: %s", s3_key)
+
+            return saved_files
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to save uploaded files to S3: {str(e)}",
+                file_path=str(upload_dir),
+                operation="save_uploads_s3",
+            ) from e
+
+    def generate_secure_filename(
+        self, filename: Optional[str], timestamp: Optional[str] = None
+    ) -> str:
+        if not filename:
+            timestamp = timestamp or get_current_timestamp("compact")
+            return f"uploaded_file_{timestamp}.bin"
+
+        # Use werkzeug's secure_filename to sanitize
+        secure_name = secure_filename(filename)
+
+        # If secure_filename returns empty string, generate a fallback
+        if not secure_name:
+            timestamp = timestamp or get_current_timestamp("compact")
+            return f"uploaded_file_{timestamp}.bin"
+
+        return secure_name
+
+    def cleanup_old_uploads(self, upload_dir: Path, max_age_hours: int = 24) -> int:
+        # Reuse the existing cleanup_old_files method
+        return self.cleanup_old_files(upload_dir, max_age_hours)
+
+    def validate_uploaded_file(self, file: FileStorage) -> bool:
+        if file is None:
+            raise ValidationError("No file provided")
+
+        if not file.filename:
+            raise ValidationError("No filename provided")
+
+        # Check if file has content
+        if not hasattr(file, "stream") or not file.stream:
+            raise ValidationError("File has no content")
+
+        # Basic content type validation for images
+        if file.content_type and not file.content_type.startswith("image/"):
+            raise ValidationError(
+                f"Invalid file type: {file.content_type}. Only images are allowed."
+            )
+
+        return True
