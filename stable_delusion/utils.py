@@ -7,7 +7,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, Any, Union, Callable
+from typing import Optional, Tuple, Any
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
 
@@ -89,87 +89,3 @@ def validate_image_file(path: Path) -> None:
 
 def ensure_directory_exists(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-
-
-def handle_file_operation_error(
-    operation: str,
-    resource: str,
-    file_path: Union[str, Path],
-    storage_type: str = "local"
-) -> Callable:
-    """
-    Decorator factory for consistent file operation error handling.
-
-    Args:
-        operation: Operation being performed (e.g., "save", "load", "delete")
-        resource: Resource being operated on (e.g., "image", "file", "metadata")
-        file_path: Path to the file being operated on
-        storage_type: Storage type (e.g., "local", "s3")
-
-    Returns:
-        Decorator function that wraps operations with consistent error handling
-    """
-    def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                raise FileOperationError(
-                    f"Failed to {operation} {resource}: {str(e)}",
-                    file_path=str(file_path),
-                    operation=f"{operation}_{storage_type}",
-                ) from e
-        return wrapper
-    return decorator
-
-
-def is_s3_not_found_error(exception: Exception) -> bool:
-    """
-    Check if an exception indicates S3 object not found.
-
-    Args:
-        exception: Exception to check
-
-    Returns:
-        True if the exception indicates object not found
-    """
-    # Check for direct NoSuchKey exception
-    if hasattr(exception, '__class__') and 'NoSuchKey' in str(exception.__class__):
-        return True
-
-    # Check for ClientError with NoSuchKey code
-    error_code = getattr(exception, "response", {}).get("Error", {}).get("Code", None)
-    if error_code == "NoSuchKey":
-        return True
-
-    return False
-
-
-def ensure_path_object(value: Union[str, Path]) -> Path:
-    """
-    Ensure a value is converted to a Path object.
-
-    Args:
-        value: String or Path object
-
-    Returns:
-        Path object
-    """
-    if isinstance(value, str):
-        return Path(value)
-    return value
-
-
-def normalize_https_url(url: str) -> str:
-    """
-    Normalize HTTPS URLs to ensure proper protocol format.
-
-    Args:
-        url: URL to normalize
-
-    Returns:
-        Normalized URL with proper https:// prefix
-    """
-    if url.startswith("https:/") and not url.startswith("https://"):
-        return url.replace("https:/", "https://", 1)
-    return url

@@ -15,15 +15,6 @@ from stable_delusion.conf import SUPPORTED_MODELS
 
 
 def _validate_image_size(size: str) -> bool:
-    """
-    Validate image size parameter for Seedream model.
-
-    Args:
-        size: Size specification to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
     if not size:
         return False
 

@@ -33,7 +33,6 @@ class ErrorResponse(BaseResponse):
     def __init__(
         self, message: str, error_code: Optional[str] = None, details: Optional[str] = None
     ) -> None:
-        """Initialize error response."""
         super().__init__(success=False, message=message)
         self.error_code = error_code
         self.details = details
@@ -48,7 +47,6 @@ class GenerateImageResponse(BaseResponse):
     upscaled: bool
 
     def __init__(self, *, image_config: ImageGenerationConfig, gcp_config: GCPConfig) -> None:
-        """Initialize generation response."""
         super().__init__(
             success=image_config.generated_file is not None,
             message=(
@@ -127,7 +125,6 @@ class UpscaleImageResponse(BaseResponse):
         scale_factor: str,
         gcp_config: GCPConfig,
     ) -> None:
-        """Initialize upscaling response."""
         super().__init__(
             success=upscaled_file is not None,
             message="Image upscaled successfully" if upscaled_file else "Image upscaling failed",
@@ -170,7 +167,6 @@ class HealthResponse(BaseResponse):
     def __init__(
         self, service: str = "NanoAPIClient", version: str = "1.0.0", status: str = "healthy"
     ) -> None:
-        """Initialize health response."""
         super().__init__(success=True, message=f"Service {status}")
         self.service = service
         self.version = version

@@ -15,30 +15,9 @@ class LocalFileRepository(FileRepository):
     """Local filesystem implementation of file repository."""
 
     def exists(self, file_path: Path) -> bool:
-        """
-        Check if a file exists on the local filesystem.
-
-        Args:
-            file_path: Path to check
-
-        Returns:
-            True if file exists
-        """
         return file_path.exists()
 
     def create_directory(self, dir_path: Path) -> Path:
-        """
-        Create a directory if it doesn't exist.
-
-        Args:
-            dir_path: Directory path to create
-
-        Returns:
-            Created directory path
-
-        Raises:
-            FileOperationError: If directory creation fails
-        """
         try:
             dir_path.mkdir(parents=True, exist_ok=True)
             return dir_path
@@ -50,18 +29,6 @@ class LocalFileRepository(FileRepository):
             ) from e
 
     def delete_file(self, file_path: Path) -> bool:
-        """
-        Delete a file if it exists.
-
-        Args:
-            file_path: File path to delete
-
-        Returns:
-            True if file was deleted, False if it didn't exist
-
-        Raises:
-            FileOperationError: If deletion fails
-        """
         if not file_path.exists():
             return False
 
@@ -74,19 +41,6 @@ class LocalFileRepository(FileRepository):
             ) from e
 
     def move_file(self, source: Path, destination: Path) -> Path:
-        """
-        Move a file from source to destination.
-
-        Args:
-            source: Source file path
-            destination: Destination file path
-
-        Returns:
-            Destination path
-
-        Raises:
-            FileOperationError: If move operation fails
-        """
         try:
             # Ensure destination directory exists
             destination.parent.mkdir(parents=True, exist_ok=True)

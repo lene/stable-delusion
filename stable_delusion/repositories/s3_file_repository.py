@@ -28,12 +28,6 @@ class S3FileRepository(FileRepository):
     """S3-based implementation of FileRepository interface."""
 
     def __init__(self, config: Config):
-        """
-        Initialize S3 file repository.
-
-        Args:
-            config: Application configuration containing S3 settings
-        """
         self.config = config
         self.s3_client: "S3Client" = S3ClientManager.create_s3_client(config)
         # S3ClientManager validation ensures bucket_name is not None
@@ -41,15 +35,6 @@ class S3FileRepository(FileRepository):
         self.key_prefix = "files/"
 
     def exists(self, file_path: Path) -> bool:
-        """
-        Check if a file exists in S3.
-
-        Args:
-            file_path: S3 URL or key path to check
-
-        Returns:
-            True if file exists, False otherwise
-        """
         try:
             s3_key = self._extract_s3_key(file_path)
             self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
@@ -61,18 +46,6 @@ class S3FileRepository(FileRepository):
             return False
 
     def create_directory(self, dir_path: Path) -> Path:
-        """
-        Create a directory-like structure in S3.
-
-        Note: S3 doesn't have real directories, but we can create a marker object
-        to represent directory structure.
-
-        Args:
-            dir_path: Directory path to create in S3
-
-        Returns:
-            The directory path that was created
-        """
         try:
             # Create a directory marker object
             s3_key = generate_s3_key(f"{str(dir_path).strip('/')}/", self.key_prefix)
@@ -101,15 +74,6 @@ class S3FileRepository(FileRepository):
             ) from e
 
     def delete_file(self, file_path: Path) -> bool:
-        """
-        Delete a file from S3.
-
-        Args:
-            file_path: S3 URL or key path to delete
-
-        Returns:
-            True if file was deleted successfully, False otherwise
-        """
         try:
             s3_key = self._extract_s3_key(file_path)
 
@@ -122,19 +86,6 @@ class S3FileRepository(FileRepository):
             return False
 
     def move_file(self, source: Path, destination: Path) -> Path:
-        """
-        Move a file within S3 (copy then delete).
-
-        Args:
-            source: Source S3 URL or key path
-            destination: Destination S3 URL or key path
-
-        Returns:
-            Destination path where file was moved
-
-        Raises:
-            FileOperationError: If move operation fails
-        """
         try:
             source_key = self._extract_s3_key(source)
             dest_key = self._extract_s3_key(destination)
@@ -208,18 +159,6 @@ class S3FileRepository(FileRepository):
             ) from e
 
     def get_file_size(self, file_path: Path) -> int:
-        """
-        Get the size of a file in S3.
-
-        Args:
-            file_path: S3 URL or key path
-
-        Returns:
-            File size in bytes
-
-        Raises:
-            FileOperationError: If operation fails
-        """
         try:
             s3_key = self._extract_s3_key(file_path)
             response = self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
@@ -233,19 +172,6 @@ class S3FileRepository(FileRepository):
             ) from e
 
     def cleanup_old_files(self, directory_path: Path, max_age_hours: int = 24) -> int:
-        """
-        Clean up old files in S3 directory based on age.
-
-        Args:
-            directory_path: S3 directory path to clean
-            max_age_hours: Maximum age in hours for files to keep
-
-        Returns:
-            Number of files deleted
-
-        Raises:
-            FileOperationError: If cleanup fails
-        """
         try:
             cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
 
@@ -291,18 +217,6 @@ class S3FileRepository(FileRepository):
             ) from e
 
     def _extract_s3_key(self, file_path: Path) -> str:
-        """
-        Extract S3 key from file path (handles both URLs and keys).
-
-        Args:
-            file_path: S3 URL or key path
-
-        Returns:
-            S3 object key
-
-        Raises:
-            ValidationError: If path format is invalid
-        """
         path_str = str(file_path)
 
         # Handle S3 URLs
@@ -325,16 +239,6 @@ class S3FileRepository(FileRepository):
         return path_str.lstrip("/")
 
     def _matches_pattern(self, filename: str, pattern: str) -> bool:
-        """
-        Simple wildcard pattern matching.
-
-        Args:
-            filename: Filename to check
-            pattern: Pattern with * wildcard support
-
-        Returns:
-            True if filename matches pattern
-        """
         import fnmatch
 
         return fnmatch.fnmatch(filename, pattern)

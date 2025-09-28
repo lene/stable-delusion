@@ -34,7 +34,6 @@ class SeedreamConfig:
     """SeeEdit Seedream API configuration."""
 
     api_key: Optional[str] = None
-    api_endpoint: Optional[str] = None
 
 
 @dataclass

@@ -105,11 +105,6 @@ def upscale_image(
         ) from e
 
 
-# Usage example:
-# upscaled_img = upscale_image("my_image.jpg", "my-project-id",
-#                              upscale_factor="x4")
-# upscaled_img.save("upscaled_image.png")
-
 # --- Run the upscaling process ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upscale an image using Google Vertex AI.")

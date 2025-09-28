@@ -242,7 +242,6 @@ class GeminiClient:
         self._validate_and_initialize_clients(config)
 
     def _validate_client_config(self, client_config: GeminiClientConfig) -> None:
-        """Validate that all required client config sections are present."""
         if client_config.gcp is None:
             raise TypeError("GCP config is required but was None")
         if client_config.storage is None:
@@ -253,7 +252,6 @@ class GeminiClient:
             raise TypeError("App config is required but was None")
 
     def _initialize_client_properties(self, config, client_config: GeminiClientConfig) -> None:
-        """Initialize client properties from config with precedence."""
         # Type assertions for MyPy - these are guaranteed by _validate_client_config
         assert client_config.gcp is not None  # nosec
         assert client_config.storage is not None  # nosec
@@ -268,7 +266,6 @@ class GeminiClient:
         self.output_dir = next(option for option in output_options if option)
 
     def _store_original_config_values(self, config) -> dict:
-        """Store original config values before applying overrides."""
         return {
             "storage_type": config.storage_type,
             "gemini_api_key": config.gemini_api_key,
@@ -281,7 +278,6 @@ class GeminiClient:
         }
 
     def _apply_config_overrides(self, config, client_config: GeminiClientConfig) -> None:
-        """Apply client config overrides to global config temporarily."""
         # Type assertions for MyPy - these are guaranteed by _validate_client_config
         assert client_config.storage is not None  # nosec
         assert client_config.gcp is not None  # nosec
@@ -304,18 +300,15 @@ class GeminiClient:
                 setattr(config, config_attr, override_value)
 
     def _initialize_repositories(self) -> None:
-        """Initialize repositories with potentially overridden config."""
         self.image_repository = RepositoryFactory.create_image_repository()
         self.file_repository = RepositoryFactory.create_file_repository()
         self.metadata_repository = RepositoryFactory.create_metadata_repository()
 
     def _restore_original_config_values(self, config, original_values: dict) -> None:
-        """Restore original config values after repository initialization."""
         for key, value in original_values.items():
             setattr(config, key, value)
 
     def _setup_storage(self, effective_storage_type: str) -> None:
-        """Setup storage based on effective storage type."""
         if effective_storage_type == "local":
             ensure_directory_exists(self.output_dir)
         else:
@@ -323,7 +316,6 @@ class GeminiClient:
             self.file_repository.create_directory(self.output_dir)
 
     def _validate_and_initialize_clients(self, config) -> None:
-        """Validate API key and initialize Gemini clients."""
         if not config.gemini_api_key:
             from stable_delusion.exceptions import ConfigurationError
 
@@ -335,41 +327,6 @@ class GeminiClient:
         self.client = genai.Client()
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
-
-    @classmethod
-    def create_with_gcp(
-        cls,
-        project_id: Optional[str] = None,
-        location: Optional[str] = None,
-        output_dir: Optional[Path] = None,
-    ) -> "GeminiClient":
-        from stable_delusion.models.client_config import GCPConfig, StorageConfig
-
-        config = GeminiClientConfig(
-            gcp=GCPConfig(project_id=project_id, location=location),
-            storage=StorageConfig(output_dir=output_dir),
-        )
-        return cls(config)
-
-    @classmethod
-    def create_with_s3(
-        cls,
-        *,
-        project_id: Optional[str] = None,
-        location: Optional[str] = None,
-        aws_config: Optional["AWSConfig"] = None,
-    ) -> "GeminiClient":
-        from stable_delusion.models.client_config import GCPConfig, AWSConfig, StorageConfig
-
-        if aws_config is None:
-            aws_config = AWSConfig()
-
-        config = GeminiClientConfig(
-            gcp=GCPConfig(project_id=project_id, location=location),
-            aws=aws_config,
-            storage=StorageConfig(storage_type="s3"),
-        )
-        return cls(config)
 
     def generate_from_images(
         self, prompt_text: str, image_paths: List[Path], scale: Optional[int] = None
@@ -447,7 +404,6 @@ class GeminiClient:
         return generated_image_path
 
     def _log_prompt_feedback(self, response: GenerateContentResponse) -> None:
-        """Log prompt feedback details when no candidates are found."""
         if response.prompt_feedback and hasattr(response.prompt_feedback, 'block_reason'):
             logging.warning("Reason: %s", response.prompt_feedback.block_reason)
         if response.prompt_feedback and response.prompt_feedback.safety_ratings:
@@ -459,7 +415,6 @@ class GeminiClient:
                     logging.warning("  Probability: %s", rating.probability.name)
 
     def _log_safety_ratings(self, candidate) -> None:
-        """Log safety ratings for a candidate."""
         logging.warning("Safety Ratings for the blocked candidate:")
         for rating in candidate.safety_ratings or []:
             if rating.category and hasattr(rating.category, 'name'):
@@ -572,7 +527,6 @@ def save_response_image(
 
 
 def main():
-    """Main entry point for the CLI application."""
     args = parse_command_line()
     prompt = args.prompt
     if not prompt:

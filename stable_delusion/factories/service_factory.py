@@ -36,19 +36,6 @@ class ServiceFactory:
         storage_type: Optional[str] = None,
         model: Optional[str] = None,
     ) -> ImageGenerationService:
-        """
-        Create image generation service with dependencies.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-            output_dir: Output directory for generated images
-            storage_type: Storage backend type ('local' or 's3')
-            model: Model to use ('gemini' or 'seedream')
-
-        Returns:
-            Configured image generation service instance
-        """
         # Handle storage type override
         if storage_type:
             from stable_delusion.config import ConfigManager
@@ -90,16 +77,6 @@ class ServiceFactory:
     def create_upscaling_service(
         project_id: Optional[str] = None, location: Optional[str] = None
     ) -> ImageUpscalingService:
-        """
-        Create image upscaling service.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-
-        Returns:
-            Configured image upscaling service instance
-        """
         return VertexAIUpscalingService.create(project_id=project_id, location=location)
 
     @classmethod
@@ -109,17 +86,6 @@ class ServiceFactory:
         location: Optional[str] = None,
         output_dir: Optional[Path] = None,
     ) -> tuple[FileServiceInterface, ImageGenerationService, ImageUpscalingService]:
-        """
-        Create all service instances with dependencies.
-
-        Args:
-            project_id: Google Cloud project ID
-            location: Google Cloud region
-            output_dir: Output directory for generated images
-
-        Returns:
-            Tuple of (file_service, generation_service, upscaling_service)
-        """
         return (
             cls.create_file_service(),
             cls.create_image_generation_service(

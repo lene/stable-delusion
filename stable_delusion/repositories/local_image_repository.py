@@ -18,19 +18,6 @@ class LocalImageRepository(ImageRepository):
     """Local filesystem implementation of image repository."""
 
     def save_image(self, image: Image.Image, file_path: Path) -> Path:
-        """
-        Save an image to the local filesystem.
-
-        Args:
-            image: PIL Image object to save
-            file_path: Destination path for the image
-
-        Returns:
-            Path where the image was saved
-
-        Raises:
-            FileOperationError: If save operation fails
-        """
         try:
             # Ensure parent directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -45,18 +32,6 @@ class LocalImageRepository(ImageRepository):
             ) from e
 
     def load_image(self, file_path: Path) -> Image.Image:
-        """
-        Load an image from the local filesystem.
-
-        Args:
-            file_path: Path to the image file
-
-        Returns:
-            PIL Image object
-
-        Raises:
-            FileOperationError: If load operation fails
-        """
         try:
             return Image.open(file_path)
         except (FileNotFoundError, OSError, IOError) as e:
@@ -65,18 +40,6 @@ class LocalImageRepository(ImageRepository):
             ) from e
 
     def validate_image_file(self, file_path: Path) -> bool:
-        """
-        Validate that a file is a readable image.
-
-        Args:
-            file_path: Path to validate
-
-        Returns:
-            True if file is a valid image
-
-        Raises:
-            FileOperationError: If validation fails
-        """
         if not file_path.exists():
             raise FileOperationError(
                 f"File does not exist: {file_path}", file_path=str(file_path), operation="validate"
@@ -99,16 +62,6 @@ class LocalImageRepository(ImageRepository):
             ) from e
 
     def generate_image_path(self, base_name: str, output_dir: Path) -> Path:
-        """
-        Generate a unique image file path with timestamp.
-
-        Args:
-            base_name: Base name for the file
-            output_dir: Directory to save the image
-
-        Returns:
-            Generated unique file path
-        """
         # Use existing utility function to generate timestamped filename
         filename = generate_timestamped_filename(base_name)
         return output_dir / filename

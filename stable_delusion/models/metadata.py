@@ -57,12 +57,10 @@ class GenerationMetadata:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "GenerationMetadata":
-        """Create instance from dictionary."""
         return cls(**data)
 
     @classmethod
     def from_json(cls, json_str: str) -> "GenerationMetadata":
-        """Create instance from JSON string."""
         return cls.from_dict(json.loads(json_str))
 
     def get_metadata_filename(self) -> str:
