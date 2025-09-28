@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Any, TYPE_CHECKING
+from typing import List, Optional, Any, Tuple, TYPE_CHECKING
 
 from google import genai
 from google.cloud import aiplatform
@@ -35,6 +35,8 @@ from stable_delusion.utils import (
 
 if TYPE_CHECKING:
     from stable_delusion.models.client_config import AWSConfig
+    from stable_delusion.models.requests import GenerateImageRequest
+    from stable_delusion.models.responses import GenerateImageResponse
 
 DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
@@ -71,7 +73,7 @@ def log_failure_reason(response: GenerateContentResponse) -> None:
     )
 
 
-def parse_command_line() -> argparse.Namespace:
+def _setup_cli_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
     parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
     parser.add_argument(
@@ -176,17 +178,13 @@ def parse_command_line() -> argparse.Namespace:
         action="store_true",
         help="Enable Flask debug mode.",
     )
+    return parser
 
-    args = parser.parse_args()
 
-    # Load .env file before validation to ensure environment variables are available
-    from dotenv import load_dotenv
-
-    load_dotenv(override=False)
-
-    # Validation: if S3 storage is selected, require bucket and region
+def _validate_s3_storage_arguments(
+    args: argparse.Namespace, parser: argparse.ArgumentParser
+) -> None:
     if args.storage_type == "s3":
-        # Only require bucket and region - credentials can come from AWS credential chain
         import os
 
         bucket = args.aws_s3_bucket or os.getenv("AWS_S3_BUCKET")
@@ -201,7 +199,8 @@ def parse_command_line() -> argparse.Namespace:
                 "(~/.aws/credentials, environment variables, IAM roles)."
             )
 
-    # Security warnings for sensitive parameters
+
+def _warn_about_sensitive_cli_parameters(args: argparse.Namespace) -> None:
     if args.gemini_api_key:
         logging.warning(
             "API key passed via command line is visible in process list. "
@@ -214,6 +213,18 @@ def parse_command_line() -> argparse.Namespace:
             "Consider using AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY "
             "environment variables instead."
         )
+
+
+def parse_command_line() -> argparse.Namespace:
+    parser = _setup_cli_argument_parser()
+    args = parser.parse_args()
+
+    # Load .env file before validation to ensure environment variables are available
+    from dotenv import load_dotenv
+    load_dotenv(override=False)
+
+    _validate_s3_storage_arguments(args, parser)
+    _warn_about_sensitive_cli_parameters(args)
 
     return args
 
@@ -328,12 +339,11 @@ class GeminiClient:
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
 
-    def generate_from_images(
-        self, prompt_text: str, image_paths: List[Path], scale: Optional[int] = None
-    ) -> Optional[Path]:
-        # Create metadata for deduplication check
+    def _create_generation_metadata(
+        self, prompt_text: str, image_paths: List[Path], scale: Optional[int]
+    ) -> GenerationMetadata:
         image_urls = [str(path) for path in image_paths]  # Convert to strings for hashing
-        temp_metadata = GenerationMetadata(
+        return GenerationMetadata(
             prompt=prompt_text,
             images=image_urls,
             generated_image="",  # Will be set after generation
@@ -343,15 +353,15 @@ class GeminiClient:
             model=DEFAULT_GEMINI_MODEL,
         )
 
-        # Check for existing generation with same inputs
+    def _check_existing_generation(self, metadata: GenerationMetadata) -> Optional[Path]:
         existing_metadata_key = self.metadata_repository.metadata_exists(
-            temp_metadata.content_hash or ""
+            metadata.content_hash or ""
         )
 
         if existing_metadata_key:
             logging.info(
                 "Found existing generation with hash %s, reusing result",
-                (temp_metadata.content_hash or "unknown")[:8],
+                (metadata.content_hash or "unknown")[:8],
             )
             try:
                 existing_metadata = self.metadata_repository.load_metadata(existing_metadata_key)
@@ -367,8 +377,9 @@ class GeminiClient:
                 logging.warning(
                     "Failed to load existing metadata, proceeding with generation: %s", e
                 )
+        return None
 
-        # Proceed with new generation
+    def _generate_new_image(self, prompt_text: str, image_paths: List[Path]):
         uploaded_files = self.upload_files(image_paths)
 
         response = self.client.models.generate_content(
@@ -388,18 +399,35 @@ class GeminiClient:
             response.candidates[0].finish_reason,
             response.usage_metadata.total_token_count if response.usage_metadata else 0,
         )
+        return response
 
-        # Save the new image and metadata
+    def _save_generation_results(
+        self, metadata: GenerationMetadata, generated_image_path: Path
+    ) -> None:
+        metadata.generated_image = str(generated_image_path)
+        try:
+            metadata_key = self.metadata_repository.save_metadata(metadata)
+            logging.info("Saved generation metadata: %s", metadata_key)
+        except FileOperationError as e:
+            logging.warning("Failed to save metadata: %s", e)
+
+    def generate_from_images(
+        self, prompt_text: str, image_paths: List[Path], scale: Optional[int] = None
+    ) -> Optional[Path]:
+        # Create metadata for deduplication check
+        temp_metadata = self._create_generation_metadata(prompt_text, image_paths, scale)
+
+        # Check for existing generation with same inputs
+        existing_path = self._check_existing_generation(temp_metadata)
+        if existing_path:
+            return existing_path
+
+        # Proceed with new generation
+        response = self._generate_new_image(prompt_text, image_paths)
         generated_image_path = self.save_response_image(response)
 
         if generated_image_path:
-            # Update metadata with generated image path and save it
-            temp_metadata.generated_image = str(generated_image_path)
-            try:
-                metadata_key = self.metadata_repository.save_metadata(temp_metadata)
-                logging.info("Saved generation metadata: %s", metadata_key)
-            except FileOperationError as e:
-                logging.warning("Failed to save metadata: %s", e)
+            self._save_generation_results(temp_metadata, generated_image_path)
 
         return generated_image_path
 
@@ -423,6 +451,12 @@ class GeminiClient:
                 logging.warning("  Probability: %s", rating.probability.name)
 
     def save_response_image(self, response: GenerateContentResponse) -> Optional[Path]:
+        self._validate_response_has_candidates(response)
+        candidate = self._get_and_validate_candidate(response)
+        return self._extract_and_save_image_from_candidate(candidate)
+
+    def _validate_response_has_candidates(self, response: GenerateContentResponse) -> None:
+        """Validate response has candidates."""
         if not response.candidates:
             logging.warning("No candidates found in the API response.")
             logging.warning("Prompt was blocked.")
@@ -431,30 +465,48 @@ class GeminiClient:
                 "No candidates returned from the API", api_response=str(response.model_dump_json())
             )
 
+    def _get_and_validate_candidate(self, response: GenerateContentResponse):
+        """Get first candidate and validate its content."""
+        # _validate_response_has_candidates ensures candidates is not None
+        assert response.candidates is not None
         candidate = response.candidates[0]
+        self._check_candidate_finish_reason(candidate)
+        self._validate_candidate_content(candidate)
+        return candidate
+
+    def _check_candidate_finish_reason(self, candidate) -> None:
+        """Check and log candidate finish reason."""
         if candidate.finish_reason and hasattr(candidate.finish_reason, 'name'):
             logging.info("Finish reason: %s", candidate.finish_reason.name)
             if "SAFETY" in candidate.finish_reason.name:
                 logging.warning("Candidate was blocked due to safety policies.")
                 self._log_safety_ratings(candidate)
 
+    def _validate_candidate_content(self, candidate) -> None:
+        """Validate candidate has content parts."""
         if not candidate.content or not candidate.content.parts:
             logging.warning("No content parts found in the API response.")
             raise ImageGenerationError(
                 "No content parts in the candidate", api_response=str(candidate.model_dump_json())
             )
 
+    def _extract_and_save_image_from_candidate(self, candidate) -> Optional[Path]:
+        """Extract and save image from candidate content parts."""
         for part in candidate.content.parts:
             if part.text is not None:
                 logging.info(part.text)
             elif part.inline_data is not None and part.inline_data.data is not None:
-                image = Image.open(BytesIO(part.inline_data.data))
-                filename = generate_timestamped_filename("generated")
-                filepath = self.output_dir / filename
-                saved_path = self.image_repository.save_image(image, filepath)
-                return saved_path
+                return self._save_inline_image_data(part.inline_data.data)
+
         logging.warning("No image found in the API response.")
         return None
+
+    def _save_inline_image_data(self, image_data: bytes) -> Path:
+        """Save inline image data to file."""
+        image = Image.open(BytesIO(image_data))
+        filename = generate_timestamped_filename("generated")
+        filepath = self.output_dir / filename
+        return self.image_repository.save_image(image, filepath)
 
     def upload_files(self, image_paths: List[Path]) -> List[Any]:
         uploaded_files = []
@@ -526,50 +578,64 @@ def save_response_image(
     return None
 
 
-def main():
+def _process_cli_arguments() -> Tuple[str, List[Path], argparse.Namespace]:
     args = parse_command_line()
-    prompt = args.prompt
-    if not prompt:
-        prompt = DEFAULT_PROMPT
+    prompt = args.prompt if args.prompt else DEFAULT_PROMPT
     images = args.image if args.image else []
+    return prompt, images, args
 
-    # Create request using service factory pattern (consistent with Flask API)
+
+def _create_cli_request_dto(
+    prompt: str, images: List[Path], args: argparse.Namespace
+) -> "GenerateImageRequest":
     from stable_delusion.models.requests import GenerateImageRequest
+
+    return GenerateImageRequest(
+        prompt=prompt,
+        images=images,
+        project_id=getattr(args, "gcp_project_id"),
+        location=getattr(args, "gcp_location"),
+        output_dir=getattr(args, "output_dir"),
+        scale=getattr(args, "scale"),
+        image_size=getattr(args, "size"),
+        storage_type=getattr(args, "storage_type"),
+        model=getattr(args, "model"),
+    )
+
+
+def _execute_image_generation(
+    request_dto: "GenerateImageRequest",
+) -> "GenerateImageResponse":
     from stable_delusion.factories import ServiceFactory
 
-    try:
-        # Create request DTO with validation
-        request_dto = GenerateImageRequest(
-            prompt=prompt,
-            images=images,
-            project_id=getattr(args, "gcp_project_id"),
-            location=getattr(args, "gcp_location"),
-            output_dir=getattr(args, "output_dir"),
-            scale=getattr(args, "scale"),
-            image_size=getattr(args, "size"),
-            storage_type=getattr(args, "storage_type"),
-            model=getattr(args, "model"),
-        )
+    service = ServiceFactory.create_image_generation_service(
+        project_id=request_dto.project_id,
+        location=request_dto.location,
+        output_dir=request_dto.output_dir,
+        storage_type=request_dto.storage_type,
+        model=request_dto.model,
+    )
+    return service.generate_image(request_dto)
 
-        # Create image generation service based on model selection
-        service = ServiceFactory.create_image_generation_service(
-            project_id=request_dto.project_id,
-            location=request_dto.location,
-            output_dir=request_dto.output_dir,
-            storage_type=request_dto.storage_type,
-            model=request_dto.model,
-        )
 
-        # Generate image using service
-        response = service.generate_image(request_dto)
-
-        if response.generated_file:
-            if args.scale:
-                logging.info("High Res Image saved to %s", response.generated_file)
-            else:
-                logging.info("Image saved to %s", response.generated_file)
+def _log_generation_result(
+    response: "GenerateImageResponse", args: argparse.Namespace
+) -> None:
+    if response.generated_file:
+        if args.scale:
+            logging.info("High Res Image saved to %s", response.generated_file)
         else:
-            logging.error("Image generation failed.")
+            logging.info("Image saved to %s", response.generated_file)
+    else:
+        logging.error("Image generation failed.")
+
+
+def main():
+    try:
+        prompt, images, args = _process_cli_arguments()
+        request_dto = _create_cli_request_dto(prompt, images, args)
+        response = _execute_image_generation(request_dto)
+        _log_generation_result(response, args)
 
     except (ImageGenerationError, FileOperationError) as e:
         logging.error("Image generation failed: %s", e)

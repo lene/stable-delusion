@@ -8,7 +8,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from stable_delusion.config import Config
 from stable_delusion.exceptions import FileOperationError, ValidationError
@@ -112,6 +112,20 @@ class S3FileRepository(FileRepository):
                 operation="move_file_s3",
             ) from e
 
+    def _process_s3_objects(self, pages, pattern: Optional[str]) -> List[Path]:
+        file_paths = []
+        for page in pages:
+            contents = page.get("Contents", [])
+            for obj in contents:
+                key = obj["Key"]
+                if key.endswith("/"):  # Skip directory markers
+                    continue
+                filename = Path(key).name
+                if pattern is None or self._matches_pattern(filename, pattern):
+                    s3_url = build_s3_url(self.bucket_name, key)
+                    file_paths.append(Path(s3_url))
+        return file_paths
+
     def list_files(self, directory_path: Path, pattern: Optional[str] = None) -> List[Path]:
         """
         List files in an S3 directory.
@@ -127,30 +141,10 @@ class S3FileRepository(FileRepository):
             FileOperationError: If listing fails
         """
         try:
-            # Generate S3 prefix
             dir_prefix = generate_s3_key(str(directory_path).strip("/") + "/", self.key_prefix)
-
-            # List objects with prefix
             paginator = self.s3_client.get_paginator("list_objects_v2")
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=dir_prefix)
-
-            file_paths = []
-            for page in pages:
-                contents = page.get("Contents", [])
-                for obj in contents:
-                    key = obj["Key"]
-
-                    # Skip directory markers
-                    if key.endswith("/"):
-                        continue
-
-                    filename = Path(key).name
-                    if pattern is None or self._matches_pattern(filename, pattern):
-                        s3_url = build_s3_url(self.bucket_name, key)
-                        file_paths.append(Path(s3_url))
-
-            return file_paths
-
+            return self._process_s3_objects(pages, pattern)
         except Exception as e:
             raise FileOperationError(
                 f"Failed to list S3 files: {str(e)}",
@@ -171,44 +165,42 @@ class S3FileRepository(FileRepository):
                 operation="get_file_size_s3",
             ) from e
 
+    def _collect_old_files(self, pages, cutoff_time) -> List[Dict[str, str]]:
+        files_to_delete = []
+        for page in pages:
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    key = obj["Key"]
+                    last_modified = obj["LastModified"].replace(tzinfo=None)
+                    if not key.endswith("/") and last_modified < cutoff_time:
+                        files_to_delete.append({"Key": key})
+        return files_to_delete
+
+    def _delete_files_in_batches(self, files_to_delete: List[Dict[str, str]]) -> int:
+        deleted_count = 0
+        batch_size = 1000  # S3 batch delete supports up to 1000 objects per request
+        for i in range(0, len(files_to_delete), batch_size):
+            batch = files_to_delete[i:i + batch_size]
+            self.s3_client.delete_objects(
+                Bucket=self.bucket_name,
+                Delete={"Objects": batch},  # type: ignore[typeddict-item]
+            )
+            deleted_count += len(batch)
+        return deleted_count
+
     def cleanup_old_files(self, directory_path: Path, max_age_hours: int = 24) -> int:
         try:
             cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
-
-            # List all files in directory
-            files_to_delete = []
             dir_prefix = generate_s3_key(str(directory_path).strip("/") + "/", self.key_prefix)
 
             paginator = self.s3_client.get_paginator("list_objects_v2")
             pages = paginator.paginate(Bucket=self.bucket_name, Prefix=dir_prefix)
 
-            for page in pages:
-                if "Contents" in page:
-                    for obj in page["Contents"]:
-                        key = obj["Key"]
-                        last_modified = obj["LastModified"].replace(tzinfo=None)
-
-                        # Skip directory markers and check age
-                        if not key.endswith("/") and last_modified < cutoff_time:
-                            files_to_delete.append({"Key": key})
-
-            # Delete old files in batches
-            deleted_count = 0
-            if files_to_delete:
-                # S3 batch delete supports up to 1000 objects per request
-                batch_size = 1000
-                for i in range(0, len(files_to_delete), batch_size):
-                    batch = files_to_delete[i:i + batch_size]
-
-                    self.s3_client.delete_objects(
-                        Bucket=self.bucket_name,
-                        Delete={"Objects": batch},  # type: ignore[typeddict-item]
-                    )
-                    deleted_count += len(batch)
+            files_to_delete = self._collect_old_files(pages, cutoff_time)
+            deleted_count = self._delete_files_in_batches(files_to_delete) if files_to_delete else 0
 
             logging.info("Cleaned up %d old files from S3: %s", deleted_count, dir_prefix)
             return deleted_count
-
         except Exception as e:
             raise FileOperationError(
                 f"Failed to cleanup old S3 files: {str(e)}",

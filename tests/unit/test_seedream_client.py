@@ -208,7 +208,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
         assert call_kwargs["size"] == "4K"  # Should use provided image_size
         assert call_kwargs["sequential_image_generation"] == "disabled"
         assert call_kwargs["response_format"] == "url"
-        assert call_kwargs["watermark"] is True
+        assert call_kwargs["watermark"] is False
         assert call_kwargs["seed"] == 12345
         assert call_kwargs["image"] == ["https://test.com/image.jpg"]
 

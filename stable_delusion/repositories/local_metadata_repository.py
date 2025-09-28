@@ -45,13 +45,8 @@ class LocalMetadataRepository(MetadataRepository):
             FileOperationError: If save operation fails
         """
         try:
-            # Generate filename using metadata
-            filename = metadata.get_metadata_filename()
-            file_path = self.metadata_dir / filename
-
-            # Write JSON to file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(metadata.to_json())
+            file_path = self._prepare_metadata_file_path(metadata)
+            self._write_metadata_to_file(file_path, metadata)
 
             logging.info("Metadata saved locally: %s", file_path)
             return str(file_path)
@@ -62,6 +57,16 @@ class LocalMetadataRepository(MetadataRepository):
                 operation="save_metadata",
                 file_path=str(file_path) if "file_path" in locals() else "unknown",
             ) from e
+
+    def _prepare_metadata_file_path(self, metadata: GenerationMetadata) -> Path:
+        """Prepare file path for metadata storage."""
+        filename = metadata.get_metadata_filename()
+        return self.metadata_dir / filename
+
+    def _write_metadata_to_file(self, file_path: Path, metadata: GenerationMetadata) -> None:
+        """Write metadata JSON to file."""
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(metadata.to_json())
 
     def load_metadata(self, metadata_key: str) -> GenerationMetadata:
         """
@@ -78,20 +83,9 @@ class LocalMetadataRepository(MetadataRepository):
         """
         try:
             file_path = Path(metadata_key)
-
-            if not file_path.exists():
-                raise FileOperationError(
-                    f"Metadata file not found: {metadata_key}",
-                    operation="load_metadata",
-                    file_path=metadata_key,
-                )
-
-            # Read JSON content
-            with open(file_path, "r", encoding="utf-8") as f:
-                json_content = f.read()
-
-            # Parse metadata
-            metadata = GenerationMetadata.from_json(json_content)
+            self._validate_metadata_file_exists(file_path, metadata_key)
+            json_content = self._read_metadata_file(file_path)
+            metadata = self._parse_metadata_content(json_content)
 
             logging.info("Metadata loaded locally: %s", metadata_key)
             return metadata
@@ -102,6 +96,24 @@ class LocalMetadataRepository(MetadataRepository):
                 operation="load_metadata",
                 file_path=metadata_key,
             ) from e
+
+    def _validate_metadata_file_exists(self, file_path: Path, metadata_key: str) -> None:
+        """Validate that metadata file exists."""
+        if not file_path.exists():
+            raise FileOperationError(
+                f"Metadata file not found: {metadata_key}",
+                operation="load_metadata",
+                file_path=metadata_key,
+            )
+
+    def _read_metadata_file(self, file_path: Path) -> str:
+        """Read JSON content from metadata file."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    def _parse_metadata_content(self, json_content: str) -> GenerationMetadata:
+        """Parse JSON content into GenerationMetadata object."""
+        return GenerationMetadata.from_json(json_content)
 
     def metadata_exists(self, content_hash: str) -> Optional[str]:
         """
@@ -114,26 +126,34 @@ class LocalMetadataRepository(MetadataRepository):
             File path if metadata exists, None otherwise
         """
         try:
-            # Search for files with matching hash prefix
-            hash_prefix = content_hash[:8]
-            pattern = f"metadata_{hash_prefix}_*.json"
-
-            matching_files = list(self.metadata_dir.glob(pattern))
-
-            for file_path in matching_files:
-                try:
-                    metadata = self.load_metadata(str(file_path))
-                    if metadata.content_hash == content_hash:
-                        return str(file_path)
-                except FileOperationError:
-                    # Skip corrupted or inaccessible metadata files
-                    continue
-
-            return None
-
+            matching_files = self._find_potential_metadata_files(content_hash)
+            return self._verify_content_hash_match(matching_files, content_hash)
         except (OSError, IOError, PermissionError) as e:
             logging.warning("Error checking metadata existence: %s", e)
             return None
+
+    def _find_potential_metadata_files(self, content_hash: str) -> List[Path]:
+        """Find metadata files with matching hash prefix."""
+        hash_prefix = content_hash[:8]
+        pattern = f"metadata_{hash_prefix}_*.json"
+        return list(self.metadata_dir.glob(pattern))
+
+    def _verify_content_hash_match(self, file_paths: List[Path],
+                                   content_hash: str) -> Optional[str]:
+        """Verify which file has matching content hash."""
+        for file_path in file_paths:
+            if self._check_file_hash_match(file_path, content_hash):
+                return str(file_path)
+        return None
+
+    def _check_file_hash_match(self, file_path: Path, content_hash: str) -> bool:
+        """Check if a single file has matching content hash."""
+        try:
+            metadata = self.load_metadata(str(file_path))
+            return metadata.content_hash == content_hash
+        except FileOperationError:
+            # Skip corrupted or inaccessible metadata files
+            return False
 
     def list_metadata_by_hash_prefix(self, hash_prefix: str) -> List[str]:
         """

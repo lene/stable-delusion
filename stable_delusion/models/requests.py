@@ -51,7 +51,7 @@ class GenerateImageRequest:
     storage_type: Optional[str] = None
     model: Optional[str] = None
 
-    def __post_init__(self) -> None:
+    def _validate_basic_fields(self) -> None:
         if not self.prompt or not self.prompt.strip():
             raise ValidationError("Prompt cannot be empty", field="prompt", value=self.prompt)
 
@@ -63,6 +63,7 @@ class GenerateImageRequest:
         if self.scale is not None and self.scale not in [2, 4]:
             raise ValidationError("Scale must be 2 or 4", field="scale", value=str(self.scale))
 
+    def _validate_model_specific_parameters(self) -> None:
         # Validate that scale and image_size are mutually exclusive
         if self.scale is not None and self.image_size is not None:
             raise ValidationError(
@@ -87,6 +88,7 @@ class GenerateImageRequest:
                 value=self.image_size,
             )
 
+    def _validate_format_and_enums(self) -> None:
         # Validate image_size format if provided
         if self.image_size is not None and not _validate_image_size(self.image_size):
             raise ValidationError(
@@ -110,6 +112,7 @@ class GenerateImageRequest:
                 f"Model must be one of {SUPPORTED_MODELS}", field="model", value=self.model
             )
 
+    def _validate_business_rules(self) -> None:
         # Validate that Seedream with images requires S3 storage
         seedream_with_images = self.model == "seedream" and self.images
         if seedream_with_images and self.storage_type != "s3":
@@ -119,6 +122,12 @@ class GenerateImageRequest:
                 field="storage_type",
                 value=self.storage_type or "None",
             )
+
+    def __post_init__(self) -> None:
+        self._validate_basic_fields()
+        self._validate_model_specific_parameters()
+        self._validate_format_and_enums()
+        self._validate_business_rules()
 
         # Ensure output_dir is Path object if provided as string
         if isinstance(self.output_dir, str):

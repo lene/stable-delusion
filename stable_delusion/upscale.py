@@ -53,26 +53,29 @@ def _decode_upscaled_image(response_data: Dict[str, Any]) -> Image.Image:
     return Image.open(io.BytesIO(image_data))
 
 
-def upscale_image(
-    image_path: Path,
-    project_id: str,
-    location: str = "us-central1",
-    upscale_factor: str = "x2",
-) -> Image.Image:
+def _prepare_authentication() -> Dict[str, str]:
     try:
-        # Get authentication headers first (preserves original error behavior)
-        headers = _get_authenticated_headers()
+        return _get_authenticated_headers()
     except Exception as e:
         raise AuthenticationError(f"Failed to get authentication credentials: {e}") from e
 
+
+def _prepare_image_data(image_path: Path) -> str:
     try:
-        # Load and encode image to base64
-        base64_image = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+        return base64.b64encode(image_path.read_bytes()).decode("utf-8")
     except (IOError, OSError) as e:
         raise UpscalingError(f"Failed to read image file: {e}", image_path=str(image_path)) from e
 
+
+def _execute_upscale_request(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    project_id: str,
+    location: str,
+    base64_image: str,
+    upscale_factor: str,
+    headers: Dict[str, str],
+    image_path: Path,
+) -> requests.Response:
     try:
-        # Make the API call
         response = requests.post(
             _build_upscale_url(project_id, location),
             json=_create_upscale_payload(base64_image, upscale_factor),
@@ -80,6 +83,7 @@ def upscale_image(
             timeout=60,
         )
         response.raise_for_status()
+        return response
     except requests.exceptions.HTTPError as e:
         if response.status_code == 401:
             raise AuthenticationError("Authentication failed with Vertex AI") from e
@@ -95,6 +99,10 @@ def upscale_image(
             image_path=str(image_path),
         ) from e
 
+
+def _process_upscale_response(
+    response: requests.Response, upscale_factor: str, image_path: Path
+) -> Image.Image:
     try:
         return _decode_upscaled_image(response.json())
     except (KeyError, ValueError) as e:
@@ -103,6 +111,20 @@ def upscale_image(
             scale_factor=upscale_factor,
             image_path=str(image_path),
         ) from e
+
+
+def upscale_image(
+    image_path: Path,
+    project_id: str,
+    location: str = "us-central1",
+    upscale_factor: str = "x2",
+) -> Image.Image:
+    headers = _prepare_authentication()
+    base64_image = _prepare_image_data(image_path)
+    response = _execute_upscale_request(
+        project_id, location, base64_image, upscale_factor, headers, image_path
+    )
+    return _process_upscale_response(response, upscale_factor, image_path)
 
 
 # --- Run the upscaling process ---

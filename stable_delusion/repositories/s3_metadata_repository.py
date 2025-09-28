@@ -6,7 +6,7 @@ Provides cloud storage for generation metadata using Amazon S3.
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import logging
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, Tuple, Dict, TYPE_CHECKING
 
 from botocore.exceptions import ClientError
 
@@ -18,6 +18,7 @@ from stable_delusion.repositories.s3_client import S3ClientManager, generate_s3_
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
+    from mypy_boto3_s3.type_defs import ListObjectsV2OutputTypeDef
 
 
 class S3MetadataRepository(MetadataRepository):
@@ -29,6 +30,37 @@ class S3MetadataRepository(MetadataRepository):
         # S3ClientManager validation ensures bucket_name is not None
         self.bucket_name: str = config.s3_bucket  # type: ignore[assignment]
         self.key_prefix = "metadata/"
+
+    def _prepare_metadata_for_upload(self, metadata: GenerationMetadata) -> Tuple[str, str]:
+        filename = metadata.get_metadata_filename()
+        s3_key = generate_s3_key(filename, self.key_prefix)
+        json_content = metadata.to_json()
+        return s3_key, json_content
+
+    def _create_s3_metadata(self, metadata: GenerationMetadata) -> Dict[str, str]:
+        prompt_preview = (
+            metadata.prompt[:100] + "..."
+            if len(metadata.prompt) > 100
+            else metadata.prompt
+        )
+        return {
+            "content-hash": metadata.content_hash or "",
+            "generation-timestamp": metadata.timestamp or "",
+            "prompt-preview": prompt_preview,
+        }
+
+    def _upload_metadata_to_s3(
+        self, s3_key: str, json_content: str, s3_metadata: Dict[str, str]
+    ) -> None:
+        self.s3_client.put_object(
+            Bucket=self.bucket_name,
+            Key=s3_key,
+            Body=json_content.encode("utf-8"),
+            ContentType="application/json",
+            ACL="public-read",  # Make publicly accessible
+            Metadata=s3_metadata,
+        )
+        logging.info("Metadata saved to S3: %s", s3_key)
 
     def save_metadata(self, metadata: GenerationMetadata) -> str:
         """
@@ -44,32 +76,9 @@ class S3MetadataRepository(MetadataRepository):
             FileOperationError: If save operation fails
         """
         try:
-            # Generate S3 key using metadata filename
-            filename = metadata.get_metadata_filename()
-            s3_key = generate_s3_key(filename, self.key_prefix)
-
-            # Convert metadata to JSON
-            json_content = metadata.to_json()
-
-            # Upload to S3 with public read permissions
-            self.s3_client.put_object(
-                Bucket=self.bucket_name,
-                Key=s3_key,
-                Body=json_content.encode("utf-8"),
-                ContentType="application/json",
-                ACL="public-read",  # Make publicly accessible
-                Metadata={
-                    "content-hash": metadata.content_hash or "",
-                    "generation-timestamp": metadata.timestamp or "",
-                    "prompt-preview": (
-                        metadata.prompt[:100] + "..."
-                        if len(metadata.prompt) > 100
-                        else metadata.prompt
-                    ),
-                },
-            )
-
-            logging.info("Metadata saved to S3: %s", s3_key)
+            s3_key, json_content = self._prepare_metadata_for_upload(metadata)
+            s3_metadata = self._create_s3_metadata(metadata)
+            self._upload_metadata_to_s3(s3_key, json_content, s3_metadata)
             return s3_key
 
         except ClientError as e:
@@ -77,7 +86,7 @@ class S3MetadataRepository(MetadataRepository):
             raise FileOperationError(
                 f"Failed to save metadata to S3: {error_code}",
                 operation="save_metadata",
-                file_path=s3_key if "s3_key" in locals() else "unknown",
+                file_path=locals().get("s3_key", "unknown"),
             ) from e
 
         except Exception as e:
@@ -86,6 +95,26 @@ class S3MetadataRepository(MetadataRepository):
                 operation="save_metadata",
                 file_path="unknown",
             ) from e
+
+    def _handle_load_metadata_error(self, error: Exception, metadata_key: str) -> None:
+        if isinstance(error, ClientError):
+            error_code = error.response["Error"]["Code"]
+            if error_code == "NoSuchKey":
+                raise FileOperationError(
+                    f"Metadata not found: {metadata_key}",
+                    operation="load_metadata",
+                    file_path=metadata_key,
+                ) from error
+            raise FileOperationError(
+                f"Failed to load metadata from S3: {error_code}",
+                operation="load_metadata",
+                file_path=metadata_key,
+            ) from error
+        raise FileOperationError(
+            f"Unexpected error loading metadata: {str(error)}",
+            operation="load_metadata",
+            file_path=metadata_key,
+        ) from error
 
     def load_metadata(self, metadata_key: str) -> GenerationMetadata:
         """
@@ -102,36 +131,14 @@ class S3MetadataRepository(MetadataRepository):
         """
         try:
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=metadata_key)
-
-            # Read JSON content
             json_content = response["Body"].read().decode("utf-8")
-
-            # Parse metadata
             metadata = GenerationMetadata.from_json(json_content)
-
             logging.info("Metadata loaded from S3: %s", metadata_key)
             return metadata
-
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            if error_code == "NoSuchKey":
-                raise FileOperationError(
-                    f"Metadata not found: {metadata_key}",
-                    operation="load_metadata",
-                    file_path=metadata_key,
-                ) from e
-            raise FileOperationError(
-                f"Failed to load metadata from S3: {error_code}",
-                operation="load_metadata",
-                file_path=metadata_key,
-            ) from e
-
-        except Exception as e:
-            raise FileOperationError(
-                f"Unexpected error loading metadata: {str(e)}",
-                operation="load_metadata",
-                file_path=metadata_key,
-            ) from e
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self._handle_load_metadata_error(e, metadata_key)
+            # The above method always raises, so this return is unreachable
+            raise  # pragma: no cover
 
     def metadata_exists(self, content_hash: str) -> Optional[str]:
         """
@@ -144,34 +151,51 @@ class S3MetadataRepository(MetadataRepository):
             S3 key if metadata exists, None otherwise
         """
         try:
-            # List objects with metadata prefix and filter by hash
-            response = self.s3_client.list_objects_v2(
-                Bucket=self.bucket_name,
-                Prefix=self.key_prefix,
-                MaxKeys=1000,  # Should be sufficient for deduplication checks
-            )
-
-            if "Contents" not in response:
+            response = self._list_metadata_objects()
+            if response is None:
                 return None
 
-            # Look for metadata files with matching content hash
-            for obj in response["Contents"]:
-                key = obj["Key"]
-                if f"metadata_{content_hash[:8]}" in key:
-                    # Verify by loading the metadata and checking full hash
-                    try:
-                        metadata = self.load_metadata(key)
-                        if metadata.content_hash == content_hash:
-                            return key
-                    except FileOperationError:
-                        # Skip corrupted or inaccessible metadata files
-                        continue
-
-            return None
+            return self._find_matching_metadata_key(response, content_hash)
 
         except ClientError as e:
             logging.warning("Error checking metadata existence: %s", e)
             return None
+
+    def _list_metadata_objects(self) -> Optional["ListObjectsV2OutputTypeDef"]:
+        """List S3 objects with metadata prefix."""
+        response = self.s3_client.list_objects_v2(
+            Bucket=self.bucket_name,
+            Prefix=self.key_prefix,
+            MaxKeys=1000,  # Should be sufficient for deduplication checks
+        )
+
+        if "Contents" not in response:
+            return None
+
+        return response
+
+    def _find_matching_metadata_key(
+        self, response: "ListObjectsV2OutputTypeDef", content_hash: str
+    ) -> Optional[str]:
+        """Find metadata key with matching content hash."""
+        hash_prefix = content_hash[:8]
+
+        for obj in response["Contents"]:
+            key = obj["Key"]
+            if f"metadata_{hash_prefix}" in key:
+                if self._verify_metadata_hash_match(key, content_hash):
+                    return key
+
+        return None
+
+    def _verify_metadata_hash_match(self, key: str, content_hash: str) -> bool:
+        """Verify metadata file has matching content hash."""
+        try:
+            metadata = self.load_metadata(key)
+            return metadata.content_hash == content_hash
+        except FileOperationError:
+            # Skip corrupted or inaccessible metadata files
+            return False
 
     def list_metadata_by_hash_prefix(self, hash_prefix: str) -> List[str]:
         """
@@ -184,23 +208,34 @@ class S3MetadataRepository(MetadataRepository):
             List of S3 keys matching prefix
         """
         try:
-            matching_keys = []
-
-            # List objects with metadata prefix
-            paginator = self.s3_client.get_paginator("list_objects_v2")
-            pages = paginator.paginate(Bucket=self.bucket_name, Prefix=self.key_prefix)
-
-            for page in pages:
-                if "Contents" not in page:
-                    continue
-
-                for obj in page["Contents"]:
-                    key = obj["Key"]
-                    if f"metadata_{hash_prefix}" in key:
-                        matching_keys.append(key)
-
-            return matching_keys
-
+            return self._collect_matching_metadata_keys(hash_prefix)
         except ClientError as e:
             logging.warning("Error listing metadata by hash prefix: %s", e)
             return []
+
+    def _collect_matching_metadata_keys(self, hash_prefix: str) -> List[str]:
+        """Collect all metadata keys matching the hash prefix."""
+        matching_keys = []
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=self.bucket_name, Prefix=self.key_prefix)
+
+        for page in pages:
+            if "Contents" in page:
+                page_keys = self._extract_matching_keys_from_page(page, hash_prefix)
+                matching_keys.extend(page_keys)
+
+        return matching_keys
+
+    def _extract_matching_keys_from_page(
+        self, page: "ListObjectsV2OutputTypeDef", hash_prefix: str
+    ) -> List[str]:
+        """Extract keys matching hash prefix from a single page."""
+        matching_keys = []
+        target_pattern = f"metadata_{hash_prefix}"
+
+        for obj in page["Contents"]:
+            key = obj["Key"]
+            if target_pattern in key:
+                matching_keys.append(key)
+
+        return matching_keys

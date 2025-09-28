@@ -8,7 +8,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import Any, List, Tuple
 
 from flask import Flask, jsonify, request, Response
 
@@ -78,77 +78,88 @@ def openapi_spec() -> Tuple[Response, int]:
         return create_error_response("OpenAPI specification not found", 404)
 
 
-@app.route("/generate", methods=["POST"])
-def generate() -> Tuple[Response, int]:  # pylint: disable=too-many-return-statements
-    try:
-        # Validate that images are provided
-        if "images" not in request.files:
-            error_response = ErrorResponse("Missing 'images' parameter")
-            return jsonify(error_response.to_dict()), 400
+def _validate_and_save_uploaded_files() -> List[Path]:
+    if "images" not in request.files:
+        raise ValueError("Missing 'images' parameter")
 
-        # Extract and save uploaded files using repository
-        images = request.files.getlist("images")
-        saved_files = get_upload_repository().save_uploaded_files(
-            images, app.config["UPLOAD_FOLDER"]
-        )
+    images = request.files.getlist("images")
+    return get_upload_repository().save_uploaded_files(
+        images, app.config["UPLOAD_FOLDER"]
+    )
 
-        # Create request DTO with validation
-        config = get_config()
-        request_dto = GenerateImageRequest(
-            prompt=request.form.get("prompt") or DEFAULT_PROMPT,
-            images=saved_files,
-            project_id=request.form.get("project_id") or config.project_id,
-            location=request.form.get("location") or config.location,
-            output_dir=Path(request.form.get("output_dir") or config.default_output_dir),
-            scale=int(request.form["scale"]) if request.form.get("scale") else None,
-            image_size=request.form.get("size"),
-            custom_output=request.form.get("output"),
-            storage_type=request.form.get("storage_type"),
-            model=request.form.get("model"),
-        )
 
-    except ValidationError as e:
-        error_response = ErrorResponse(str(e))
-        return jsonify(error_response.to_dict()), 400
-    except ValueError as e:
-        error_response = ErrorResponse(f"Invalid scale parameter: {e}")
-        return jsonify(error_response.to_dict()), 400
-
-    # Create image generation service
-    try:
-        service = ServiceFactory.create_image_generation_service(
-            project_id=request_dto.project_id,
-            location=request_dto.location,
-            output_dir=request_dto.output_dir,
-            storage_type=request_dto.storage_type,
-            model=request_dto.model,
-        )
-    except (ConfigurationError, ValidationError) as e:
-        error_response = ErrorResponse(str(e))
-        return jsonify(error_response.to_dict()), 400
-
-    # Generate image using service
-    try:
-        response_dto = service.generate_image(request_dto)
-    except (ImageGenerationError, UpscalingError, FileOperationError) as e:
-        error_response = ErrorResponse(f"Image generation failed: {e}")
-        return jsonify(error_response.to_dict()), 500
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        # Catch any other unexpected exceptions for API stability
-        error_response = ErrorResponse(f"Unexpected error: {e}")
-        return jsonify(error_response.to_dict()), 500
-
-    # Handle custom output filename if provided
-    if response_dto.generated_file and request_dto.custom_output and request_dto.output_dir:
+def _create_request_dto(saved_files: List[Path]) -> GenerateImageRequest:
+    config = get_config()
+    scale = None
+    if request.form.get("scale"):
         try:
-            custom_path = request_dto.output_dir / request_dto.custom_output
-            response_dto.generated_file.rename(custom_path)
-            response_dto.image_config.generated_file = custom_path
-        except OSError as e:
-            error_response = ErrorResponse(f"Failed to rename output file: {e}")
-            return jsonify(error_response.to_dict()), 500
+            scale = int(request.form["scale"])
+        except ValueError as e:
+            raise ValidationError(f"Invalid scale parameter: {e}", field="scale") from e
 
-    return jsonify(response_dto.to_dict()), 200
+    return GenerateImageRequest(
+        prompt=request.form.get("prompt") or DEFAULT_PROMPT,
+        images=saved_files,
+        project_id=request.form.get("project_id") or config.project_id,
+        location=request.form.get("location") or config.location,
+        output_dir=Path(request.form.get("output_dir") or config.default_output_dir),
+        scale=scale,
+        image_size=request.form.get("size"),
+        custom_output=request.form.get("output"),
+        storage_type=request.form.get("storage_type"),
+        model=request.form.get("model"),
+    )
+
+
+def _create_generation_service(request_dto: GenerateImageRequest) -> Any:
+    return ServiceFactory.create_image_generation_service(
+        project_id=request_dto.project_id,
+        location=request_dto.location,
+        output_dir=request_dto.output_dir,
+        storage_type=request_dto.storage_type,
+        model=request_dto.model,
+    )
+
+
+def _handle_custom_output_filename(response_dto: Any, request_dto: GenerateImageRequest) -> None:
+    if response_dto.generated_file and request_dto.custom_output and request_dto.output_dir:
+        custom_path = request_dto.output_dir / request_dto.custom_output
+        response_dto.generated_file.rename(custom_path)
+        response_dto.image_config.generated_file = custom_path
+
+
+def _handle_generation_errors(error: Exception) -> Tuple[Response, int]:
+    if isinstance(error, (ValidationError, ConfigurationError)):
+        error_response = ErrorResponse(str(error))
+        return jsonify(error_response.to_dict()), 400
+    if isinstance(error, (ImageGenerationError, UpscalingError, FileOperationError)):
+        error_response = ErrorResponse(f"Image generation failed: {error}")
+        return jsonify(error_response.to_dict()), 500
+    if isinstance(error, ValueError):
+        error_msg = str(error)
+        if "Missing 'images' parameter" in error_msg or "Invalid scale parameter" in error_msg:
+            error_response = ErrorResponse(error_msg)
+            return jsonify(error_response.to_dict()), 400
+        error_response = ErrorResponse(f"Unexpected error: {error}")
+        return jsonify(error_response.to_dict()), 500
+    if isinstance(error, OSError):
+        error_response = ErrorResponse(f"Failed to rename output file: {error}")
+        return jsonify(error_response.to_dict()), 500
+    error_response = ErrorResponse(f"Unexpected error: {error}")
+    return jsonify(error_response.to_dict()), 500
+
+
+@app.route("/generate", methods=["POST"])
+def generate() -> Tuple[Response, int]:
+    try:
+        saved_files = _validate_and_save_uploaded_files()
+        request_dto = _create_request_dto(saved_files)
+        service = _create_generation_service(request_dto)
+        response_dto = service.generate_image(request_dto)
+        _handle_custom_output_filename(response_dto, request_dto)
+        return jsonify(response_dto.to_dict()), 200
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        return _handle_generation_errors(e)
 
 
 @app.route("/metadata/<hash_prefix>", methods=["GET"])

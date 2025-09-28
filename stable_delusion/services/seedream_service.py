@@ -55,7 +55,9 @@ class SeedreamImageGenerationService(ImageGenerationService):
         logging.info("✅ SeedreamImageGenerationService created successfully")
         return cls(client, image_repository)
 
-    def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
+    def _log_generation_request(
+        self, request: GenerateImageRequest, effective_output_dir: Path
+    ) -> None:
         logging.info("🎨 SeedreamImageGenerationService.generate_image() called")
         logging.info("   Request prompt: %s", request.prompt)
         logging.info("   Request images: %s", [str(img) for img in request.images])
@@ -64,10 +66,28 @@ class SeedreamImageGenerationService(ImageGenerationService):
         logging.info("   Request output_dir: %s", request.output_dir)
         logging.info("   Request scale: %s", request.scale)
         logging.info("   Request image_size: %s", request.image_size)
+        logging.info("   Effective output dir: %s", effective_output_dir)
 
+    def _create_generation_response(
+        self, request: GenerateImageRequest, generated_file: Optional[Path] = None
+    ) -> GenerateImageResponse:
+        config = ConfigManager.get_config()
+        return GenerateImageResponse(
+            image_config=ImageGenerationConfig(
+                generated_file=generated_file,
+                prompt=request.prompt,
+                scale=request.scale,
+                image_size=request.image_size,
+                saved_files=request.images,
+                output_dir=request.output_dir or config.default_output_dir,
+            ),
+            gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
+        )
+
+    def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
         config = ConfigManager.get_config()
         effective_output_dir = request.output_dir or config.default_output_dir
-        logging.info("   Effective output dir: %s", effective_output_dir)
+        self._log_generation_request(request, effective_output_dir)
 
         try:
             # Handle image uploads to S3 if images are provided
@@ -88,53 +108,21 @@ class SeedreamImageGenerationService(ImageGenerationService):
             )
             logging.info("✅ Seedream generation successful: %s", generated_file)
 
-            # Create response DTO
-            return GenerateImageResponse(
-                image_config=ImageGenerationConfig(
-                    generated_file=generated_file,
-                    prompt=request.prompt,
-                    scale=request.scale,
-                    image_size=request.image_size,
-                    saved_files=request.images,
-                    output_dir=request.output_dir or config.default_output_dir,
-                ),
-                gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
-            )
+            return self._create_generation_response(request, generated_file)
 
         except ConfigurationError as e:
             logging.error("Configuration error during image generation: %s", e)
-            # Return failed response
-            return GenerateImageResponse(
-                image_config=ImageGenerationConfig(
-                    generated_file=None,
-                    prompt=request.prompt,
-                    scale=request.scale,
-                    saved_files=request.images,
-                    output_dir=request.output_dir or config.default_output_dir,
-                ),
-                gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
-            )
+            return self._create_generation_response(request)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logging.error("Unexpected error during image generation: %s", e)
-            # Return failed response
-            return GenerateImageResponse(
-                image_config=ImageGenerationConfig(
-                    generated_file=None,
-                    prompt=request.prompt,
-                    scale=request.scale,
-                    saved_files=request.images,
-                    output_dir=request.output_dir or config.default_output_dir,
-                ),
-                gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
-            )
+            return self._create_generation_response(request)
 
-    def upload_images_to_s3(self, image_paths: List[Path]) -> List[str]:
+    def _validate_s3_repository(self) -> None:
         if not self.image_repository:
             raise ConfigurationError(
                 "Image repository not configured for S3 uploads", config_key="image_repository"
             )
 
-        # Check if the repository is S3-based
         from stable_delusion.repositories.s3_image_repository import S3ImageRepository
 
         if not isinstance(self.image_repository, S3ImageRepository):
@@ -143,35 +131,43 @@ class SeedreamImageGenerationService(ImageGenerationService):
                 config_key="storage_type",
             )
 
+    def _upload_single_image_to_s3(self, image_path: Path) -> str:
+        logging.info("📤 Uploading image to S3: %s", image_path)
+
+        from PIL import Image
+        from stable_delusion.utils import generate_timestamped_filename
+
+        # This method is only called after _validate_s3_repository()
+        # ensures image_repository is not None
+        if self.image_repository is None:
+            raise ConfigurationError(
+                "Image repository not configured for S3 uploads", config_key="image_repository"
+            )
+
+        with Image.open(image_path) as img:
+            s3_filename = generate_timestamped_filename(
+                f"seedream_input_{image_path.stem}", image_path.suffix.lstrip(".")
+            )
+            s3_path = Path("seedream/inputs") / s3_filename
+
+            s3_url_path = self.image_repository.save_image(img, s3_path)
+            s3_url = str(s3_url_path)
+
+            # Fix URL normalization issue with Path objects
+            if s3_url.startswith("https:/") and not s3_url.startswith("https://"):
+                s3_url = s3_url.replace("https:/", "https://", 1)
+
+            logging.info("✅ Uploaded to S3: %s", s3_url)
+            return s3_url
+
+    def upload_images_to_s3(self, image_paths: List[Path]) -> List[str]:
+        self._validate_s3_repository()
         uploaded_urls = []
 
         for image_path in image_paths:
             try:
-                logging.info("📤 Uploading image to S3: %s", image_path)
-
-                # Load the image using PIL
-                from PIL import Image
-
-                with Image.open(image_path) as img:
-                    # Generate a unique S3 key for this image
-                    from stable_delusion.utils import generate_timestamped_filename
-
-                    s3_filename = generate_timestamped_filename(
-                        f"seedream_input_{image_path.stem}", image_path.suffix.lstrip(".")
-                    )
-                    s3_path = Path("seedream/inputs") / s3_filename
-
-                    # Upload to S3 and get URL
-                    s3_url_path = self.image_repository.save_image(img, s3_path)
-                    s3_url = str(s3_url_path)
-
-                    # Fix URL normalization issue with Path objects
-                    if s3_url.startswith("https:/") and not s3_url.startswith("https://"):
-                        s3_url = s3_url.replace("https:/", "https://", 1)
-
-                    uploaded_urls.append(s3_url)
-                    logging.info("✅ Uploaded to S3: %s", s3_url)
-
+                s3_url = self._upload_single_image_to_s3(image_path)
+                uploaded_urls.append(s3_url)
             except Exception as e:
                 logging.error("❌ Failed to upload %s to S3: %s", image_path, str(e))
                 raise ConfigurationError(

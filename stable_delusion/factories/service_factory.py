@@ -29,14 +29,7 @@ class ServiceFactory:
         return LocalFileService(image_repository=image_repo, file_repository=file_repo)
 
     @staticmethod
-    def create_image_generation_service(
-        project_id: Optional[str] = None,
-        location: Optional[str] = None,
-        output_dir: Optional[Path] = None,
-        storage_type: Optional[str] = None,
-        model: Optional[str] = None,
-    ) -> ImageGenerationService:
-        # Handle storage type override
+    def _create_image_repository_with_storage_override(storage_type: Optional[str]):
         if storage_type:
             from stable_delusion.config import ConfigManager
 
@@ -45,24 +38,27 @@ class ServiceFactory:
             config.storage_type = storage_type
             image_repo = RepositoryFactory.create_image_repository()
             config.storage_type = original_storage_type
-        else:
-            image_repo = RepositoryFactory.create_image_repository()
+            return image_repo
+        return RepositoryFactory.create_image_repository()
 
-        # Create service based on model selection
-        model = model or "gemini"  # Default to gemini for backward compatibility
+    @staticmethod
+    def _create_seedream_service(output_dir: Optional[Path], image_repo) -> ImageGenerationService:
+        logging.info("🌱 Creating SeedreamImageGenerationService")
+        from stable_delusion.services.seedream_service import SeedreamImageGenerationService
 
-        logging.info("🏭 ServiceFactory creating service for model: %s", model)
+        service = SeedreamImageGenerationService.create(
+            output_dir=output_dir, image_repository=image_repo
+        )
+        logging.info("✅ SeedreamImageGenerationService created: %s", service)
+        return service
 
-        if model == "seedream":
-            logging.info("🌱 Creating SeedreamImageGenerationService")
-            from stable_delusion.services.seedream_service import SeedreamImageGenerationService
-
-            service = SeedreamImageGenerationService.create(
-                output_dir=output_dir, image_repository=image_repo
-            )
-            logging.info("✅ SeedreamImageGenerationService created: %s", service)
-            return service
-        # Default to Gemini
+    @staticmethod
+    def _create_gemini_service(
+        project_id: Optional[str],
+        location: Optional[str],
+        output_dir: Optional[Path],
+        image_repo
+    ) -> ImageGenerationService:
         logging.info("🔷 Creating GeminiImageGenerationService")
         gemini_service = GeminiImageGenerationService.create(
             project_id=project_id,
@@ -72,6 +68,25 @@ class ServiceFactory:
         )
         logging.info("✅ GeminiImageGenerationService created: %s", gemini_service)
         return gemini_service
+
+    @staticmethod
+    def create_image_generation_service(
+        project_id: Optional[str] = None,
+        location: Optional[str] = None,
+        output_dir: Optional[Path] = None,
+        storage_type: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> ImageGenerationService:
+        image_repo = ServiceFactory._create_image_repository_with_storage_override(storage_type)
+        model = model or "gemini"  # Default to gemini for backward compatibility
+
+        logging.info("🏭 ServiceFactory creating service for model: %s", model)
+
+        if model == "seedream":
+            return ServiceFactory._create_seedream_service(output_dir, image_repo)
+        return ServiceFactory._create_gemini_service(
+            project_id, location, output_dir, image_repo
+        )
 
     @staticmethod
     def create_upscaling_service(
