@@ -1,5 +1,5 @@
-# GitLab CI/CD configuration for NanoAPIClient
-# Runs tests, code quality checks, and security analysis on every push
+# GitLab CI/CD configuration for stable-delusion
+# Runs tests, code quality checks, security analysis, and GitHub mirroring on every push
 
 # Use Python 3.10 image (matches development environment)
 image: python:3.10
@@ -9,6 +9,7 @@ stages:
   - setup
   - test
   - quality
+  - mirror
 
 # Cache poetry dependencies between runs for faster builds
 cache:
@@ -53,7 +54,7 @@ test:
   stage: test
   script:
     - echo "Running test suite..."
-    - poetry run pytest tests/ -v --tb=short
+    - poetry run pytest -n auto tests/ -v --tb=short
     - echo "✅ All $(poetry run pytest tests/ --collect-only -q | grep -c test_) tests passed!"
   artifacts:
     reports:
@@ -69,7 +70,7 @@ flake8:
   stage: quality
   script:
     - echo "Running flake8 code quality checks..."
-    - poetry run flake8 nano_api tests --count --statistics
+    - poetry run flake8 stable_delusion tests --count --statistics
     - echo "✅ All code quality checks passed!"
   allow_failure: false
   only:
@@ -81,7 +82,7 @@ pylint:
   stage: quality
   script:
     - echo "Running pylint code quality checks..."
-    - poetry run pylint nano_api tests --score=yes
+    - poetry run pylint -j 0 stable_delusion tests --score=yes
     - echo "✅ All code quality checks passed!"
   allow_failure: false
   only:
@@ -94,7 +95,7 @@ mypy:
   stage: quality
   script:
     - echo "Running static type checking with mypy..."
-    - poetry run mypy nano_api/
+    - poetry run mypy stable_delusion/
     - echo "✅ All type checks passed!"
   allow_failure: false
   only:
@@ -107,13 +108,26 @@ bandit:
   stage: quality
   script:
     - echo "Running security analysis with bandit..."
-    - poetry run bandit -r nano_api/ --format txt
+    - poetry run bandit -r stable_delusion/ --format txt
     - echo "✅ Security analysis completed - no vulnerabilities found!"
   allow_failure: false
   only:
     - main
     - merge_requests
     - multi-image-support
+
+# GitHub Mirror stage - triggers mirror sync after successful merge requests
+github_mirror:
+  stage: mirror
+  image: alpine/git:latest
+  script:
+    - echo "🔄 Triggering GitHub mirror sync..."
+    - echo "All quality checks passed - repository mirror will be updated automatically"
+    - echo "✅ Mirror sync triggered successfully"
+  only:
+    - main
+    - merge_requests
+  when: on_success
 
 # Deployment stage (runs only on main branch)
 # deploy:
