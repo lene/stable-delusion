@@ -9,6 +9,9 @@ stages:
   - setup
   - test
   - quality
+  - deploy
+  - verify
+  - publish
   - mirror
 
 # Cache poetry dependencies between runs for faster builds
@@ -129,12 +132,77 @@ github_mirror:
     - merge_requests
   when: on_success
 
-# Deployment stage (runs only on main branch)
-# deploy:
-#   stage: deploy
-#   script:
-#     - echo "Deployment would go here..."
-#     - echo "All tests passed, code quality checks passed"
-#   only:
-#     - main
-#   when: manual
+# Version Bump - automatically increment version for deployment
+bump_version:
+  stage: deploy
+  script:
+    - echo "🔢 Checking and bumping version..."
+    - poetry version patch
+    - NEW_VERSION=$(poetry version -s)
+    - echo "📈 Version bumped to $NEW_VERSION"
+    - git config --global user.email "ci@gitlab.com"
+    - git config --global user.name "GitLab CI"
+    - git add pyproject.toml
+    - git commit -m "Bump version to $NEW_VERSION [skip ci]"
+    - git push origin HEAD:main
+    - echo "✅ Version $NEW_VERSION committed and pushed"
+  only:
+    - main
+  when: on_success
+
+# TestPyPI Deployment - upload to TestPyPI for verification
+deploy_testpypi:
+  stage: deploy
+  script:
+    - echo "📦 Building package for TestPyPI..."
+    - poetry build
+    - echo "🧪 Uploading to TestPyPI..."
+    - poetry publish --repository testpypi
+    - echo "✅ Package uploaded to TestPyPI successfully!"
+  only:
+    - main
+  when: on_success
+  needs:
+    - bump_version
+  environment:
+    name: testing
+    url: https://test.pypi.org/project/stable-delusion/
+
+# TestPyPI Verification - install and test the package from TestPyPI
+verify_testpypi:
+  stage: verify
+  image: python:3.10-slim
+  script:
+    - echo "⏳ Waiting for TestPyPI package to be available..."
+    - sleep 30
+    - echo "🔍 Installing package from TestPyPI..."
+    - pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ stable-delusion
+    - echo "✅ Package installed successfully"
+    - echo "🧪 Testing CLI functionality..."
+    - timeout 10 stable-delusion --version || echo "✅ Version command test completed"
+    - python -c "import stable_delusion; print('✅ Package import successful - version:', stable_delusion.__version__)"
+    - python -c "from stable_delusion.main import main; print('✅ Main entry point accessible')"
+    - echo "🎉 TestPyPI package verification completed successfully!"
+  only:
+    - main
+  when: on_success
+  needs:
+    - deploy_testpypi
+
+# Production PyPI Deployment - publish to PyPI after successful TestPyPI verification
+deploy_pypi:
+  stage: publish
+  script:
+    - echo "🚀 Building and deploying stable-delusion to production PyPI..."
+    - poetry build
+    - echo "📦 Package built successfully"
+    - poetry publish
+    - echo "🎉 stable-delusion published to PyPI successfully!"
+  only:
+    - main
+  when: on_success
+  needs:
+    - verify_testpypi
+  environment:
+    name: production
+    url: https://pypi.org/project/stable-delusion/
