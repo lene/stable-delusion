@@ -5,9 +5,9 @@ description = "AI-powered image generation assistant supporting multiple models 
 authors = ["Lene Preuss <lene.preuss@gmail.com>"]
 readme = "README.md"
 license = "MIT"
-homepage = "https://gitlab.com/lilacashes/microbanana"
-repository = "https://gitlab.com/lilacashes/microbanana"
-documentation = "https://gitlab.com/lilacashes/microbanana/-/blob/main/README.md"
+homepage = "https://gitlab.com/lilacashes/stable-delusion"
+repository = "https://gitlab.com/lilacashes/stable-delusion"
+documentation = "https://gitlab.com/lilacashes/stable-delusion/-/blob/main/README.md"
 keywords = ["ai", "image-generation", "gemini", "seedream", "cli", "api"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -36,7 +36,7 @@ poetry-core = "^2.2.1"
 
 [tool.poetry.scripts]
 stable-delusion = "stable_delusion.main:main"
-stable-delusion-generate = "stable_delusion.generate:main"
+hallucinate = "stable_delusion.generate:main"
 
 [tool.poetry.group.test.dependencies]
 freezegun = "^1.5.5"

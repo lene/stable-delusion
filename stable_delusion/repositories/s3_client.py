@@ -6,6 +6,7 @@ Provides reusable S3 client setup and common operations.
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import logging
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, TYPE_CHECKING
 
 from stable_delusion.config import Config
@@ -247,3 +248,59 @@ def build_s3_url(bucket_name: str, object_key: str) -> str:
         S3 URL in format s3://bucket/key
     """
     return f"s3://{bucket_name}/{object_key}"
+
+
+def extract_s3_key_with_validation(file_path: Path, expected_bucket: str) -> str:
+    """
+    Extract S3 key from file path with bucket validation.
+
+    Handles both S3 URLs, HTTPS S3 URLs, and direct keys.
+
+    Args:
+        file_path: S3 URL, HTTPS S3 URL, or key path
+        expected_bucket: Expected bucket name for validation
+
+    Returns:
+        S3 object key
+
+    Raises:
+        ValidationError: If path format is invalid or bucket doesn't match
+    """
+    from stable_delusion.exceptions import ValidationError
+
+    path_str = str(file_path)
+
+    # Handle S3 URLs (s3://bucket/key)
+    if path_str.startswith("s3://"):
+        try:
+            bucket, key = parse_s3_url(path_str)
+            if bucket != expected_bucket:
+                raise ValidationError(
+                    f"S3 bucket mismatch: expected {expected_bucket}, got {bucket}",
+                    field="file_path",
+                    value=path_str,
+                )
+            return key
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid S3 URL format: {path_str}", field="file_path", value=path_str
+            ) from e
+
+    # Handle HTTPS S3 URLs (https://bucket.s3.region.amazonaws.com/key)
+    if path_str.startswith("https://") and ".amazonaws.com" in path_str:
+        try:
+            bucket, key = parse_https_s3_url(path_str)
+            if bucket != expected_bucket:
+                raise ValidationError(
+                    f"S3 bucket mismatch: expected {expected_bucket}, got {bucket}",
+                    field="file_path",
+                    value=path_str,
+                )
+            return key
+        except ValueError as e:
+            raise ValidationError(
+                f"Invalid HTTPS S3 URL format: {path_str}", field="file_path", value=path_str
+            ) from e
+
+    # Handle direct keys (remove leading slash if present)
+    return path_str.lstrip("/")

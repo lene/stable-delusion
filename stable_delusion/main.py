@@ -176,7 +176,6 @@ def get_metadata(hash_prefix: str) -> Tuple[Response, int]:
 def main():
     """Main entry point for the stable-delusion application."""
     import sys
-    import argparse
 
     # Check if --version is requested
     if len(sys.argv) > 1 and sys.argv[1] in ['--version', '-V']:
@@ -185,7 +184,9 @@ def main():
         return
 
     # Check if --help is requested or if there are CLI arguments for image generation
-    if len(sys.argv) > 1 and (sys.argv[1] in ['--help', '-h'] or sys.argv[1] in ['--image', '--prompt']):
+    if len(sys.argv) > 1 and (
+        sys.argv[1] in ['--help', '-h'] or sys.argv[1] in ['--image', '--prompt']
+    ):
         # Delegate to the CLI interface in generate.py
         from stable_delusion.generate import main as generate_main
         generate_main()

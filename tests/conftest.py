@@ -10,6 +10,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PIL import Image
+
+# Import for type hints in fixtures
+from stable_delusion.repositories.s3_image_repository import S3ImageRepository
 
 # Add the stable_delusion package to the Python path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "stable_delusion"))
@@ -266,6 +270,46 @@ def mock_pil_image():
         mock_image = MagicMock()
         mock_open.return_value = mock_image
         yield mock_image
+
+
+@pytest.fixture
+def mock_s3_client_with_exceptions():
+    """Shared S3 client mock with proper exception handling."""
+    mock_client = MagicMock()
+
+    # Create exception classes
+    mock_client.exceptions.NoSuchKey = type("NoSuchKey", (Exception,), {})
+    mock_client.exceptions.ClientError = type("ClientError", (Exception,), {})
+
+    # Set up common return values
+    mock_client.put_object.return_value = {}
+    mock_client.head_object.return_value = {"ContentLength": 1024}
+    mock_client.get_object.return_value = {"Body": MagicMock()}
+
+    return mock_client
+
+
+@pytest.fixture
+def mock_s3_image_repository():
+    """Shared S3 image repository mock with common configurations."""
+    mock_repo = MagicMock(spec=S3ImageRepository)
+    mock_repo.save_image.return_value = Path(
+        "https://test-bucket.s3.us-east-1.amazonaws.com/test.jpg"
+    )
+    mock_repo.load_image.return_value = MagicMock()
+    mock_repo.generate_image_path.return_value = Path("s3://test-bucket/images/test.jpg")
+    mock_repo.validate_image_file.return_value = True
+    return mock_repo
+
+
+@pytest.fixture
+def mock_pil_image_context_manager():
+    """PIL Image mock that works as a context manager."""
+    mock_img = MagicMock(spec=Image.Image)
+    mock_img.__enter__ = MagicMock(return_value=mock_img)
+    mock_img.__exit__ = MagicMock(return_value=None)
+    mock_img.save = MagicMock()
+    return mock_img
 
 
 @pytest.fixture
@@ -602,8 +646,6 @@ def seedream_env():
 
 @pytest.fixture
 def mock_s3_repository():
-    from stable_delusion.repositories.s3_image_repository import S3ImageRepository
-
     mock_repo = MagicMock(spec=S3ImageRepository)
 
     # Mock save_image to return HTTPS URL
