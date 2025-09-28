@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from nano_api.config import Config, ConfigManager
-from nano_api.exceptions import ConfigurationError
+from stable_delusion.config import Config, ConfigManager
+from stable_delusion.exceptions import ConfigurationError
 
 
 # Note: .env file loading prevention is now handled globally in conftest.py

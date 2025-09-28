@@ -8,16 +8,16 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from nano_api.factories.service_factory import ServiceFactory
-from nano_api.services.seedream_service import SeedreamImageGenerationService
-from nano_api.services.gemini_service import GeminiImageGenerationService
+from stable_delusion.factories.service_factory import ServiceFactory
+from stable_delusion.services.seedream_service import SeedreamImageGenerationService
+from stable_delusion.services.gemini_service import GeminiImageGenerationService
 
 
 class TestServiceFactorySeedream:
     """Test ServiceFactory functionality for Seedream integration."""
 
-    @patch("nano_api.services.seedream_service.SeedreamImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.services.seedream_service.SeedreamImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_create_seedream_service_with_s3_repository(
         self, mock_repo_factory, mock_seedream_service
     ):
@@ -37,8 +37,8 @@ class TestServiceFactorySeedream:
         )
         assert service == mock_service_instance
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_service_factory_model_selection_gemini(self, mock_repo_factory, mock_gemini_service):
         mock_repository = Mock()
         mock_repo_factory.return_value = mock_repository
@@ -54,8 +54,8 @@ class TestServiceFactorySeedream:
         mock_gemini_service.create.assert_called_once()
         assert service == mock_service_instance
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_service_factory_model_selection_default(self, mock_repo_factory, mock_gemini_service):
         mock_repository = Mock()
         mock_repo_factory.return_value = mock_repository
@@ -71,8 +71,8 @@ class TestServiceFactorySeedream:
         mock_gemini_service.create.assert_called_once()
         assert service == mock_service_instance
 
-    @patch("nano_api.config.ConfigManager.get_config")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.config.ConfigManager.get_config")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_service_factory_storage_type_override(self, mock_repo_factory, mock_config):
         # Mock original configuration
         mock_original_config = Mock()
@@ -83,7 +83,7 @@ class TestServiceFactorySeedream:
         mock_repo_factory.return_value = mock_repository
 
         with patch(
-            "nano_api.services.seedream_service.SeedreamImageGenerationService"
+            "stable_delusion.services.seedream_service.SeedreamImageGenerationService"
         ) as mock_seedream_service:
             mock_service_instance = Mock()
             mock_seedream_service.create.return_value = mock_service_instance
@@ -96,8 +96,8 @@ class TestServiceFactorySeedream:
         # This is tested indirectly through the repository creation
         mock_repo_factory.assert_called_once()
 
-    @patch("nano_api.services.seedream_service.SeedreamImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.services.seedream_service.SeedreamImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_create_seedream_service_without_storage_override(
         self, mock_repo_factory, mock_seedream_service
     ):
@@ -117,8 +117,8 @@ class TestServiceFactorySeedream:
             output_dir=None, image_repository=mock_repository
         )
 
-    @patch("nano_api.services.seedream_service.SeedreamImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.services.seedream_service.SeedreamImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_create_seedream_service_with_all_parameters(
         self, mock_repo_factory, mock_seedream_service
     ):
@@ -142,12 +142,12 @@ class TestServiceFactorySeedream:
         assert service == mock_service_instance
 
     def test_service_factory_logging(self):
-        with patch("nano_api.factories.service_factory.logging") as mock_logging:
+        with patch("stable_delusion.factories.service_factory.logging") as mock_logging:
             with patch(
-                "nano_api.services.seedream_service.SeedreamImageGenerationService"
+                "stable_delusion.services.seedream_service.SeedreamImageGenerationService"
             ) as mock_seedream_service:
                 with patch(
-                    "nano_api.factories.repository_factory.RepositoryFactory."
+                    "stable_delusion.factories.repository_factory.RepositoryFactory."
                     "create_image_repository"
                 ):
                     mock_service_instance = Mock()
@@ -165,12 +165,12 @@ class TestServiceFactorySeedream:
         )
 
     def test_service_factory_gemini_logging(self):
-        with patch("nano_api.factories.service_factory.logging") as mock_logging:
+        with patch("stable_delusion.factories.service_factory.logging") as mock_logging:
             with patch(
-                "nano_api.factories.service_factory.GeminiImageGenerationService"
+                "stable_delusion.factories.service_factory.GeminiImageGenerationService"
             ) as mock_gemini_service:
                 with patch(
-                    "nano_api.factories.repository_factory.RepositoryFactory."
+                    "stable_delusion.factories.repository_factory.RepositoryFactory."
                     "create_image_repository"
                 ):
                     mock_service_instance = Mock()
@@ -187,11 +187,11 @@ class TestServiceFactorySeedream:
             "✅ GeminiImageGenerationService created: %s", mock_service_instance
         )
 
-    @patch("nano_api.services.seedream_service.SeedreamImageGenerationService")
-    @patch("nano_api.factories.repository_factory.RepositoryFactory.create_image_repository")
+    @patch("stable_delusion.services.seedream_service.SeedreamImageGenerationService")
+    @patch("stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository")
     def test_backward_compatibility_default_model(self, mock_repo_factory, mock_seedream_service):
         with patch(
-            "nano_api.factories.service_factory.GeminiImageGenerationService"
+            "stable_delusion.factories.service_factory.GeminiImageGenerationService"
         ) as mock_gemini_service:
             mock_repository = Mock()
             mock_repo_factory.return_value = mock_repository
@@ -206,9 +206,11 @@ class TestServiceFactorySeedream:
             mock_gemini_service.create.assert_called_once()
             mock_seedream_service.create.assert_not_called()
 
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_image_generation_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_file_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_upscaling_service")
+    @patch(
+        "stable_delusion.factories.service_factory.ServiceFactory.create_image_generation_service"
+    )
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_file_service")
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_upscaling_service")
     def test_create_all_services_integration(self, mock_upscaling, mock_file, mock_image_gen):
         mock_file_service = Mock()
         mock_image_service = Mock()
@@ -236,10 +238,10 @@ class TestServiceFactorySeedream:
     def test_invalid_model_handling(self):
         # The factory should handle unknown models gracefully by defaulting to Gemini
         with patch(
-            "nano_api.factories.service_factory.GeminiImageGenerationService"
+            "stable_delusion.factories.service_factory.GeminiImageGenerationService"
         ) as mock_gemini_service:
             with patch(
-                "nano_api.factories.repository_factory.RepositoryFactory.create_image_repository"
+                "stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 mock_service_instance = Mock()
                 mock_gemini_service.create.return_value = mock_service_instance
@@ -249,7 +251,7 @@ class TestServiceFactorySeedream:
 
                 mock_gemini_service.create.assert_called_once()
 
-    @patch("nano_api.config.ConfigManager.get_config")
+    @patch("stable_delusion.config.ConfigManager.get_config")
     def test_storage_type_override_restoration(self, mock_config):
         # Mock original configuration
         mock_original_config = Mock()
@@ -257,10 +259,10 @@ class TestServiceFactorySeedream:
         mock_config.return_value = mock_original_config
 
         with patch(
-            "nano_api.factories.repository_factory.RepositoryFactory.create_image_repository"
+            "stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository"
         ):
             with patch(
-                "nano_api.services.seedream_service.SeedreamImageGenerationService"
+                "stable_delusion.services.seedream_service.SeedreamImageGenerationService"
             ) as mock_seedream_service:
                 mock_seedream_service.create.return_value = Mock()
 
@@ -283,11 +285,11 @@ class TestServiceFactorySeedream:
 
         for model_name, expected_service in test_cases:
             with patch(
-                "nano_api.factories.repository_factory.RepositoryFactory.create_image_repository"
+                "stable_delusion.factories.repository_factory.RepositoryFactory.create_image_repository"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 if "Seedream" in expected_service:
                     with patch(
-                        "nano_api.services.seedream_service.SeedreamImageGenerationService"
+                        "stable_delusion.services.seedream_service.SeedreamImageGenerationService"
                     ) as mock_service:
                         mock_service.create.return_value = Mock()
                         ServiceFactory.create_image_generation_service(model=model_name.lower())
@@ -295,7 +297,7 @@ class TestServiceFactorySeedream:
                             mock_service.create.assert_called_once()
                 else:
                     with patch(
-                        "nano_api.factories.service_factory.GeminiImageGenerationService"
+                        "stable_delusion.factories.service_factory.GeminiImageGenerationService"
                     ) as mock_service:
                         mock_service.create.return_value = Mock()
                         ServiceFactory.create_image_generation_service(model=model_name.lower())

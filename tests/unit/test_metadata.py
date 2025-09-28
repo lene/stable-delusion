@@ -1,6 +1,6 @@
 """Unit tests for metadata model and functionality."""
 
-from nano_api.models.metadata import GenerationMetadata
+from stable_delusion.models.metadata import GenerationMetadata
 
 
 class TestGenerationMetadata:

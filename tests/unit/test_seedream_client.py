@@ -10,8 +10,8 @@ from unittest.mock import Mock, patch, mock_open
 
 import pytest
 
-from nano_api.seedream import SeedreamClient
-from nano_api.exceptions import ImageGenerationError, AuthenticationError
+from stable_delusion.seedream import SeedreamClient
+from stable_delusion.exceptions import ImageGenerationError, AuthenticationError
 
 
 class TestSeedreamClient:  # pylint: disable=too-many-public-methods
@@ -31,7 +31,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
 
     @pytest.fixture
     def seedream_client(self, mock_ark_client):
-        with patch("nano_api.seedream.Ark", return_value=mock_ark_client):
+        with patch("stable_delusion.seedream.Ark", return_value=mock_ark_client):
             client = SeedreamClient("test-api-key")
             client.client = mock_ark_client  # Ensure the mock is used
         return client
@@ -67,7 +67,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
     def test_generate_image_with_invalid_urls_skips_them(self, seedream_client, mock_ark_client):
         invalid_urls = ["/tmp/local_image.jpg", "not-a-url", ""]
 
-        with patch("nano_api.seedream.logging") as mock_logging:
+        with patch("stable_delusion.seedream.logging") as mock_logging:
             result = seedream_client.generate_image("Edit these images", invalid_urls)
 
         # Should still generate an image (text-to-image mode since no valid URLs)
@@ -307,7 +307,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
         assert "Failed to download image from" in str(exc_info.value)
         assert "Download failed" in str(exc_info.value)
 
-    @patch("nano_api.seedream.generate_timestamped_filename")
+    @patch("stable_delusion.seedream.generate_timestamped_filename")
     def test_generate_and_save_filename_generation(self, mock_timestamp, seedream_client):
         mock_timestamp.return_value = "seedream_generated_2025-09-27-12:34:56.png"
 
@@ -326,7 +326,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
 
     def test_create_with_env_key_success(self):
         with patch.dict("os.environ", {"ARK_API_KEY": "env-api-key"}):
-            with patch("nano_api.seedream.Ark") as mock_ark:
+            with patch("stable_delusion.seedream.Ark") as mock_ark:
                 SeedreamClient.create_with_env_key()
 
         mock_ark.assert_called_once_with(api_key="env-api-key")
@@ -342,7 +342,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
 
     def test_create_with_custom_env_var(self):
         with patch.dict("os.environ", {"CUSTOM_KEY": "custom-api-key"}):
-            with patch("nano_api.seedream.Ark") as mock_ark:
+            with patch("stable_delusion.seedream.Ark") as mock_ark:
                 SeedreamClient.create_with_env_key("CUSTOM_KEY")
 
         mock_ark.assert_called_once_with(api_key="custom-api-key")
@@ -356,7 +356,7 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
         ]
 
         # These should be treated as invalid URLs and skipped
-        with patch("nano_api.seedream.logging"):
+        with patch("stable_delusion.seedream.logging"):
             seedream_client.generate_image("Test prompt", edge_cases)
 
         # Should not pass any images to API since all URLs are invalid

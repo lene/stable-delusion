@@ -8,16 +8,16 @@ from pathlib import Path
 
 import pytest
 
-from nano_api.exceptions import ValidationError
-from nano_api.models.requests import GenerateImageRequest, UpscaleImageRequest
-from nano_api.models.responses import (
+from stable_delusion.exceptions import ValidationError
+from stable_delusion.models.requests import GenerateImageRequest, UpscaleImageRequest
+from stable_delusion.models.responses import (
     GenerateImageResponse,
     UpscaleImageResponse,
     HealthResponse,
     APIInfoResponse,
     ErrorResponse,
 )
-from nano_api.models.client_config import GCPConfig, ImageGenerationConfig
+from stable_delusion.models.client_config import GCPConfig, ImageGenerationConfig
 
 
 class TestGenerateImageRequest:

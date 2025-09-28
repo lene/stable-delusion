@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch
 import pytest
 from PIL import Image
 
-from nano_api.repositories.s3_image_repository import S3ImageRepository
-from nano_api.config import Config
-from nano_api.exceptions import FileOperationError, ValidationError
+from stable_delusion.repositories.s3_image_repository import S3ImageRepository
+from stable_delusion.config import Config
+from stable_delusion.exceptions import FileOperationError, ValidationError
 
 
 class TestS3ImageRepositoryURL:
@@ -39,11 +39,11 @@ class TestS3ImageRepositoryURL:
     @pytest.fixture
     def s3_repository(self, mock_config, mock_s3_client):
         with patch(
-            "nano_api.repositories.s3_image_repository.S3ClientManager.create_s3_client",
+            "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client",
             return_value=mock_s3_client,
         ):
             with patch(
-                "nano_api.repositories.s3_image_repository.S3ClientManager._validate_s3_access"
+                "stable_delusion.repositories.s3_image_repository.S3ClientManager._validate_s3_access"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 return S3ImageRepository(mock_config)
 
@@ -57,7 +57,7 @@ class TestS3ImageRepositoryURL:
         file_path = Path("test_image.jpg")
 
         with patch(
-            "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"
+            "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"  # noqa: E501  # pylint: disable=line-too-long
         ):
             result = s3_repository.save_image(mock_image, file_path)
 
@@ -70,7 +70,7 @@ class TestS3ImageRepositoryURL:
         file_path = Path("test_image.jpg")
 
         with patch(
-            "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"
+            "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"  # noqa: E501  # pylint: disable=line-too-long
         ):
             s3_repository.save_image(mock_image, file_path)
 
@@ -82,7 +82,7 @@ class TestS3ImageRepositoryURL:
         file_path = Path("subfolder/image.png")
 
         with patch(
-            "nano_api.repositories.s3_client.generate_s3_key",
+            "stable_delusion.repositories.s3_client.generate_s3_key",
             return_value="images/subfolder/image.png",
         ):
             result = s3_repository.save_image(mock_image, file_path)
@@ -103,16 +103,16 @@ class TestS3ImageRepositoryURL:
             config.aws_secret_access_key = "test-secret"
 
             with patch(
-                "nano_api.repositories.s3_image_repository.S3ClientManager.create_s3_client",
+                "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client",
                 return_value=mock_s3_client,
             ):
                 with patch(
-                    "nano_api.repositories.s3_image_repository.S3ClientManager._validate_s3_access"
+                    "stable_delusion.repositories.s3_image_repository.S3ClientManager._validate_s3_access"  # noqa: E501  # pylint: disable=line-too-long
                 ):
                     repository = S3ImageRepository(config)
 
             with patch(
-                "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"
+                "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 result = repository.save_image(mock_image, Path("test.jpg"))
 
@@ -124,7 +124,7 @@ class TestS3ImageRepositoryURL:
         file_path = Path("test.jpg")
 
         with patch(
-            "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"
+            "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"  # noqa: E501  # pylint: disable=line-too-long
         ):
             result_path = s3_repository.save_image(mock_image, file_path)
 
@@ -150,7 +150,7 @@ class TestS3ImageRepositoryURL:
             file_path = Path(filename)
 
             with patch(
-                "nano_api.repositories.s3_client.generate_s3_key", return_value=f"images/{filename}"
+                "stable_delusion.repositories.s3_client.generate_s3_key", return_value=f"images/{filename}"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, file_path)
 
@@ -167,7 +167,7 @@ class TestS3ImageRepositoryURL:
         file_path = Path("test_image.jpg")
 
         with patch(
-            "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"
+            "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test_image.jpg"  # noqa: E501  # pylint: disable=line-too-long
         ):
             s3_repository.save_image(mock_image, file_path)
 
@@ -182,7 +182,7 @@ class TestS3ImageRepositoryURL:
 
         with pytest.raises(FileOperationError) as exc_info:
             with patch(
-                "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"
+                "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, Path("test.jpg"))
 
@@ -196,7 +196,7 @@ class TestS3ImageRepositoryURL:
 
         with pytest.raises(FileOperationError) as exc_info:
             with patch(
-                "nano_api.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"
+                "stable_delusion.repositories.s3_client.generate_s3_key", return_value="images/test.jpg"  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, Path("test.jpg"))
 

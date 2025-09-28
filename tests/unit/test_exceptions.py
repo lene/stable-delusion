@@ -3,7 +3,7 @@ Unit tests for custom exception hierarchy.
 Tests exception creation, string representation, and inheritance.
 """
 
-from nano_api.exceptions import (
+from stable_delusion.exceptions import (
     NanoAPIError,
     ConfigurationError,
     ImageGenerationError,

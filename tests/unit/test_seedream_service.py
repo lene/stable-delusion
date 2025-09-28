@@ -11,11 +11,11 @@ from unittest.mock import Mock, patch
 import pytest
 from PIL import Image
 
-from nano_api.services.seedream_service import SeedreamImageGenerationService
-from nano_api.models.requests import GenerateImageRequest
-from nano_api.models.responses import GenerateImageResponse
-from nano_api.exceptions import ConfigurationError
-from nano_api.repositories.s3_image_repository import S3ImageRepository
+from stable_delusion.services.seedream_service import SeedreamImageGenerationService
+from stable_delusion.models.requests import GenerateImageRequest
+from stable_delusion.models.responses import GenerateImageResponse
+from stable_delusion.exceptions import ConfigurationError
+from stable_delusion.repositories.s3_image_repository import S3ImageRepository
 
 
 class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-methods
@@ -71,7 +71,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
 
         with patch("PIL.Image.open", return_value=mock_image):
             with patch(
-                "nano_api.utils.generate_timestamped_filename",
+                "stable_delusion.utils.generate_timestamped_filename",
                 side_effect=["file1.jpg", "file2.jpg"],
             ):
                 urls = service_with_s3_repo.upload_images_to_s3(test_images)
@@ -90,7 +90,9 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         )
 
         with patch("PIL.Image.open", return_value=mock_image):
-            with patch("nano_api.utils.generate_timestamped_filename", return_value="file.jpg"):
+            with patch(
+                "stable_delusion.utils.generate_timestamped_filename", return_value="file.jpg"
+            ):
                 urls = service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert len(urls) == 1
@@ -130,7 +132,9 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         service_with_s3_repo.image_repository.save_image.side_effect = Exception("S3 upload failed")
 
         with patch("PIL.Image.open", return_value=mock_image):
-            with patch("nano_api.utils.generate_timestamped_filename", return_value="file.jpg"):
+            with patch(
+                "stable_delusion.utils.generate_timestamped_filename", return_value="file.jpg"
+            ):
                 with pytest.raises(ConfigurationError) as exc_info:
                     service_with_s3_repo.upload_images_to_s3(test_images)
 
@@ -148,7 +152,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         mock_upload.assert_called_once_with(test_images)
         assert urls == ["https://test.com/image.jpg"]
 
-    @patch("nano_api.config.ConfigManager.get_config")
+    @patch("stable_delusion.config.ConfigManager.get_config")
     def test_generate_image_with_images_uploads_to_s3(
         self, mock_config, service_with_s3_repo, mock_image
     ):
@@ -173,7 +177,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         call_args = service_with_s3_repo.client.generate_and_save.call_args
         assert call_args[1]["image_urls"] == ["https://test.com/image.jpg"]
 
-    @patch("nano_api.config.ConfigManager.get_config")
+    @patch("stable_delusion.config.ConfigManager.get_config")
     def test_generate_image_without_images_skips_upload(self, mock_config, service_with_s3_repo):
         mock_config.return_value.default_output_dir = Path("/tmp")
 
@@ -194,7 +198,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         call_args = service_with_s3_repo.client.generate_and_save.call_args
         assert call_args[1]["image_urls"] == []
 
-    @patch("nano_api.config.ConfigManager.get_config")
+    @patch("stable_delusion.config.ConfigManager.get_config")
     def test_generate_image_response_structure(self, mock_config, service_with_s3_repo):
         mock_config.return_value.default_output_dir = Path("/tmp")
 
@@ -208,7 +212,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         assert response.image_config.prompt == "Test prompt"
         assert response.image_config.generated_file == Path("/tmp/test_output.png")
 
-    @patch("nano_api.config.ConfigManager.get_config")
+    @patch("stable_delusion.config.ConfigManager.get_config")
     def test_generate_image_error_handling(self, mock_config, service_with_s3_repo):
         mock_config.return_value.default_output_dir = Path("/tmp")
 
@@ -223,7 +227,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         assert isinstance(response, GenerateImageResponse)
         assert response.image_config.generated_file is None  # Failed generation
 
-    @patch("nano_api.services.seedream_service.SeedreamClient")
+    @patch("stable_delusion.services.seedream_service.SeedreamClient")
     def test_create_class_method_with_api_key(self, mock_client_class):
         mock_client_instance = Mock()
         mock_client_class.return_value = mock_client_instance
@@ -233,7 +237,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         mock_client_class.assert_called_once_with("test-key")
         assert service.client == mock_client_instance
 
-    @patch("nano_api.services.seedream_service.SeedreamClient")
+    @patch("stable_delusion.services.seedream_service.SeedreamClient")
     def test_create_class_method_without_api_key(self, mock_client_class):
         mock_client_instance = Mock()
         mock_client_class.create_with_env_key.return_value = mock_client_instance
@@ -243,7 +247,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         mock_client_class.create_with_env_key.assert_called_once()
         assert service.client == mock_client_instance
 
-    @patch("nano_api.services.seedream_service.SeedreamClient")
+    @patch("stable_delusion.services.seedream_service.SeedreamClient")
     def test_create_class_method_error_handling(self, mock_client_class):
         mock_client_class.create_with_env_key.side_effect = Exception("API key not found")
 
@@ -258,7 +262,7 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
 
         with patch("PIL.Image.open", return_value=mock_image):
             with patch(
-                "nano_api.utils.generate_timestamped_filename",
+                "stable_delusion.utils.generate_timestamped_filename",
                 return_value="seedream_input_base_2025-09-27-12:34:56.jpg",
             ) as mock_timestamp:
                 service_with_s3_repo.upload_images_to_s3(test_images)
@@ -275,7 +279,9 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
         test_images = [Path("/tmp/test.jpg")]
 
         with patch("PIL.Image.open", return_value=mock_image):
-            with patch("nano_api.utils.generate_timestamped_filename", return_value="file.jpg"):
+            with patch(
+                "stable_delusion.utils.generate_timestamped_filename", return_value="file.jpg"
+            ):
                 service_with_s3_repo.upload_images_to_s3(test_images)
 
         # Verify the S3 path structure

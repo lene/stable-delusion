@@ -9,18 +9,18 @@ import pytest
 import requests
 from PIL import Image
 
-from nano_api.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
-from nano_api.exceptions import UpscalingError, APIError
-from nano_api.upscale import upscale_image
+from stable_delusion.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from stable_delusion.exceptions import UpscalingError, APIError
+from stable_delusion.upscale import upscale_image
 
-sys.path.append("nano_api")
+sys.path.append("stable_delusion")
 
 
 class TestUpscaleImage:
     """Test cases for image upscaling functionality."""
 
-    @patch("nano_api.upscale.requests.post")
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.requests.post")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_success_x2(self, mock_default, mock_post):
         # Mock authentication
         mock_credentials = MagicMock()
@@ -36,12 +36,14 @@ class TestUpscaleImage:
 
         # Mock Path.read_bytes and PIL Image operations
         with patch.object(Path, "read_bytes", return_value=b"test_image_data"):
-            with patch("nano_api.upscale.Image.open") as mock_image_open:
+            with patch("stable_delusion.upscale.Image.open") as mock_image_open:
                 mock_image = MagicMock(spec=Image.Image)
                 mock_image_open.return_value = mock_image
 
-                with patch("nano_api.upscale.base64.b64encode", return_value=b"dGVzdCBkYXRh"):
-                    with patch("nano_api.upscale.base64.b64decode") as mock_decode:
+                with patch(
+                    "stable_delusion.upscale.base64.b64encode", return_value=b"dGVzdCBkYXRh"
+                ):
+                    with patch("stable_delusion.upscale.base64.b64decode") as mock_decode:
                         mock_decode.return_value = b"decoded_image_data"
 
                         result = upscale_image(
@@ -67,8 +69,8 @@ class TestUpscaleImage:
                         # Check result
                         assert result == mock_image
 
-    @patch("nano_api.upscale.requests.post")
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.requests.post")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_success_x4(self, mock_default, mock_post):
         # Mock authentication
         mock_credentials = MagicMock()
@@ -84,12 +86,14 @@ class TestUpscaleImage:
 
         # Mock PIL Image operations
         with patch.object(Path, "read_bytes", return_value=b"test_image_data"):
-            with patch("nano_api.upscale.Image.open") as mock_image_open:
+            with patch("stable_delusion.upscale.Image.open") as mock_image_open:
                 mock_image = MagicMock(spec=Image.Image)
                 mock_image_open.return_value = mock_image
 
-                with patch("nano_api.upscale.base64.b64encode", return_value=b"dGVzdCBkYXRh"):
-                    with patch("nano_api.upscale.base64.b64decode") as mock_decode:
+                with patch(
+                    "stable_delusion.upscale.base64.b64encode", return_value=b"dGVzdCBkYXRh"
+                ):
+                    with patch("stable_delusion.upscale.base64.b64decode") as mock_decode:
                         mock_decode.return_value = b"decoded_image_data"
 
                         upscale_image(Path("test.jpg"), "test-project", "us-central1", "x4")
@@ -99,8 +103,8 @@ class TestUpscaleImage:
                         payload = call_args[1]["json"]
                         assert payload["parameters"]["upscaleConfig"]["upscaleFactor"] == "x4"
 
-    @patch("nano_api.upscale.requests.post")
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.requests.post")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_file_not_found(self, mock_default, _mock_post):
         # Mock authentication
         mock_credentials = MagicMock()
@@ -111,8 +115,8 @@ class TestUpscaleImage:
             with pytest.raises(UpscalingError, match="Failed to read image file"):
                 upscale_image(Path("nonexistent.jpg"), "test-project")
 
-    @patch("nano_api.upscale.requests.post")
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.requests.post")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_api_error(self, mock_default, mock_post):
         # Mock authentication
         mock_credentials = MagicMock()
@@ -129,7 +133,7 @@ class TestUpscaleImage:
             with pytest.raises(APIError, match="Upscaling API request failed"):
                 upscale_image(Path("test.jpg"), "test-project")
 
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_auth_error(self, mock_default):
         # Mock authentication failure
         mock_default.side_effect = Exception("Authentication failed")
@@ -137,8 +141,8 @@ class TestUpscaleImage:
         with pytest.raises(Exception, match="Authentication failed"):
             upscale_image(Path("test.jpg"), "test-project")
 
-    @patch("nano_api.upscale.requests.post")
-    @patch("nano_api.upscale.default")
+    @patch("stable_delusion.upscale.requests.post")
+    @patch("stable_delusion.upscale.default")
     def test_upscale_image_default_location(self, mock_default, mock_post):
         # Mock authentication
         mock_credentials = MagicMock()
@@ -152,9 +156,9 @@ class TestUpscaleImage:
 
         with patch.object(Path, "read_bytes", return_value=b"test"):
 
-            with patch("nano_api.upscale.Image.open"):
-                with patch("nano_api.upscale.base64.b64encode"):
-                    with patch("nano_api.upscale.base64.b64decode") as mock_decode:
+            with patch("stable_delusion.upscale.Image.open"):
+                with patch("stable_delusion.upscale.base64.b64encode"):
+                    with patch("stable_delusion.upscale.base64.b64decode") as mock_decode:
                         mock_decode.return_value = b"decoded_test_data"
 
                         upscale_image(Path("test.jpg"), "test-project")
@@ -165,12 +169,12 @@ class TestUpscaleImage:
                         assert "us-central1" in url
 
     def test_upscale_image_headers_format(self):
-        with patch("nano_api.upscale.default") as mock_default:
+        with patch("stable_delusion.upscale.default") as mock_default:
             mock_credentials = MagicMock()
             mock_credentials.token = "test-bearer-token"  # nosec B105 - test-only mock
             mock_default.return_value = (mock_credentials, None)
 
-            with patch("nano_api.upscale.requests.post") as mock_post:
+            with patch("stable_delusion.upscale.requests.post") as mock_post:
                 mock_response = MagicMock()
                 mock_response.json.return_value = {
                     "predictions": [{"bytesBase64Encoded": "dGVzdA=="}]
@@ -179,9 +183,9 @@ class TestUpscaleImage:
 
                 with patch.object(Path, "read_bytes", return_value=b"test"):
 
-                    with patch("nano_api.upscale.Image.open"):
-                        with patch("nano_api.upscale.base64.b64encode"):
-                            with patch("nano_api.upscale.base64.b64decode") as mock_decode:
+                    with patch("stable_delusion.upscale.Image.open"):
+                        with patch("stable_delusion.upscale.base64.b64encode"):
+                            with patch("stable_delusion.upscale.base64.b64decode") as mock_decode:
                                 mock_decode.return_value = b"test_decoded_data"
 
                                 upscale_image(Path("test.jpg"), "test-project")
@@ -227,7 +231,7 @@ class TestUpscaleCommandLine:
 class TestUpscaleIntegration:
     """Integration tests that test the full upscale workflow."""
 
-    @patch("nano_api.upscale.upscale_image")
+    @patch("stable_delusion.upscale.upscale_image")
     def test_main_execution_default_scale(self, mock_upscale):
         mock_image = MagicMock()
         mock_upscale.return_value = mock_image
@@ -235,7 +239,7 @@ class TestUpscaleIntegration:
         test_args = ["upscale.py", "test.jpg"]
 
         with patch("sys.argv", test_args):
-            with patch("nano_api.upscale.print"):
+            with patch("stable_delusion.upscale.print"):
                 # Import and execute the main block logic
                 parser = argparse.ArgumentParser()
                 parser.add_argument("image_path", type=str)

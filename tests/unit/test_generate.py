@@ -8,19 +8,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
-from nano_api.exceptions import ImageGenerationError, FileOperationError, ConfigurationError
-from nano_api.generate import (
+from stable_delusion.conf import DEFAULT_LOCATION, DEFAULT_PROJECT_ID
+from stable_delusion.exceptions import ImageGenerationError, FileOperationError, ConfigurationError
+from stable_delusion.generate import (
     GeminiClient,
     generate_from_images,
     parse_command_line,
     save_response_image,
 )
-from nano_api.models.client_config import GeminiClientConfig, GCPConfig, StorageConfig
+from stable_delusion.models.client_config import GeminiClientConfig, GCPConfig, StorageConfig
 
 from ..conftest import create_mock_gemini_response
 
-sys.path.append("nano_api")
+sys.path.append("stable_delusion")
 
 
 # Note: .env file loading prevention is now handled globally in conftest.py
@@ -30,7 +30,7 @@ class TestGeminiClient:
     """Test cases for GeminiClient functionality."""
 
     def test_init_missing_api_key(self):
-        from nano_api.config import ConfigManager
+        from stable_delusion.config import ConfigManager
 
         with patch.dict(os.environ, {}, clear=True):
             ConfigManager.reset_config()  # Ensure clean config state
@@ -63,8 +63,8 @@ class TestGeminiClient:
 
     def test_upload_files_success(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
-            with patch("nano_api.generate.genai.Client") as mock_client_class:
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+                with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
@@ -101,8 +101,8 @@ class TestGeminiClient:
 
     def test_upload_files_nonexistent(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("nano_api.generate.genai.Client"):
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client"):
+                with patch("stable_delusion.generate.aiplatform.init"):
                     client = GeminiClient(GeminiClientConfig())
 
                     nonexistent_file = Path("nonexistent.png")
@@ -112,8 +112,8 @@ class TestGeminiClient:
 
     def test_generate_from_images_success(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("nano_api.generate.genai.Client") as mock_client_class:
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+                with patch("stable_delusion.generate.aiplatform.init"):
                     # Set up mocks
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
@@ -125,11 +125,11 @@ class TestGeminiClient:
                     mock_client.files.upload.return_value = MagicMock()
 
                     # Mock PIL Image operations
-                    with patch("nano_api.generate.Image.open") as mock_image_open:
+                    with patch("stable_delusion.generate.Image.open") as mock_image_open:
                         mock_image = MagicMock()
                         mock_image_open.return_value = mock_image
 
-                        with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
+                        with patch("stable_delusion.utils.get_current_timestamp") as mock_timestamp:
                             mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                             client = GeminiClient(GeminiClientConfig())
@@ -147,8 +147,8 @@ class TestGeminiClient:
 
     def test_generate_from_images_no_candidates(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("nano_api.generate.genai.Client") as mock_client_class:
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+                with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
@@ -171,8 +171,8 @@ class TestGeminiClient:
 
     def test_generate_hires_image_without_scale(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("nano_api.generate.genai.Client") as mock_client_class:
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+                with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
@@ -195,14 +195,14 @@ class TestGeminiClient:
 
     def test_generate_hires_image_with_scale(self):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("nano_api.generate.genai.Client") as mock_client_class:
-                with patch("nano_api.generate.aiplatform.init"):
+            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+                with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
                     # Mock successful generation and upscaling
                     with patch.object(GeminiClient, "generate_from_images") as mock_generate:
-                        with patch("nano_api.generate.upscale_image") as mock_upscale:
+                        with patch("stable_delusion.generate.upscale_image") as mock_upscale:
                             mock_generate.return_value = Path("generated_image.png")
                             mock_upscaled_image = MagicMock()
                             mock_upscale.return_value = mock_upscaled_image
@@ -242,11 +242,11 @@ class TestSaveResponseImage:
         mock_response.candidates = [mock_candidate]
 
         # Mock PIL Image operations
-        with patch("nano_api.generate.Image.open") as mock_image_open:
+        with patch("stable_delusion.generate.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
+            with patch("stable_delusion.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with tempfile.TemporaryDirectory() as temp_dir:
@@ -342,12 +342,12 @@ class TestGenerateFromImagesFunction:
     """Test cases for the standalone generate_from_images function."""
 
     def test_generate_from_images_function(self):
-        with patch("nano_api.generate.GeminiClient") as mock_client_class:
+        with patch("stable_delusion.generate.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
             mock_client.generate_from_images.return_value = Path("test_result.png")
 
-            from nano_api.generate import GenerationConfig
+            from stable_delusion.generate import GenerationConfig
 
             config = GenerationConfig(
                 project_id="test-project",
@@ -369,7 +369,7 @@ class TestGenerateFromImagesFunction:
             assert result == Path("test_result.png")
 
     def test_generate_from_images_function_defaults(self):
-        with patch("nano_api.generate.GeminiClient") as mock_client_class:
+        with patch("stable_delusion.generate.GeminiClient") as mock_client_class:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
             mock_client.generate_from_images.return_value = "test_result.png"
@@ -377,7 +377,7 @@ class TestGenerateFromImagesFunction:
             with tempfile.TemporaryDirectory() as temp_dir:
                 custom_output_dir = Path(temp_dir) / "custom"
 
-                from nano_api.generate import GenerationConfig
+                from stable_delusion.generate import GenerationConfig
 
                 config = GenerationConfig(output_dir=custom_output_dir)
                 result = generate_from_images(

@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Add the nano_api package to the Python path for testing
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "nano_api"))
+# Add the stable_delusion package to the Python path for testing
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "stable_delusion"))
 
 
 # Environment variable fixtures
@@ -58,10 +58,10 @@ def mock_env(request):
 
 @pytest.fixture(autouse=True)
 def reset_config_manager():
-    from nano_api.config import ConfigManager
+    from stable_delusion.config import ConfigManager
 
     # Patch load_dotenv to prevent .env file loading during tests
-    with patch("nano_api.config.load_dotenv"):
+    with patch("stable_delusion.config.load_dotenv"):
         ConfigManager.reset_config()
         yield
         ConfigManager.reset_config()
@@ -91,7 +91,11 @@ def mock_gemini_response():
     mock_part.inline_data.data = b"fake_generated_image_data"
 
     mock_candidate.content.parts = [mock_part]
-    mock_candidate.finish_reason = "STOP"
+
+    # Create a proper FinishReason-like object with name attribute
+    mock_finish_reason = MagicMock()
+    mock_finish_reason.name = "STOP"
+    mock_candidate.finish_reason = mock_finish_reason
 
     mock_response.candidates = [mock_candidate]
     mock_response.usage_metadata = MagicMock()
@@ -102,8 +106,8 @@ def mock_gemini_response():
 
 @pytest.fixture
 def mock_gemini_setup():
-    with patch("nano_api.generate.genai.Client") as mock_client_class:
-        with patch("nano_api.generate.aiplatform.init") as mock_init:
+    with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+        with patch("stable_delusion.generate.aiplatform.init") as mock_init:
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
 
@@ -132,7 +136,7 @@ def mock_gemini_setup():
 
 @pytest.fixture
 def mock_gemini_client():
-    with patch("nano_api.generate.genai.Client") as mock_client_class:
+    with patch("stable_delusion.generate.genai.Client") as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -145,13 +149,13 @@ def mock_gemini_client():
 
 @pytest.fixture
 def mock_aiplatform_init():
-    with patch("nano_api.generate.aiplatform.init") as mock_init:
+    with patch("stable_delusion.generate.aiplatform.init") as mock_init:
         yield mock_init
 
 
 @pytest.fixture
 def mock_upscale_function():
-    with patch("nano_api.generate.upscale_image") as mock_upscale:
+    with patch("stable_delusion.generate.upscale_image") as mock_upscale:
         mock_upscaled_image = MagicMock()
         mock_upscaled_image.save.return_value = None
         mock_upscale.return_value = mock_upscaled_image
@@ -161,7 +165,7 @@ def mock_upscale_function():
 @pytest.fixture
 def mock_main_gemini_service():
     with patch(
-        "nano_api.main.ServiceFactory.create_image_generation_service"
+        "stable_delusion.main.ServiceFactory.create_image_generation_service"
     ) as mock_service_create:
         mock_service = MagicMock()
         mock_service_create.return_value = mock_service
@@ -196,8 +200,8 @@ def mock_main_gemini_service():
 
 @pytest.fixture
 def mock_generate_gemini_client():
-    with patch("nano_api.generate.genai.Client") as mock_client_class:
-        with patch("nano_api.generate.aiplatform.init"):
+    with patch("stable_delusion.generate.genai.Client") as mock_client_class:
+        with patch("stable_delusion.generate.aiplatform.init"):
             mock_client = MagicMock()
             mock_client_class.return_value = mock_client
             mock_client.files.upload.return_value = MagicMock()
@@ -258,7 +262,7 @@ def temp_images(temp_image_file):
 
 @pytest.fixture
 def mock_pil_image():
-    with patch("nano_api.generate.Image.open") as mock_open:
+    with patch("stable_delusion.generate.Image.open") as mock_open:
         mock_image = MagicMock()
         mock_open.return_value = mock_image
         yield mock_image
@@ -266,7 +270,7 @@ def mock_pil_image():
 
 @pytest.fixture
 def mock_timestamp():
-    with patch("nano_api.utils.get_current_timestamp") as mock_ts:
+    with patch("stable_delusion.utils.get_current_timestamp") as mock_ts:
         mock_ts.return_value = "2024-01-01-12:00:00"
         yield mock_ts
 
@@ -274,14 +278,14 @@ def mock_timestamp():
 @pytest.fixture
 def custom_mock_timestamp():
     def _mock_timestamp(timestamp="2024-01-01-12:00:00"):
-        return patch("nano_api.utils.get_current_timestamp", return_value=timestamp)
+        return patch("stable_delusion.utils.get_current_timestamp", return_value=timestamp)
 
     return _mock_timestamp
 
 
 @pytest.fixture
 def mock_datetime():
-    with patch("nano_api.generate.datetime") as mock_dt:
+    with patch("stable_delusion.generate.datetime") as mock_dt:
         mock_dt.now.return_value.strftime.return_value = "2024-01-01-12:00:00"
         yield mock_dt
 
@@ -294,7 +298,7 @@ def temp_upload_dir():
 
 @pytest.fixture
 def flask_test_client():
-    from nano_api.main import app
+    from stable_delusion.main import app
 
     with tempfile.TemporaryDirectory() as temp_dir:
         app.config["TESTING"] = True
@@ -339,7 +343,7 @@ def mock_file_operations():
 
 @pytest.fixture
 def mock_logging():
-    with patch("nano_api.generate.logging") as mock_log:
+    with patch("stable_delusion.generate.logging") as mock_log:
         yield mock_log
 
 
@@ -347,11 +351,11 @@ def mock_logging():
 def mock_base64_operations():
     mocks = {}
 
-    with patch("nano_api.upscale.base64.b64encode") as mock_encode:
+    with patch("stable_delusion.upscale.base64.b64encode") as mock_encode:
         mocks["encode"] = mock_encode
         mock_encode.return_value = b"bW9ja19lbmNvZGVkX2RhdGE="
 
-        with patch("nano_api.upscale.base64.b64decode") as mock_decode:
+        with patch("stable_delusion.upscale.base64.b64decode") as mock_decode:
             mocks["decode"] = mock_decode
             mock_decode.return_value = b"mock_decoded_image_data"
 
@@ -360,7 +364,7 @@ def mock_base64_operations():
 
 @pytest.fixture
 def mock_requests():
-    with patch("nano_api.upscale.requests.post") as mock_post:
+    with patch("stable_delusion.upscale.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "predictions": [{"bytesBase64Encoded": "bW9ja19yZXNwb25zZQ=="}]
@@ -373,7 +377,7 @@ def mock_requests():
 
 @pytest.fixture
 def mock_google_auth():
-    with patch("nano_api.upscale.default") as mock_default:
+    with patch("stable_delusion.upscale.default") as mock_default:
         mock_credentials = MagicMock()
         # NOTE: This is a test-only mock token, not a real credential
         mock_credentials.token = "mock-access-token"  # nosec B105
@@ -392,7 +396,11 @@ def create_mock_gemini_response(image_data=b"fake_generated_image_data", finish_
     mock_part.inline_data.data = image_data
 
     mock_candidate.content.parts = [mock_part]
-    mock_candidate.finish_reason = finish_reason
+
+    # Create a proper FinishReason-like object with name attribute
+    mock_finish_reason = MagicMock()
+    mock_finish_reason.name = finish_reason
+    mock_candidate.finish_reason = mock_finish_reason
     mock_response.candidates = [mock_candidate]
     mock_response.usage_metadata.total_token_count = 100
 
@@ -464,7 +472,7 @@ def create_test_png_data():
 
 
 def mock_image_operations():
-    return patch("nano_api.generate.Image.open"), patch("nano_api.generate.datetime")
+    return patch("stable_delusion.generate.Image.open"), patch("stable_delusion.generate.datetime")
 
 
 # Test configuration
@@ -517,7 +525,7 @@ def mock_s3_client():
 
 @pytest.fixture
 def mock_seedream_client():
-    from nano_api.seedream import SeedreamClient
+    from stable_delusion.seedream import SeedreamClient
 
     mock_client = MagicMock(spec=SeedreamClient)
 
@@ -594,7 +602,7 @@ def seedream_env():
 
 @pytest.fixture
 def mock_s3_repository():
-    from nano_api.repositories.s3_image_repository import S3ImageRepository
+    from stable_delusion.repositories.s3_image_repository import S3ImageRepository
 
     mock_repo = MagicMock(spec=S3ImageRepository)
 
@@ -615,7 +623,7 @@ def mock_s3_repository():
 
 @pytest.fixture
 def mock_seedream_service():
-    from nano_api.services.seedream_service import SeedreamImageGenerationService
+    from stable_delusion.services.seedream_service import SeedreamImageGenerationService
 
     mock_service = MagicMock(spec=SeedreamImageGenerationService)
 
@@ -630,8 +638,8 @@ def mock_seedream_service():
     ]
 
     # Mock generate_image to return successful response
-    from nano_api.models.responses import GenerateImageResponse
-    from nano_api.models.client_config import ImageGenerationConfig, GCPConfig
+    from stable_delusion.models.responses import GenerateImageResponse
+    from stable_delusion.models.client_config import ImageGenerationConfig, GCPConfig
 
     def mock_generate_image(request):
         return GenerateImageResponse(
@@ -679,14 +687,14 @@ def mock_requests_for_seedream():
 
 @pytest.fixture
 def mock_timestamped_filename():
-    with patch("nano_api.utils.generate_timestamped_filename") as mock_timestamp:
+    with patch("stable_delusion.utils.generate_timestamped_filename") as mock_timestamp:
         mock_timestamp.return_value = "seedream_generated_2025-09-27-12:34:56.png"
         yield mock_timestamp
 
 
 @pytest.fixture
 def seedream_test_config():
-    from nano_api.config import Config
+    from stable_delusion.config import Config
 
     config = MagicMock(spec=Config)
     config.s3_bucket = "test-seedream-bucket"
@@ -722,7 +730,7 @@ def mock_boto3_for_seedream():
 
 @pytest.fixture
 def mock_s3_client_manager():
-    with patch("nano_api.repositories.s3_image_repository.S3ClientManager") as mock_manager:
+    with patch("stable_delusion.repositories.s3_image_repository.S3ClientManager") as mock_manager:
         mock_manager.create_s3_client.return_value = MagicMock()
         mock_manager._validate_s3_access.return_value = None
         yield mock_manager
@@ -730,7 +738,7 @@ def mock_s3_client_manager():
 
 @pytest.fixture
 def valid_seedream_request():
-    from nano_api.models.requests import GenerateImageRequest
+    from stable_delusion.models.requests import GenerateImageRequest
 
     return GenerateImageRequest(
         prompt="Edit this image to make it more colorful",
@@ -746,7 +754,7 @@ def valid_seedream_request():
 
 @pytest.fixture
 def invalid_seedream_request():
-    from nano_api.models.requests import GenerateImageRequest
+    from stable_delusion.models.requests import GenerateImageRequest
 
     # This should trigger validation error (Seedream + images + local storage)
     return lambda: GenerateImageRequest(
@@ -759,7 +767,7 @@ def invalid_seedream_request():
 
 @pytest.fixture
 def mock_dotenv_for_cli():
-    with patch("nano_api.generate.load_dotenv") as mock_load_dotenv:
+    with patch("stable_delusion.generate.load_dotenv") as mock_load_dotenv:
         yield mock_load_dotenv
 
 
@@ -791,7 +799,7 @@ def create_mock_s3_error(error_code="NoSuchKey"):
 
 @pytest.fixture
 def mock_service_factory():
-    with patch("nano_api.factories.service_factory.ServiceFactory") as mock_factory:
+    with patch("stable_delusion.factories.service_factory.ServiceFactory") as mock_factory:
         # Configure different service creation methods
         mock_factory.create_image_generation_service.return_value = MagicMock()
         mock_factory.create_file_service.return_value = MagicMock()

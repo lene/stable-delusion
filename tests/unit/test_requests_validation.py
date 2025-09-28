@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from nano_api.models.requests import GenerateImageRequest
-from nano_api.exceptions import ValidationError
+from stable_delusion.models.requests import GenerateImageRequest
+from stable_delusion.exceptions import ValidationError
 
 
 class TestGenerateImageRequestValidation:  # pylint: disable=too-many-public-methods

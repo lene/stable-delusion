@@ -7,14 +7,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.factories.repository_factory import RepositoryFactory
-from nano_api.factories.service_factory import ServiceFactory
-from nano_api.repositories.interfaces import ImageRepository, FileRepository, UploadRepository
-from nano_api.repositories.local_file_repository import LocalFileRepository
-from nano_api.repositories.local_image_repository import LocalImageRepository
-from nano_api.repositories.upload_repository import LocalUploadRepository
-from nano_api.services.file_service import LocalFileService
-from nano_api.services.interfaces import FileService as FileServiceInterface
+from stable_delusion.factories.repository_factory import RepositoryFactory
+from stable_delusion.factories.service_factory import ServiceFactory
+from stable_delusion.repositories.interfaces import (
+    ImageRepository,
+    FileRepository,
+    UploadRepository,
+)
+from stable_delusion.repositories.local_file_repository import LocalFileRepository
+from stable_delusion.repositories.local_image_repository import LocalImageRepository
+from stable_delusion.repositories.upload_repository import LocalUploadRepository
+from stable_delusion.services.file_service import LocalFileService
+from stable_delusion.services.interfaces import FileService as FileServiceInterface
 
 
 class TestRepositoryFactory:
@@ -61,7 +65,7 @@ class TestRepositoryFactory:
 class TestServiceFactory:
     """Test cases for ServiceFactory."""
 
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_file_service(self, mock_repo_factory):
         # Mock return value for create_all_repositories
         mock_image_repo = MagicMock()
@@ -79,8 +83,8 @@ class TestServiceFactory:
         assert isinstance(service, LocalFileService)
         mock_repo_factory.create_all_repositories.assert_called_once()
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_image_generation_service(self, mock_repo_factory, mock_gemini_service):
         project_id = "test-project"
         location = "us-central1"
@@ -98,8 +102,8 @@ class TestServiceFactory:
             image_repository=mock_repo_factory.create_image_repository.return_value,
         )
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_image_generation_service_defaults(self, mock_repo_factory, mock_gemini_service):
         ServiceFactory.create_image_generation_service()
 
@@ -111,8 +115,8 @@ class TestServiceFactory:
             image_repository=mock_repo_factory.create_image_repository.return_value,
         )
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_image_generation_service_gemini_model(
         self, mock_repo_factory, mock_gemini_service
     ):
@@ -132,10 +136,10 @@ class TestServiceFactory:
             image_repository=mock_repo_factory.create_image_repository.return_value,
         )
 
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_image_generation_service_seedream_model(self, mock_repo_factory):
         with patch(
-            "nano_api.services.seedream_service.SeedreamImageGenerationService"
+            "stable_delusion.services.seedream_service.SeedreamImageGenerationService"
         ) as mock_seedream_service:
             project_id = "test-project"
             location = "us-central1"
@@ -151,8 +155,8 @@ class TestServiceFactory:
                 image_repository=mock_repo_factory.create_image_repository.return_value,
             )
 
-    @patch("nano_api.factories.service_factory.GeminiImageGenerationService")
-    @patch("nano_api.factories.service_factory.RepositoryFactory")
+    @patch("stable_delusion.factories.service_factory.GeminiImageGenerationService")
+    @patch("stable_delusion.factories.service_factory.RepositoryFactory")
     def test_create_image_generation_service_model_defaults_to_gemini(
         self, mock_repo_factory, mock_gemini_service
     ):
@@ -166,7 +170,7 @@ class TestServiceFactory:
             image_repository=mock_repo_factory.create_image_repository.return_value,
         )
 
-    @patch("nano_api.factories.service_factory.VertexAIUpscalingService")
+    @patch("stable_delusion.factories.service_factory.VertexAIUpscalingService")
     def test_create_upscaling_service(self, mock_upscaling_service):
         project_id = "test-project"
         location = "us-central1"
@@ -177,15 +181,17 @@ class TestServiceFactory:
             project_id=project_id, location=location
         )
 
-    @patch("nano_api.factories.service_factory.VertexAIUpscalingService")
+    @patch("stable_delusion.factories.service_factory.VertexAIUpscalingService")
     def test_create_upscaling_service_defaults(self, mock_upscaling_service):
         ServiceFactory.create_upscaling_service()
 
         mock_upscaling_service.create.assert_called_once_with(project_id=None, location=None)
 
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_file_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_image_generation_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_upscaling_service")
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_file_service")
+    @patch(
+        "stable_delusion.factories.service_factory.ServiceFactory.create_image_generation_service"
+    )
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_upscaling_service")
     def test_create_all_services(self, mock_upscaling, mock_generation, mock_file):
         project_id = "test-project"
         location = "us-central1"
@@ -201,9 +207,11 @@ class TestServiceFactory:
         )
         mock_upscaling.assert_called_once_with(project_id=project_id, location=location)
 
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_file_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_image_generation_service")
-    @patch("nano_api.factories.service_factory.ServiceFactory.create_upscaling_service")
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_file_service")
+    @patch(
+        "stable_delusion.factories.service_factory.ServiceFactory.create_image_generation_service"
+    )
+    @patch("stable_delusion.factories.service_factory.ServiceFactory.create_upscaling_service")
     def test_create_all_services_defaults(self, mock_upscaling, mock_generation, mock_file):
         ServiceFactory.create_all_services()
 
@@ -212,7 +220,9 @@ class TestServiceFactory:
         mock_upscaling.assert_called_once_with(project_id=None, location=None)
 
     def test_service_instances_are_independent(self):
-        with patch("nano_api.factories.service_factory.RepositoryFactory") as mock_repo_factory:
+        with patch(
+            "stable_delusion.factories.service_factory.RepositoryFactory"
+        ) as mock_repo_factory:
             # Mock return value for create_all_repositories
             mock_image_repo = MagicMock()
             mock_file_repo = MagicMock()

@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from nano_api.config import Config
-from nano_api.exceptions import FileOperationError
-from nano_api.repositories.s3_image_repository import S3ImageRepository
-from nano_api.repositories.s3_file_repository import S3FileRepository
+from stable_delusion.config import Config
+from stable_delusion.exceptions import FileOperationError
+from stable_delusion.repositories.s3_image_repository import S3ImageRepository
+from stable_delusion.repositories.s3_file_repository import S3FileRepository
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def mock_s3_client():
 @pytest.fixture
 def s3_image_repo(s3_config):
     with patch(
-        "nano_api.repositories.s3_image_repository.S3ClientManager.create_s3_client"
+        "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client"
     ) as mock_create:
         mock_client = MagicMock()
         mock_client.exceptions.NoSuchKey = type("NoSuchKey", (Exception,), {})
@@ -60,7 +60,7 @@ def s3_image_repo(s3_config):
 @pytest.fixture
 def s3_file_repo(s3_config):
     with patch(
-        "nano_api.repositories.s3_file_repository.S3ClientManager.create_s3_client"
+        "stable_delusion.repositories.s3_file_repository.S3ClientManager.create_s3_client"
     ) as mock_create:
         mock_client = MagicMock()
         mock_client.exceptions.NoSuchKey = type("NoSuchKey", (Exception,), {})
@@ -403,16 +403,18 @@ class TestS3RepositoryIntegration:
     """Integration tests for S3 repositories."""
 
     def test_repository_factory_creates_s3_repositories(self):
-        with patch("nano_api.factories.repository_factory.ConfigManager.get_config") as mock_config:
+        with patch(
+            "stable_delusion.factories.repository_factory.ConfigManager.get_config"
+        ) as mock_config:
             mock_config.return_value = MagicMock(storage_type="s3")
 
             with patch(
-                "nano_api.repositories.s3_image_repository.S3ClientManager.create_s3_client"
+                "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client"
             ):
                 with patch(
-                    "nano_api.repositories.s3_file_repository.S3ClientManager.create_s3_client"
+                    "stable_delusion.repositories.s3_file_repository.S3ClientManager.create_s3_client"  # noqa: E501  # pylint: disable=line-too-long
                 ):
-                    from nano_api.factories.repository_factory import RepositoryFactory
+                    from stable_delusion.factories.repository_factory import RepositoryFactory
 
                     image_repo = RepositoryFactory.create_image_repository()
                     file_repo = RepositoryFactory.create_file_repository()
@@ -422,12 +424,14 @@ class TestS3RepositoryIntegration:
 
     def test_configuration_validation_in_repositories(self, s3_config):
         # Test with valid config
-        with patch("nano_api.repositories.s3_image_repository.S3ClientManager.create_s3_client"):
+        with patch(
+            "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client"
+        ):
             repo = S3ImageRepository(s3_config)
             assert repo.bucket_name == "test-bucket"
             assert repo.key_prefix == "images/"
 
-    @patch("nano_api.repositories.s3_image_repository.logging")
+    @patch("stable_delusion.repositories.s3_image_repository.logging")
     def test_repositories_log_operations(self, mock_logging, s3_image_repo, test_image):
         s3_image_repo.save_image(test_image, Path("test.png"))
 

@@ -10,10 +10,10 @@ import pytest
 from PIL import Image
 from werkzeug.datastructures import FileStorage
 
-from nano_api.exceptions import FileOperationError, ValidationError
-from nano_api.repositories.local_file_repository import LocalFileRepository
-from nano_api.repositories.local_image_repository import LocalImageRepository
-from nano_api.repositories.upload_repository import LocalUploadRepository
+from stable_delusion.exceptions import FileOperationError, ValidationError
+from stable_delusion.repositories.local_file_repository import LocalFileRepository
+from stable_delusion.repositories.local_image_repository import LocalImageRepository
+from stable_delusion.repositories.upload_repository import LocalUploadRepository
 
 
 class TestLocalImageRepository:
@@ -110,7 +110,7 @@ class TestLocalImageRepository:
 
         assert "File is not a valid image" in str(excinfo.value)
 
-    @patch("nano_api.repositories.local_image_repository.generate_timestamped_filename")
+    @patch("stable_delusion.repositories.local_image_repository.generate_timestamped_filename")
     def test_generate_image_path(self, mock_generate, repository, temp_dir):
         mock_generate.return_value = "generated_test_123.png"
 

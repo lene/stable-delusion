@@ -10,12 +10,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.generate import GeminiClient, parse_command_line
-from nano_api.main import app
-from nano_api.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
-from nano_api.models.client_config import GeminiClientConfig, GCPConfig
+from stable_delusion.generate import GeminiClient, parse_command_line
+from stable_delusion.main import app
+from stable_delusion.conf import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
+from stable_delusion.models.client_config import GeminiClientConfig, GCPConfig
 
-sys.path.append("nano_api")
+sys.path.append("stable_delusion")
 
 
 # Note: .env file loading prevention is now handled globally in conftest.py
@@ -62,8 +62,8 @@ def temp_images():
 class TestEndToEndWorkflow:
     """Test complete workflows from input to output."""
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_complete_image_generation_workflow(self, _mock_init, mock_client, temp_images):
         # Mock the Gemini API response
         mock_response = MagicMock()
@@ -74,7 +74,9 @@ class TestEndToEndWorkflow:
         mock_part.inline_data.data = b"fake_generated_image_data"
 
         mock_candidate.content.parts = [mock_part]
-        mock_candidate.finish_reason = "STOP"
+        mock_finish_reason = MagicMock()
+        mock_finish_reason.name = "STOP"
+        mock_candidate.finish_reason = mock_finish_reason
         mock_response.candidates = [mock_candidate]
         mock_response.usage_metadata.total_token_count = 100
 
@@ -84,11 +86,11 @@ class TestEndToEndWorkflow:
         mock_client.return_value = mock_client_instance
 
         # Mock PIL Image operations
-        with patch("nano_api.generate.Image.open") as mock_image_open:
+        with patch("stable_delusion.generate.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
+            with patch("stable_delusion.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(
@@ -103,9 +105,9 @@ class TestEndToEndWorkflow:
                     assert result == expected_result
                     mock_image.save.assert_called_once()
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
-    @patch("nano_api.generate.upscale_image")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.generate.upscale_image")
     def test_complete_upscaling_workflow(self, mock_upscale, _mock_init, mock_client, temp_images):
         # Mock the Gemini API response
         mock_response = MagicMock()
@@ -116,7 +118,9 @@ class TestEndToEndWorkflow:
         mock_part.inline_data.data = b"fake_generated_image_data"
 
         mock_candidate.content.parts = [mock_part]
-        mock_candidate.finish_reason = "STOP"
+        mock_finish_reason = MagicMock()
+        mock_finish_reason.name = "STOP"
+        mock_candidate.finish_reason = mock_finish_reason
         mock_response.candidates = [mock_candidate]
         mock_response.usage_metadata.total_token_count = 100
 
@@ -130,11 +134,11 @@ class TestEndToEndWorkflow:
         mock_upscale.return_value = mock_upscaled_image
 
         # Mock PIL Image operations
-        with patch("nano_api.generate.Image.open") as mock_image_open:
+        with patch("stable_delusion.generate.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
-            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
+            with patch("stable_delusion.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-12:00:00"
 
                 with patch.dict(
@@ -164,7 +168,7 @@ class TestFlaskAPIIntegration:
         with app.test_client() as client:
             yield client
 
-    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    @patch("stable_delusion.main.ServiceFactory.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_real_file_upload(self, mock_service_create, client, temp_image_file):
         mock_service = MagicMock()
@@ -209,7 +213,7 @@ class TestFlaskAPIIntegration:
             saved_file = response_data["saved_files"][0]
             assert os.path.exists(saved_file)
 
-    @patch("nano_api.main.ServiceFactory.create_image_generation_service")
+    @patch("stable_delusion.main.ServiceFactory.create_image_generation_service")
     @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
     def test_api_with_multiple_files(self, mock_service_create, client, temp_images):
         mock_service = MagicMock()
@@ -256,8 +260,8 @@ class TestFlaskAPIIntegration:
 class TestCommandLineIntegration:
     """Test command-line interface integration."""
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_command_line_execution_simulation(self, _mock_init, mock_client, temp_image_file):
         # This simulates what would happen when running the script from command line
         mock_response = MagicMock()
@@ -268,7 +272,9 @@ class TestCommandLineIntegration:
         mock_part.inline_data.data = b"fake_image_data"
 
         mock_candidate.content.parts = [mock_part]
-        mock_candidate.finish_reason = "STOP"
+        mock_finish_reason = MagicMock()
+        mock_finish_reason.name = "STOP"
+        mock_candidate.finish_reason = mock_finish_reason
         mock_response.candidates = [mock_candidate]
         mock_response.usage_metadata.total_token_count = 150
 
@@ -277,8 +283,8 @@ class TestCommandLineIntegration:
         mock_client_instance.files.upload.return_value = MagicMock()
         mock_client.return_value = mock_client_instance
 
-        with patch("nano_api.generate.Image.open"):
-            with patch("nano_api.utils.get_current_timestamp") as mock_timestamp:
+        with patch("stable_delusion.generate.Image.open"):
+            with patch("stable_delusion.utils.get_current_timestamp") as mock_timestamp:
                 mock_timestamp.return_value = "2024-01-01-15:30:00"
 
                 with patch.dict(
@@ -318,8 +324,8 @@ class TestErrorHandlingIntegration:
     """Test error handling in integrated scenarios."""
 
     def test_missing_api_key_integration(self, temp_images):
-        from nano_api.config import ConfigManager
-        from nano_api.exceptions import ConfigurationError
+        from stable_delusion.config import ConfigManager
+        from stable_delusion.exceptions import ConfigurationError
 
         with patch.dict(os.environ, {}, clear=True):
             ConfigManager.reset_config()  # Ensure clean config state
@@ -328,10 +334,10 @@ class TestErrorHandlingIntegration:
             ):
                 GeminiClient(GeminiClientConfig())
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_file_not_found_integration(self, _mock_init, mock_client):
-        from nano_api.exceptions import FileOperationError
+        from stable_delusion.exceptions import FileOperationError
 
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient(GeminiClientConfig())
@@ -339,8 +345,8 @@ class TestErrorHandlingIntegration:
             with pytest.raises(FileOperationError, match="Image file not found: nonexistent.png"):
                 client.upload_files([Path("nonexistent.png")])
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_api_error_integration(self, _mock_init, mock_client, temp_images):
         mock_client_instance = MagicMock()
         mock_client_instance.files.upload.side_effect = Exception("API Error")
@@ -363,8 +369,8 @@ class TestConfigurationIntegration:
         assert isinstance(DEFAULT_PROJECT_ID, str)
         assert isinstance(DEFAULT_LOCATION, str)
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_custom_configuration_override(self, mock_init, mock_client):
         custom_project = "test-project-override"
         custom_location = "test-location-override"
@@ -384,8 +390,8 @@ class TestConfigurationIntegration:
 class TestPerformanceIntegration:
     """Test performance-related integration scenarios."""
 
-    @patch("nano_api.generate.genai.Client")
-    @patch("nano_api.generate.aiplatform.init")
+    @patch("stable_delusion.generate.genai.Client")
+    @patch("stable_delusion.generate.aiplatform.init")
     def test_large_file_handling_simulation(self, _mock_init, _mock_client):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient(GeminiClientConfig())

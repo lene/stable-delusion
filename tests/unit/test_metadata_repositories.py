@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nano_api.config import Config
-from nano_api.exceptions import FileOperationError
-from nano_api.models.metadata import GenerationMetadata
-from nano_api.repositories.local_metadata_repository import LocalMetadataRepository
-from nano_api.repositories.s3_metadata_repository import S3MetadataRepository
+from stable_delusion.config import Config
+from stable_delusion.exceptions import FileOperationError
+from stable_delusion.models.metadata import GenerationMetadata
+from stable_delusion.repositories.local_metadata_repository import LocalMetadataRepository
+from stable_delusion.repositories.s3_metadata_repository import S3MetadataRepository
 
 
 class TestLocalMetadataRepository:
@@ -116,7 +116,7 @@ class TestS3MetadataRepository:
     @pytest.fixture
     def s3_repo(self, config, mock_s3_client):
         with patch(
-            "nano_api.repositories.s3_metadata_repository.S3ClientManager.create_s3_client",
+            "stable_delusion.repositories.s3_metadata_repository.S3ClientManager.create_s3_client",
             return_value=mock_s3_client,
         ):
             repo = S3MetadataRepository(config)

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from nano_api.generate import parse_command_line
+from stable_delusion.generate import parse_command_line
 
 
 class TestCLIValidation:

@@ -1,9 +1,26 @@
 [tool.poetry]
-name = "nano_api"
+name = "stable-delusion"
 version = "0.1.0"
-description = ""
+description = "AI-powered image generation assistant supporting multiple models (Gemini, Seedream)"
 authors = ["Lene Preuss <lene.preuss@gmail.com>"]
 readme = "README.md"
+license = "MIT"
+homepage = "https://gitlab.com/lilacashes/microbanana"
+repository = "https://gitlab.com/lilacashes/microbanana"
+documentation = "https://gitlab.com/lilacashes/microbanana/-/blob/main/README.md"
+keywords = ["ai", "image-generation", "gemini", "seedream", "cli", "api"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -15,7 +32,11 @@ boto3 = "^1.40.39"
 botocore = "^1.40.39"
 python-dotenv = "^1.1.1"
 byteplus-python-sdk-v2 = "^3.0.12"
+poetry-core = "^2.2.1"
 
+[tool.poetry.scripts]
+stable-delusion = "stable_delusion.main:main"
+stable-delusion-generate = "stable_delusion.generate:main"
 
 [tool.poetry.group.test.dependencies]
 freezegun = "^1.5.5"
@@ -33,6 +54,8 @@ pylint = "^3.3.8"
 autopep8 = "^2.3.2"
 black = "^25.9.0"
 pytest-xdist = "^3.8.0"
+twine = "^6.1.0"
+build = "^1.2.2"
 
 [build-system]
 requires = ["poetry-core"]

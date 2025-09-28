@@ -11,18 +11,18 @@ from unittest.mock import patch, MagicMock
 import pytest
 from werkzeug.datastructures import FileStorage
 
-from nano_api.main import app
+from stable_delusion.main import app
 
 from ..conftest import assert_successful_flask_response
 
-sys.path.append("nano_api")
+sys.path.append("stable_delusion")
 
 
 @pytest.fixture
 def client():
     # Mock the configuration to avoid dependency on GEMINI_API_KEY
-    with patch("nano_api.main.ConfigManager.get_config") as mock_config:
-        from nano_api.config import Config
+    with patch("stable_delusion.main.ConfigManager.get_config") as mock_config:
+        from stable_delusion.config import Config
 
         mock_config.return_value = Config(
             project_id="test-project",
@@ -135,7 +135,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_generation_failure(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -164,7 +164,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_generation_exception(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -189,7 +189,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_response_format(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -233,7 +233,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_content_type_handling(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -253,7 +253,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_endpoint_with_output_dir(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -276,7 +276,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_scale_parameter(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -300,7 +300,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_model_parameter_gemini(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -326,7 +326,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_with_model_parameter_seedream(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
@@ -357,7 +357,7 @@ class TestFlaskAPI:  # pylint: disable=too-many-public-methods
 
     def test_generate_model_defaults_to_none(self, client, mock_image_files):
         with patch(
-            "nano_api.main.ServiceFactory.create_image_generation_service"
+            "stable_delusion.main.ServiceFactory.create_image_generation_service"
         ) as mock_service_create:
             mock_service = MagicMock()
             mock_service_create.return_value = mock_service
