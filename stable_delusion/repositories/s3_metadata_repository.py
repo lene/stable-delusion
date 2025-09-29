@@ -60,7 +60,7 @@ class S3MetadataRepository(MetadataRepository):
             ACL="public-read",  # Make publicly accessible
             Metadata=s3_metadata,
         )
-        logging.info("Metadata saved to S3: %s", s3_key)
+        logging.debug("Metadata saved to S3: %s", s3_key)
 
     def save_metadata(self, metadata: GenerationMetadata) -> str:
         """
@@ -133,7 +133,7 @@ class S3MetadataRepository(MetadataRepository):
             response = self.s3_client.get_object(Bucket=self.bucket_name, Key=metadata_key)
             json_content = response["Body"].read().decode("utf-8")
             metadata = GenerationMetadata.from_json(json_content)
-            logging.info("Metadata loaded from S3: %s", metadata_key)
+            logging.debug("Metadata loaded from S3: %s", metadata_key)
             return metadata
         except Exception as e:  # pylint: disable=broad-exception-caught
             self._handle_load_metadata_error(e, metadata_key)

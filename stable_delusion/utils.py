@@ -5,11 +5,14 @@ Provides common functionality for date formatting, error handling, and file oper
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple, Any
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
+
+import coloredlogs  # type: ignore[import-untyped]
 
 from stable_delusion.exceptions import FileOperationError
 
@@ -93,7 +96,6 @@ def ensure_directory_exists(path: Path) -> None:
 
 # Logging utilities for consistent service and operation logging
 def log_service_creation(service_name: str, model: str = "", **kwargs) -> None:
-    """Log service creation with standardized format."""
     import logging  # pylint: disable=import-outside-toplevel
 
     if model:
@@ -107,7 +109,6 @@ def log_service_creation(service_name: str, model: str = "", **kwargs) -> None:
 
 
 def log_operation_start(operation: str, **details) -> None:
-    """Log operation start with standardized format."""
     import logging  # pylint: disable=import-outside-toplevel
 
     logging.info("🚀 Starting %s", operation)
@@ -117,7 +118,6 @@ def log_operation_start(operation: str, **details) -> None:
 
 
 def log_operation_success(operation: str, result_count: Optional[int] = None, **details) -> None:
-    """Log operation success with standardized format."""
     import logging  # pylint: disable=import-outside-toplevel
 
     if result_count is not None:
@@ -131,7 +131,6 @@ def log_operation_success(operation: str, result_count: Optional[int] = None, **
 
 
 def log_operation_failure(operation: str, error: Exception) -> None:
-    """Log operation failure with standardized format."""
     import logging  # pylint: disable=import-outside-toplevel
 
     logging.error("❌ %s failed: %s", operation, str(error))
@@ -139,7 +138,6 @@ def log_operation_failure(operation: str, error: Exception) -> None:
 
 # Error handling utilities
 def handle_file_operation_error(operation: str, file_path: str, error: Exception) -> None:
-    """Handle file operation errors with consistent logging and re-raising."""
     import logging  # pylint: disable=import-outside-toplevel
 
     logging.error("File operation '%s' failed for %s: %s", operation, file_path, str(error))
@@ -151,7 +149,6 @@ def handle_file_operation_error(operation: str, file_path: str, error: Exception
 
 
 def safe_file_operation(operation_name: str, file_path: str, operation_func):
-    """Execute file operation with standardized error handling."""
     try:
         return operation_func()
     except (OSError, IOError) as e:
@@ -161,20 +158,32 @@ def safe_file_operation(operation_name: str, file_path: str, operation_func):
 
 # Path and URL utilities
 def normalize_path_for_key(path: str) -> str:
-    """Normalize file path for use as S3 key or similar identifier."""
     return str(path).strip("/")
 
 
 def is_s3_url(url: str) -> bool:
-    """Check if a URL is an S3 URL."""
     return url.startswith("s3://")
 
 
 def is_https_s3_url(url: str) -> bool:
-    """Check if a URL is an HTTPS S3 URL."""
     return url.startswith("https://") and (".s3." in url or ".s3-" in url)
 
 
 def is_any_s3_url(url: str) -> bool:
-    """Check if a URL is any form of S3 URL."""
     return is_s3_url(url) or is_https_s3_url(url)
+
+
+def setup_logging(quiet: bool = False, debug: bool = False) -> None:
+    if debug:
+        log_level = logging.DEBUG
+    elif quiet:
+        log_level = logging.WARNING
+    else:
+        log_level = logging.INFO
+
+    coloredlogs.install(
+        level=log_level, fmt='%(asctime)s %(levelname)s: %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    if quiet and debug:
+        logging.warning("Both --quiet and --debug specified. Using --debug mode.")

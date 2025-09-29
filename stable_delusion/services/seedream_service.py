@@ -35,38 +35,26 @@ class SeedreamImageGenerationService(ImageGenerationService):
         output_dir: Optional[Path] = None,
         image_repository: Optional[ImageRepository] = None,
     ) -> "SeedreamImageGenerationService":
-        logging.info("🔧 Creating SeedreamImageGenerationService")
-        logging.info("   API key provided: %s", "Yes" if api_key else "No")
-        logging.info("   Output dir: %s", output_dir)
+        logging.debug("Creating SeedreamImageGenerationService with output dir: %s", output_dir)
 
         try:
             if api_key:
-                logging.info("   Using provided API key")
                 client = SeedreamClient(api_key)
             else:
-                logging.info("   Using environment variable API key")
                 client = SeedreamClient.create_with_env_key()
         except Exception as e:
-            logging.error("❌ Failed to create Seedream client: %s", str(e))
+            logging.error("Failed to create Seedream client: %s", str(e))
             raise ConfigurationError(
                 f"Failed to create Seedream client: {str(e)}", config_key="SEEDREAM_API_KEY"
             ) from e
-
-        logging.info("✅ SeedreamImageGenerationService created successfully")
         return cls(client, image_repository)
 
     def _log_generation_request(
         self, request: GenerateImageRequest, effective_output_dir: Path
     ) -> None:
-        logging.info("🎨 SeedreamImageGenerationService.generate_image() called")
-        logging.info("   Request prompt: %s", request.prompt)
-        logging.info("   Request images: %s", [str(img) for img in request.images])
-        logging.info("   Request project_id: %s", request.project_id)
-        logging.info("   Request location: %s", request.location)
-        logging.info("   Request output_dir: %s", request.output_dir)
-        logging.info("   Request scale: %s", request.scale)
-        logging.info("   Request image_size: %s", request.image_size)
-        logging.info("   Effective output dir: %s", effective_output_dir)
+        logging.info("Generating image with Seedream")
+        logging.debug("Prompt: %s", request.prompt)
+        logging.debug("Image count: %d, Output dir: %s", len(request.images), effective_output_dir)
 
     def _create_generation_response(
         self, request: GenerateImageRequest, generated_file: Optional[Path] = None
@@ -93,11 +81,9 @@ class SeedreamImageGenerationService(ImageGenerationService):
             # Handle image uploads to S3 if images are provided
             image_urls = []
             if request.images:
-                logging.info("🔄 Uploading %s images to S3 for Seedream", len(request.images))
+                logging.info("Uploading %d images to S3 for Seedream", len(request.images))
                 image_urls = self.upload_images_to_s3(request.images)
-                logging.info("✅ Uploaded %s images to S3", len(image_urls))
 
-            logging.info("🔄 Calling Seedream client.generate_and_save()")
             # Generate the image using Seedream with S3 URLs
             generated_file = self.client.generate_and_save(
                 prompt=request.prompt,
@@ -106,7 +92,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
                 image_size=request.image_size or "2K",
                 base_name="seedream_generated",
             )
-            logging.info("✅ Seedream generation successful: %s", generated_file)
+            logging.info("Image generation completed: %s", generated_file)
 
             return self._create_generation_response(request, generated_file)
 
@@ -132,7 +118,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
             )
 
     def _upload_single_image_to_s3(self, image_path: Path) -> str:
-        logging.info("📤 Uploading image to S3: %s", image_path)
+        logging.info("Uploading image to S3: %s", image_path)
 
         from PIL import Image
         from stable_delusion.utils import generate_timestamped_filename
@@ -157,7 +143,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
             if s3_url.startswith("https:/") and not s3_url.startswith("https://"):
                 s3_url = s3_url.replace("https:/", "https://", 1)
 
-            logging.info("✅ Uploaded to S3: %s", s3_url)
+            logging.info("Uploaded to S3: %s", s3_url)
             return s3_url
 
     def upload_images_to_s3(self, image_paths: List[Path]) -> List[str]:

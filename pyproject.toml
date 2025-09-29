@@ -34,6 +34,7 @@ botocore = "^1.40.39"
 python-dotenv = "^1.1.1"
 byteplus-python-sdk-v2 = "^3.0.12"
 poetry-core = "^2.2.1"
+coloredlogs = "^15.0.1"
 
 [tool.poetry.scripts]
 stable-delusion = "stable_delusion.main:main"

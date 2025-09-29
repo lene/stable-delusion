@@ -49,7 +49,7 @@ class S3ImageRepository(ImageRepository):
 
     def _build_result_path(self, s3_key: str) -> Path:
         https_url = f"https://{self.bucket_name}.s3.{self.config.s3_region}.amazonaws.com/{s3_key}"
-        logging.info("Image saved to S3: %s", https_url)
+        logging.debug("Image saved to S3: %s", https_url)
         result_path = Path(https_url)
         # Fix URL normalization issue with Path objects
         result_str = str(result_path)
@@ -78,7 +78,7 @@ class S3ImageRepository(ImageRepository):
             image_data = self._download_image_from_s3(s3_key)
             image = self._convert_bytes_to_image(image_data)
 
-            logging.info("Image loaded from S3: %s", s3_key)
+            logging.debug("Image loaded from S3: %s", s3_key)
             return image
 
         except ValidationError:

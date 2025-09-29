@@ -7,9 +7,11 @@ Supports multi-image input and custom output directories.
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, List, Tuple
 
+# Coloredlogs handled in setup_logging() from utils
 from flask import Flask, jsonify, request, Response
 
 from stable_delusion.config import ConfigManager
@@ -24,7 +26,7 @@ from stable_delusion.generate import DEFAULT_PROMPT
 from stable_delusion.models.requests import GenerateImageRequest
 from stable_delusion.models.responses import ErrorResponse, HealthResponse, APIInfoResponse
 from stable_delusion import builders
-from stable_delusion.utils import create_error_response
+from stable_delusion.utils import create_error_response, setup_logging
 
 
 # Lazy initialization to avoid config loading at import time
@@ -188,6 +190,13 @@ def main():
     """Main entry point for the stable-delusion application."""
     import sys
 
+    # Check for quiet and debug flags
+    quiet_mode = '-q' in sys.argv or '--quiet' in sys.argv
+    debug_mode = '-d' in sys.argv or '--debug' in sys.argv
+
+    # Setup coloredlogs for better console output
+    setup_logging(quiet=quiet_mode, debug=debug_mode)
+
     # Check if --version is requested
     if len(sys.argv) > 1 and sys.argv[1] in ['--version', '-V']:
         from stable_delusion import __version__
@@ -195,9 +204,8 @@ def main():
         return
 
     # Check if --help is requested or if there are CLI arguments for image generation
-    if len(sys.argv) > 1 and (
-        sys.argv[1] in ['--help', '-h'] or sys.argv[1] in ['--image', '--prompt']
-    ):
+    cli_flags = {'--help', '-h', '--image', '--prompt', '-q', '--quiet', '-d', '--debug'}
+    if len(sys.argv) > 1 and sys.argv[1] in cli_flags:
         # Delegate to the CLI interface in generate.py
         from stable_delusion.generate import main as generate_main
         generate_main()

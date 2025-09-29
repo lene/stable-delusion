@@ -48,7 +48,7 @@ class LocalMetadataRepository(MetadataRepository):
             file_path = self._prepare_metadata_file_path(metadata)
             self._write_metadata_to_file(file_path, metadata)
 
-            logging.info("Metadata saved locally: %s", file_path)
+            logging.debug("Metadata saved locally: %s", file_path)
             return str(file_path)
 
         except (OSError, IOError, PermissionError) as e:
@@ -87,7 +87,7 @@ class LocalMetadataRepository(MetadataRepository):
             json_content = self._read_metadata_file(file_path)
             metadata = self._parse_metadata_content(json_content)
 
-            logging.info("Metadata loaded locally: %s", metadata_key)
+            logging.debug("Metadata loaded locally: %s", metadata_key)
             return metadata
 
         except (OSError, IOError, PermissionError) as e:

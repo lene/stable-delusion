@@ -14,6 +14,8 @@ from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Any, Tuple, TYPE_CHECKING
 
+# Coloredlogs handled in setup_logging() from utils
+
 from google import genai
 from google.cloud import aiplatform
 from google.genai.types import GenerateContentResponse
@@ -31,6 +33,7 @@ from stable_delusion.utils import (
     validate_image_file,
     ensure_directory_exists,
     generate_timestamped_filename,
+    setup_logging,
 )
 
 if TYPE_CHECKING:
@@ -40,7 +43,7 @@ if TYPE_CHECKING:
 
 DEFAULT_PROMPT = "A futuristic cityscape with flying cars at sunset"
 
-logging.basicConfig(level=logging.INFO)
+# Coloredlogs will be configured in main() after parsing arguments
 
 
 @dataclass
@@ -75,6 +78,16 @@ def log_failure_reason(response: GenerateContentResponse) -> None:
 
 def _setup_cli_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode - only show warnings and errors."
+    )
+    parser.add_argument(
+        "-d", "--debug",
+        action="store_true",
+        help="Debug mode - show all log messages including debug details."
+    )
     parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
     parser.add_argument(
         "--output",
@@ -477,7 +490,7 @@ class GeminiClient:
     def _check_candidate_finish_reason(self, candidate) -> None:
         """Check and log candidate finish reason."""
         if candidate.finish_reason and hasattr(candidate.finish_reason, 'name'):
-            logging.info("Finish reason: %s", candidate.finish_reason.name)
+            logging.debug("Finish reason: %s", candidate.finish_reason.name)
             if "SAFETY" in candidate.finish_reason.name:
                 logging.warning("Candidate was blocked due to safety policies.")
                 self._log_safety_ratings(candidate)
@@ -494,7 +507,7 @@ class GeminiClient:
         """Extract and save image from candidate content parts."""
         for part in candidate.content.parts:
             if part.text is not None:
-                logging.info(part.text)
+                logging.debug("Response text: %s", part.text)
             elif part.inline_data is not None and part.inline_data.data is not None:
                 return self._save_inline_image_data(part.inline_data.data)
 
@@ -567,7 +580,7 @@ def save_response_image(
 
     for part in candidate.content.parts:
         if part.text is not None:
-            logging.info(part.text)
+            logging.debug("Response text: %s", part.text)
         elif part.inline_data is not None and part.inline_data.data is not None:
             image = Image.open(BytesIO(part.inline_data.data))
             filename = generate_timestamped_filename("generated")
@@ -623,7 +636,7 @@ def _log_generation_result(
         if args.scale:
             logging.info("High Res Image saved to %s", response.generated_file)
         else:
-            logging.info("Image saved to %s", response.generated_file)
+            logging.debug("Image saved to %s", response.generated_file)
     else:
         logging.error("Image generation failed.")
 
@@ -631,6 +644,9 @@ def _log_generation_result(
 def main():
     try:
         prompt, images, args = _process_cli_arguments()
+
+        # Configure coloredlogs based on quiet/debug flags
+        setup_logging(quiet=args.quiet, debug=args.debug)
         request_dto = _create_cli_request_dto(prompt, images, args)
         response = _execute_image_generation(request_dto)
         _log_generation_result(response, args)
