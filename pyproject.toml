@@ -60,6 +60,15 @@ twine = "^6.1.0"
 build = "^1.2.2"
 vulture = "^2.14"
 
+[tool.poetry.urls]
+"Bug Tracker" = "https://gitlab.com/lilacashes/stable-delusion/-/issues"
+"Changelog" = "https://gitlab.com/lilacashes/stable-delusion/-/blob/main/CHANGELOG.md"
+
+[[tool.poetry.source]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+priority = "explicit"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

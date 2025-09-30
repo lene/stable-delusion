@@ -1,4 +1,4 @@
-# CLI client and web server to easily use nano banana image editing model
+# stable-delusion - AI-powered image generation and editing assistant
 
 ## Installation
 
@@ -87,14 +87,14 @@ export AWS_PROFILE="your-profile"
 
 #### Basic usage
 ```bash
-$ poetry run python nano_api/generate.py \
+$ poetry run python stable_delusion/generate.py \
     --prompt "please make the women in the provided image look affectionately at each other" \
     --image samples/base.png
 ```
 
 #### Advanced usage with all parameters
 ```bash
-$ poetry run python nano_api/generate.py \
+$ poetry run python stable_delusion/generate.py \
     --prompt "a futuristic cityscape with flying cars" \
     --image samples/base.png \
     --image samples/reference.png \
@@ -108,14 +108,14 @@ $ poetry run python nano_api/generate.py \
 #### S3 storage examples
 ```bash
 # Use S3 storage (requires S3 environment variables to be set)
-$ poetry run python nano_api/generate.py \
+$ poetry run python stable_delusion/generate.py \
     --prompt "a beautiful landscape" \
     --image samples/base.png \
     --storage-type s3 \
     --output-dir generated-images
 
 # Force local storage (override S3 configuration)
-$ poetry run python nano_api/generate.py \
+$ poetry run python stable_delusion/generate.py \
     --prompt "a city at night" \
     --image samples/base.png \
     --storage-type local \
@@ -136,7 +136,7 @@ $ poetry run python nano_api/generate.py \
 
 #### Start the server
 ```bash
-$ poetry run python nano_api/main.py
+$ poetry run python stable_delusion/main.py
 ```
 
 #### Make a request to the web API
@@ -210,7 +210,7 @@ $ gcloud services enable aiplatform.googleapis.com
 
 #### Upscale a specific image
 ```bash
-$ poetry run python nano_api/upscale.py \
+$ poetry run python stable_delusion/upscale.py \
     --input generated_image.png \
     --scale 4 \
     --project-id my-gcp-project \
@@ -262,19 +262,19 @@ This project includes comprehensive code quality and security tools:
 #### Linting and Code Style
 ```bash
 # Check code style with flake8
-$ poetry run flake8 nano_api tests
+$ poetry run flake8 stable_delusion tests
 
 # Run pylint for comprehensive code analysis
-$ poetry run pylint nano_api/ tests/
+$ poetry run pylint stable_delusion/ tests/
 
 # Run mypy for static type checking
-$ poetry run mypy nano_api/
+$ poetry run mypy stable_delusion/
 ```
 
 #### Security Analysis
 ```bash
 # Run security analysis with bandit
-$ poetry run bandit -r nano_api/
+$ poetry run bandit -r stable_delusion/
 
 # Bandit configuration excludes test files automatically
 # See .bandit file for configuration details
@@ -288,16 +288,16 @@ Before committing code, run all quality checks:
 $ poetry run pytest
 
 # 2. Check code style
-$ poetry run flake8 nano_api tests
+$ poetry run flake8 stable_delusion tests
 
 # 3. Run pylint analysis
-$ poetry run pylint nano_api/ tests/
+$ poetry run pylint stable_delusion/ tests/
 
 # 4. Run type checking
-$ poetry run mypy nano_api/
+$ poetry run mypy stable_delusion/
 
 # 5. Run security analysis
-$ poetry run bandit -r nano_api/
+$ poetry run bandit -r stable_delusion/
 ```
 
 ### Configuration Files

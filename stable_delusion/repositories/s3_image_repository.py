@@ -44,7 +44,7 @@ class S3ImageRepository(ImageRepository):
             Key=s3_key,
             Body=image_bytes,
             ContentType=f"image/{file_format.lower()}",
-            Metadata={"original_filename": file_path.name, "uploaded_by": "nano-api-client"},
+            Metadata={"original_filename": file_path.name, "uploaded_by": "stable-delusion"},
         )
 
     def _build_result_path(self, s3_key: str) -> Path:

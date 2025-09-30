@@ -626,7 +626,7 @@ def mock_aws_credentials():
     return {
         "AWS_ACCESS_KEY_ID": "AKIATEST123456789",
         "AWS_SECRET_ACCESS_KEY": "test-secret-key-mock-12345",
-        "AWS_S3_BUCKET": "test-nano-api-bucket",
+        "AWS_S3_BUCKET": "test-stable-delusion-bucket",
         "AWS_S3_REGION": "us-east-1",
     }
 

@@ -175,7 +175,7 @@ class TestS3ImageRepositoryURL:
         metadata = put_object_call[1]["Metadata"]
 
         assert metadata["original_filename"] == "test_image.jpg"
-        assert metadata["uploaded_by"] == "nano-api-client"
+        assert metadata["uploaded_by"] == "stable-delusion"
 
     def test_s3_upload_error_handling(self, s3_repository, mock_image, mock_s3_client):
         mock_s3_client.put_object.side_effect = Exception("S3 upload failed")

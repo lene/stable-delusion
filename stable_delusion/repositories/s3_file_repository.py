@@ -64,7 +64,7 @@ class S3FileRepository(FileRepository):
                 Key=s3_key,
                 Body=b"",
                 ContentType="application/x-directory",
-                Metadata={"type": "directory_marker", "created_by": "nano-api-client"},
+                Metadata={"type": "directory_marker", "created_by": "stable-delusion"},
             )
 
             logging.info("S3 directory marker created: %s", s3_key)
@@ -270,7 +270,7 @@ class S3FileRepository(FileRepository):
                     ContentType=content_type,
                     Metadata={
                         "original_filename": filename,
-                        "uploaded_by": "nano-api-client",
+                        "uploaded_by": "stable-delusion",
                         "upload_timestamp": timestamp,
                     },
                 )

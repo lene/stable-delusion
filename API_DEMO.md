@@ -1,4 +1,4 @@
-# NanoAPIClient Enhanced API Demo
+# stable-delusion Enhanced API Demo
 
 The Flask API has been updated to support all CLI functionality. Here are examples of the new capabilities:
 
@@ -13,7 +13,7 @@ Response:
 ```json
 {
   "status": "healthy",
-  "service": "NanoAPIClient",
+  "service": "stable-delusion",
   "version": "1.0.0"
 }
 ```
@@ -26,7 +26,7 @@ curl http://localhost:5000/
 Response:
 ```json
 {
-  "name": "NanoAPIClient API",
+  "name": "stable-delusion API",
   "description": "Flask web API for image generation using Google Gemini AI",
   "version": "1.0.0",
   "endpoints": {

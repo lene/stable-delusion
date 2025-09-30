@@ -1,4 +1,4 @@
-# NanoAPIClient System Architecture
+# stable-delusion System Architecture
 
 This document describes the complete enterprise-grade system architecture with clean architecture principles, comprehensive design patterns, and robust quality assurance.
 
@@ -6,37 +6,37 @@ This document describes the complete enterprise-grade system architecture with c
 
 ```mermaid
 graph TB
-    CLI["CLI Interface<br/>nano_api/generate.py"]
+    CLI["CLI Interface<br/>stable_delusion/generate.py"]
     WebUI["Web Frontend<br/>Planned - Issue #1"]
-    Flask["Flask API Server<br/>nano_api/main.py"]
+    Flask["Flask API Server<br/>stable_delusion/main.py"]
 
     subgraph ServiceLayer ["Service Layer"]
-        GenService["Image Generation Service<br/>nano_api/services/gemini_service.py"]
-        UpscaleService["Upscaling Service<br/>nano_api/services/upscaling_service.py"]
-        FileService["File Service<br/>nano_api/services/file_service.py"]
+        GenService["Image Generation Service<br/>stable_delusion/services/gemini_service.py"]
+        UpscaleService["Upscaling Service<br/>stable_delusion/services/upscaling_service.py"]
+        FileService["File Service<br/>stable_delusion/services/file_service.py"]
     end
 
     subgraph FactoryLayer ["Factory Layer"]
-        ServiceFactory["Service Factory<br/>nano_api/factories/service_factory.py"]
-        RepoFactory["Repository Factory<br/>nano_api/factories/repository_factory.py"]
+        ServiceFactory["Service Factory<br/>stable_delusion/factories/service_factory.py"]
+        RepoFactory["Repository Factory<br/>stable_delusion/factories/repository_factory.py"]
     end
 
     subgraph RepositoryLayer ["Repository Layer"]
-        ImageRepo["Image Repository<br/>nano_api/repositories/local_image_repository.py"]
-        FileRepo["File Repository<br/>nano_api/repositories/local_file_repository.py"]
-        UploadRepo["Upload Repository<br/>nano_api/repositories/upload_repository.py"]
+        ImageRepo["Image Repository<br/>stable_delusion/repositories/local_image_repository.py"]
+        FileRepo["File Repository<br/>stable_delusion/repositories/local_file_repository.py"]
+        UploadRepo["Upload Repository<br/>stable_delusion/repositories/upload_repository.py"]
     end
 
-    GeminiClient["GeminiClient Class<br/>nano_api/generate.py"]
-    ConfigMgr["Configuration Manager<br/>nano_api/config.py"]
+    GeminiClient["GeminiClient Class<br/>stable_delusion/generate.py"]
+    ConfigMgr["Configuration Manager<br/>stable_delusion/config.py"]
 
     subgraph ModelLayer ["Model Layer DTOs"]
-        RequestModels["Request DTOs<br/>nano_api/models/requests.py"]
-        ResponseModels["Response DTOs<br/>nano_api/models/responses.py"]
+        RequestModels["Request DTOs<br/>stable_delusion/models/requests.py"]
+        ResponseModels["Response DTOs<br/>stable_delusion/models/responses.py"]
     end
 
     subgraph ExceptionLayer ["Exception Hierarchy"]
-        Exceptions["Custom Exceptions<br/>nano_api/exceptions.py"]
+        Exceptions["Custom Exceptions<br/>stable_delusion/exceptions.py"]
     end
 
     GeminiAPI["Google Gemini API<br/>gemini-2.5-flash-image-preview"]
@@ -110,7 +110,7 @@ graph TB
 - **Future Web UI**: Modern frontend (planned)
 
 ### 2. **API Layer**
-- **Flask Application** (`nano_api/main.py`): HTTP server with endpoints
+- **Flask Application** (`stable_delusion/main.py`): HTTP server with endpoints
 - **Route Handlers**: Request validation, response formatting
 - **Middleware**: Error handling, logging, security
 
