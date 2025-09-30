@@ -9,6 +9,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 import argparse
 import json
 import logging
+import sys
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
@@ -76,6 +77,41 @@ def log_failure_reason(response: GenerateContentResponse) -> None:
     )
 
 
+def _validate_and_normalize_output_filename(filename: str) -> str:
+    """
+    Validate and normalize the output filename according to PNG requirements.
+
+    Args:
+        filename: The filename provided by user
+
+    Returns:
+        Normalized filename (basename without .png extension)
+
+    Raises:
+        SystemExit: If the file extension is not supported
+    """
+    if not filename:
+        return filename
+
+    # Convert to Path for easier extension handling
+    path = Path(filename)
+
+    # Get the extension (lowercase for comparison)
+    extension = path.suffix.lower()
+
+    if extension == ".png":
+        # Strip .png extension but preserve directory path
+        return str(path.with_suffix(""))
+    if extension == "":
+        # No extension - keep as is
+        return filename
+
+    # Any other extension is not supported
+    print(f"Error: file type not supported for --output-filename: '{extension}'. "
+          "Only PNG files are supported.")
+    sys.exit(1)
+
+
 def _setup_cli_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
     parser.add_argument(
@@ -90,7 +126,7 @@ def _setup_cli_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
     parser.add_argument(
-        "--output",
+        "--output-filename",
         type=Path,
         default=Path("generated_gemini_image.png"),
         help="The output filename for the generated image.",
@@ -603,12 +639,18 @@ def _create_cli_request_dto(
 ) -> "GenerateImageRequest":
     from stable_delusion.models.requests import GenerateImageRequest
 
+    # Validate and normalize output filename if provided
+    output_filename = getattr(args, "output_filename")
+    if output_filename:
+        output_filename = Path(_validate_and_normalize_output_filename(str(output_filename)))
+
     return GenerateImageRequest(
         prompt=prompt,
         images=images,
         project_id=getattr(args, "gcp_project_id"),
         location=getattr(args, "gcp_location"),
         output_dir=getattr(args, "output_dir"),
+        output_filename=output_filename,
         scale=getattr(args, "scale"),
         image_size=getattr(args, "size"),
         storage_type=getattr(args, "storage_type"),
@@ -627,6 +669,37 @@ def _execute_image_generation(
         model=request_dto.model,
     )
     return service.generate_image(request_dto)
+
+
+def _handle_cli_custom_output(
+    response: "GenerateImageResponse", request_dto: "GenerateImageRequest"
+) -> None:
+    if response.generated_file and request_dto.output_filename:
+        logging.debug("Custom output: attempting to rename %s to %s",
+                      response.generated_file, request_dto.output_filename)
+        logging.debug("Source file exists: %s", response.generated_file.exists())
+
+        # If output_dir is specified, use it; otherwise use the same directory as the source file
+        if request_dto.output_dir:
+            custom_path = request_dto.output_dir / request_dto.output_filename
+        else:
+            custom_path = response.generated_file.parent / request_dto.output_filename
+
+        logging.debug("Target path: %s", custom_path)
+
+        try:
+            # Ensure target directory exists
+            custom_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Rename the file
+            response.generated_file.rename(custom_path)
+            response.image_config.generated_file = custom_path
+            logging.debug("Successfully renamed to: %s", custom_path)
+        except (OSError, FileNotFoundError, PermissionError) as e:
+            logging.error("Failed to rename file: %s", e)
+            logging.debug("Source path: %s (exists: %s)",
+                          response.generated_file, response.generated_file.exists())
+            logging.debug("Target path: %s", custom_path)
 
 
 def _log_generation_result(
@@ -649,6 +722,7 @@ def main():
         setup_logging(quiet=args.quiet, debug=args.debug)
         request_dto = _create_cli_request_dto(prompt, images, args)
         response = _execute_image_generation(request_dto)
+        _handle_cli_custom_output(response, request_dto)
         _log_generation_result(response, args)
 
     except (ImageGenerationError, FileOperationError) as e:

@@ -7,7 +7,6 @@ Supports multi-image input and custom output directories.
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import json
-import logging
 from pathlib import Path
 from typing import Any, List, Tuple
 
@@ -107,7 +106,7 @@ def _create_request_dto(saved_files: List[Path]) -> GenerateImageRequest:
         output_dir=Path(request.form.get("output_dir") or config.default_output_dir),
         scale=scale,
         image_size=request.form.get("size"),
-        custom_output=request.form.get("output"),
+        output_filename=request.form.get("output_filename"),
         storage_type=request.form.get("storage_type"),
         model=request.form.get("model"),
     )
@@ -124,8 +123,8 @@ def _create_generation_service(request_dto: GenerateImageRequest) -> Any:
 
 
 def _handle_custom_output_filename(response_dto: Any, request_dto: GenerateImageRequest) -> None:
-    if response_dto.generated_file and request_dto.custom_output and request_dto.output_dir:
-        custom_path = request_dto.output_dir / request_dto.custom_output
+    if response_dto.generated_file and request_dto.output_filename and request_dto.output_dir:
+        custom_path = request_dto.output_dir / request_dto.output_filename
         response_dto.generated_file.rename(custom_path)
         response_dto.image_config.generated_file = custom_path
 

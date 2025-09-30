@@ -45,9 +45,9 @@ class GenerateImageRequest:
     project_id: Optional[str] = None
     location: Optional[str] = None
     output_dir: Optional[Path] = None
+    output_filename: Optional[str] = None
     scale: Optional[int] = None
     image_size: Optional[str] = None
-    custom_output: Optional[str] = None
     storage_type: Optional[str] = None
     model: Optional[str] = None
 

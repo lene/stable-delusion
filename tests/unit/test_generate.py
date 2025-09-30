@@ -294,7 +294,7 @@ class TestParseCommandLine:
         with patch("sys.argv", ["generate.py"]):
             args = parse_command_line()
             assert args.prompt is None
-            assert args.output == Path("generated_gemini_image.png")
+            assert args.output_filename == Path("generated_gemini_image.png")
             assert args.image is None
             assert args.gcp_project_id is None
             assert args.gcp_location is None
@@ -306,7 +306,7 @@ class TestParseCommandLine:
             "generate.py",
             "--prompt",
             "test prompt",
-            "--output",
+            "--output-filename",
             "custom_output.png",
             "--image",
             "image1.png",
@@ -325,7 +325,7 @@ class TestParseCommandLine:
         with patch("sys.argv", test_args):
             args = parse_command_line()
             assert args.prompt == "test prompt"
-            assert args.output == Path("custom_output.png")
+            assert args.output_filename == Path("custom_output.png")
             assert args.image == [Path("image1.png"), Path("image2.png")]
             assert args.gcp_project_id == "test-project"
             assert args.gcp_location == "test-location"

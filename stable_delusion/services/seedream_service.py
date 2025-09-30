@@ -85,13 +85,22 @@ class SeedreamImageGenerationService(ImageGenerationService):
                 image_urls = self.upload_images_to_s3(request.images)
 
             # Generate the image using Seedream with S3 URLs
-            generated_file = self.client.generate_and_save(
-                prompt=request.prompt,
-                output_dir=effective_output_dir,
-                image_urls=image_urls,  # Use S3 URLs instead of local paths
-                image_size=request.image_size or "2K",
-                base_name="seedream_generated",
-            )
+            # Use custom output filename if provided, otherwise use default
+            if request.output_filename:
+                generated_file = self.client.generate_and_save(
+                    prompt=request.prompt,
+                    output_dir=effective_output_dir,
+                    output_filename=str(request.output_filename),
+                    image_urls=image_urls,  # Use S3 URLs instead of local paths
+                    image_size=request.image_size or "2K",
+                )
+            else:
+                generated_file = self.client.generate_and_save(
+                    prompt=request.prompt,
+                    output_dir=effective_output_dir,
+                    image_urls=image_urls,  # Use S3 URLs instead of local paths
+                    image_size=request.image_size or "2K",
+                )
             logging.info("Image generation completed: %s", generated_file)
 
             return self._create_generation_response(request, generated_file)

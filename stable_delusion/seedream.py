@@ -210,16 +210,16 @@ class SeedreamClient:
         self,
         prompt: str,
         output_dir: Path,
+        output_filename: str = "seedream_image",
         image_urls: Optional[List[str]] = None,
         image_size: str = "2K",
-        base_name: str = "seedream_generated",
     ) -> Path:
-        self._log_save_operation(output_dir, base_name)
+        self._log_save_operation(output_dir, output_filename)
 
         generated_image_urls = self.generate_image(prompt, image_urls, image_size)
         image_url = self._validate_generated_images(generated_image_urls)
 
-        output_filename = generate_timestamped_filename(base_name, "png")
+        output_filename = generate_timestamped_filename(output_filename, "png")
         output_path = output_dir / output_filename
         logging.debug("Saving to: %s", output_path)
 

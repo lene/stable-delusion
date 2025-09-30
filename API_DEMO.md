@@ -131,7 +131,7 @@ The enhanced `/generate` endpoint returns detailed information:
 | `--project-id` | `project_id` | Google Cloud Project ID | From conf.py |
 | `--location` | `location` | Google Cloud region | From conf.py |
 | `--scale` | `scale` | Upscale factor (2 or 4) | None (no upscaling) |
-| `--output` | `output` | Custom output filename | Timestamp-based |
+| `--output-filename` | `output_filename` | Custom output filename | Timestamp-based |
 | `--output-dir` | `output_dir` | Output directory | Current directory |
 
 ## Error Handling

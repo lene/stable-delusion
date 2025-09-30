@@ -52,7 +52,6 @@ def safe_format_timestamps(
 
 
 def log_upload_info(image_path: Any, uploaded_file: Any) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     create_time_str, expiration_time_str = safe_format_timestamps(
         uploaded_file.create_time, uploaded_file.expiration_time
@@ -96,7 +95,6 @@ def ensure_directory_exists(path: Path) -> None:
 
 # Logging utilities for consistent service and operation logging
 def log_service_creation(service_name: str, model: str = "", **kwargs) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     if model:
         logging.info("🏗️ Creating %s for model: %s", service_name, model)
@@ -109,7 +107,6 @@ def log_service_creation(service_name: str, model: str = "", **kwargs) -> None:
 
 
 def log_operation_start(operation: str, **details) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     logging.info("🚀 Starting %s", operation)
     for key, value in details.items():
@@ -118,7 +115,6 @@ def log_operation_start(operation: str, **details) -> None:
 
 
 def log_operation_success(operation: str, result_count: Optional[int] = None, **details) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     if result_count is not None:
         logging.info("✅ %s completed: %d items", operation, result_count)
@@ -131,14 +127,12 @@ def log_operation_success(operation: str, result_count: Optional[int] = None, **
 
 
 def log_operation_failure(operation: str, error: Exception) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     logging.error("❌ %s failed: %s", operation, str(error))
 
 
 # Error handling utilities
 def handle_file_operation_error(operation: str, file_path: str, error: Exception) -> None:
-    import logging  # pylint: disable=import-outside-toplevel
 
     logging.error("File operation '%s' failed for %s: %s", operation, file_path, str(error))
     raise FileOperationError(

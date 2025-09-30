@@ -98,7 +98,7 @@ $ poetry run python nano_api/generate.py \
     --prompt "a futuristic cityscape with flying cars" \
     --image samples/base.png \
     --image samples/reference.png \
-    --output custom_output.png \
+    --output-filename custom_output.png \
     --output-dir ./generated \
     --project-id my-gcp-project \
     --location us-central1 \
@@ -125,7 +125,7 @@ $ poetry run python nano_api/generate.py \
 #### Command line parameters
 - `--prompt`: Text prompt for image generation (optional, defaults to sample prompt)
 - `--image`: Path to reference image(s), can be used multiple times
-- `--output`: Output filename (default: "generated_gemini_image.png")
+- `--output-filename`: Output filename (default: "generated_gemini_image.png")
 - `--output-dir`: Directory where generated files will be saved (default: current directory)
 - `--project-id`: Google Cloud Project ID (defaults to value in conf.py)
 - `--location`: Google Cloud region (defaults to value in conf.py)
