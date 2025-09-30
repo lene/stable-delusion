@@ -9,6 +9,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 import argparse
 import json
 import logging
+import shutil
 import sys
 from dataclasses import dataclass
 from io import BytesIO
@@ -517,7 +518,8 @@ class GeminiClient:
     def _get_and_validate_candidate(self, response: GenerateContentResponse):
         """Get first candidate and validate its content."""
         # _validate_response_has_candidates ensures candidates is not None
-        assert response.candidates is not None
+        if response.candidates is None:
+            raise ImageGenerationError("Response validation failed: candidates is None")
         candidate = response.candidates[0]
         self._check_candidate_finish_reason(candidate)
         self._validate_candidate_content(candidate)
@@ -691,11 +693,11 @@ def _handle_cli_custom_output(
             # Ensure target directory exists
             custom_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Rename the file
-            response.generated_file.rename(custom_path)
+            # Move the file (handles cross-device links)
+            shutil.move(str(response.generated_file), str(custom_path))
             response.image_config.generated_file = custom_path
             logging.debug("Successfully renamed to: %s", custom_path)
-        except (OSError, FileNotFoundError, PermissionError) as e:
+        except (OSError, FileNotFoundError, PermissionError, shutil.Error) as e:
             logging.error("Failed to rename file: %s", e)
             logging.debug("Source path: %s (exists: %s)",
                           response.generated_file, response.generated_file.exists())

@@ -134,7 +134,8 @@ class S3ClientManager:
         """
         S3ClientManager._validate_bucket_name_provided(bucket_name)
         # After validation, bucket_name is guaranteed to not be None
-        assert bucket_name is not None
+        if bucket_name is None:
+            raise ConfigurationError("S3 bucket name validation failed: bucket_name is None")
         S3ClientManager._perform_bucket_access_check(s3_client, bucket_name)
 
     @staticmethod

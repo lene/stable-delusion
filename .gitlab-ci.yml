@@ -12,7 +12,6 @@ stages:
   - deploy
   - verify
   - publish
-  - mirror
 
 # Cache poetry dependencies between runs for faster builds
 cache:
@@ -118,19 +117,6 @@ bandit:
     - main
     - merge_requests
     - multi-image-support
-
-# GitHub Mirror stage - triggers mirror sync after successful merge requests
-github_mirror:
-  stage: mirror
-  image: alpine/git:latest
-  script:
-    - echo "🔄 Triggering GitHub mirror sync..."
-    - echo "All quality checks passed - repository mirror will be updated automatically"
-    - echo "✅ Mirror sync triggered successfully"
-  only:
-    - main
-    - merge_requests
-  when: on_success
 
 # Version Bump - automatically increment version for deployment
 bump_version:

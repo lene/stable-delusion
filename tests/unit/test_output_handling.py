@@ -128,13 +128,17 @@ class TestCustomOutputHandling:
         _handle_cli_custom_output(response, request)
 
     @patch('stable_delusion.generate.logging')
-    def test_handle_custom_output_rename_failure(self, mock_logging):
+    @patch('stable_delusion.generate.shutil.move')
+    def test_handle_custom_output_rename_failure(self, mock_move, mock_logging):
         """Test error handling when file rename fails."""
+        # Mock shutil.move to raise an exception
+        mock_move.side_effect = OSError("Permission denied")
+
         request = GenerateImageRequest(
             prompt="test",
             images=[],
             model="seedream",
-            output_dir=Path("/nonexistent/directory"),
+            output_dir=Path("."),
             output_filename="test_output.png"
         )
 
@@ -145,6 +149,8 @@ class TestCustomOutputHandling:
 
         # Check that error was logged
         mock_logging.error.assert_called()
+        # Verify shutil.move was called
+        mock_move.assert_called_once()
 
     def test_handle_custom_output_creates_target_directory(self):
         """Test that target directory is created if it doesn't exist."""

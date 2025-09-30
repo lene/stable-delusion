@@ -225,6 +225,7 @@ generated_image.png
 uploads/
 samples/
 *.png
+output/
 
 # Local metadata storage
 metadata/
