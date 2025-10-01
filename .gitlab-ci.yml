@@ -15,6 +15,9 @@ stages:
 
 # Cache poetry dependencies between runs for faster builds
 cache:
+  key:
+    files:
+      - poetry.lock
   paths:
     - .venv/
 
@@ -32,7 +35,7 @@ before_script:
   - pip install poetry
   - poetry config virtualenvs.create true
   - poetry config virtualenvs.in-project true
-  - poetry install --with dev
+  - poetry install --sync --with dev
 
 # Setup stage - validate project structure
 setup:
