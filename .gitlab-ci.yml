@@ -146,6 +146,9 @@ deploy_testpypi:
   script:
     - echo "📦 Building package for TestPyPI..."
     - poetry build
+    - echo "🔧 Configuring TestPyPI repository..."
+    - poetry config repositories.testpypi https://test.pypi.org/legacy/
+    - poetry config pypi-token.testpypi ${TESTPYPI_TOKEN}
     - echo "🧪 Uploading to TestPyPI..."
     - poetry publish --repository testpypi
     - echo "✅ Package uploaded to TestPyPI successfully!"
@@ -185,7 +188,9 @@ deploy_pypi:
   script:
     - echo "🚀 Building and deploying stable-delusion to production PyPI..."
     - poetry build
-    - echo "📦 Package built successfully"
+    - echo "🔧 Configuring PyPI credentials..."
+    - poetry config pypi-token.pypi ${PYPI_TOKEN}
+    - echo "📦 Publishing to PyPI..."
     - poetry publish
     - echo "🎉 stable-delusion published to PyPI successfully!"
   only:
