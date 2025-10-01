@@ -128,14 +128,19 @@ bump_version:
     - echo "🔢 Checking and bumping version..."
     - poetry version patch
     - NEW_VERSION=$(poetry version -s)
+    - RELEASE_DATE=$(date +%Y-%m-%d)
     - echo "📈 Version bumped to $NEW_VERSION"
+    - echo "📅 Release date: $RELEASE_DATE"
+    - echo "📝 Updating CHANGELOG.md..."
+    - sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$NEW_VERSION] - $RELEASE_DATE/" CHANGELOG.md
+    - sed -i "s|\[Unreleased\]:.*|\[Unreleased\]: https://gitlab.com/lilacashes/stable-delusion/compare/v$NEW_VERSION...HEAD\n[$NEW_VERSION]: https://gitlab.com/lilacashes/stable-delusion/releases/tag/v$NEW_VERSION|" CHANGELOG.md
     - git config --global user.email "ci@gitlab.com"
     - git config --global user.name "GitLab CI"
-    - git add pyproject.toml
+    - git add pyproject.toml CHANGELOG.md
     - git commit -m "Bump version to $NEW_VERSION [skip ci]"
     - git remote set-url origin https://oauth2:${CI_PUSH_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git
     - git push origin HEAD:main
-    - echo "✅ Version $NEW_VERSION committed and pushed"
+    - echo "✅ Version $NEW_VERSION committed and pushed with updated CHANGELOG"
   only:
     - main
   when: on_success

@@ -1,9 +1,22 @@
 # stable-delusion - AI-powered image generation and editing assistant
 
+## Features
+
+- **Image Generation**: Generate images from text prompts using Gemini 2.5 Flash Image Preview
+- **Multi-image Support**: Use multiple reference images for generation
+- **Automatic Upscaling**: Optional 2x or 4x upscaling using Google Cloud Vertex AI
+- **Flexible Output**: Specify custom output directories and filenames
+- **Storage Options**: Local filesystem or AWS S3 storage backends
+- **Error Handling**: Comprehensive error logging and diagnostic information
+- **Web API**: RESTful API for integration with other applications
+- **Command Line Interface**: Full-featured CLI for batch processing and automation
+
 ## Installation
 
+### From PyPI (Recommended for Users)
+
 ```bash
-poetry install
+pip install stable-delusion
 ```
 
 ## Setup
@@ -36,13 +49,17 @@ export FLASK_DEBUG="true"  # Enable debug mode in development
 ```
 
 **Security Notes**:
-- `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in development environments, never in production.
-- **Never commit your `.env` file to version control** - it contains sensitive information!
+- `FLASK_DEBUG` is disabled by default for security reasons. Only enable it in
+  development environments, never in production.
+- **Never commit your `.env` file to version control** - it contains sensitive
+  information!
 - The `.env` file is already in `.gitignore` to prevent accidental commits.
 
 ### AWS S3 Configuration (Optional)
 
-The application supports storing generated images in AWS S3 instead of the local filesystem. You can configure S3 either in your `.env` file or via environment variables:
+The application supports storing generated images in AWS S3 instead of the local
+filesystem. You can configure S3 either in your `.env` file or via environment
+variables:
 
 **Using .env file:**
 ```bash
@@ -123,14 +140,17 @@ $ poetry run python stable_delusion/generate.py \
 ```
 
 #### Command line parameters
-- `--prompt`: Text prompt for image generation (optional, defaults to sample prompt)
+- `--prompt`: Text prompt for image generation (optional, defaults to sample
+  prompt)
 - `--image`: Path to reference image(s), can be used multiple times
 - `--output-filename`: Output filename (default: "generated_gemini_image.png")
-- `--output-dir`: Directory where generated files will be saved (default: current directory)
+- `--output-dir`: Directory where generated files will be saved (default:
+  current directory)
 - `--project-id`: Google Cloud Project ID (defaults to value in conf.py)
 - `--location`: Google Cloud region (defaults to value in conf.py)
 - `--scale`: Upscale factor, 2 or 4 (optional, enables automatic upscaling)
-- `--storage-type`: Storage backend - "local" for filesystem or "s3" for AWS S3 (overrides configuration)
+- `--storage-type`: Storage backend - "local" for filesystem or "s3" for AWS S3
+  (overrides configuration)
 
 ### Web server
 
@@ -181,12 +201,21 @@ $ curl -X POST \
 ```
 
 #### API Parameters
+
+**Content-Type**: `multipart/form-data`
+
+Parameters are sent as form fields (not JSON):
+
 - `prompt`: Text prompt for image generation (required)
-- `images`: Image file(s) to upload (required, can be multiple)
-- `output_dir`: Directory where generated files will be saved (optional, default: ".")
-- `storage_type`: Storage backend - "local" for filesystem or "s3" for AWS S3 (optional, uses configuration default)
+- `images`: Image file(s) to upload (required, can be multiple files)
+- `output_dir`: Directory where generated files will be saved (optional,
+  default: ".")
+- `storage_type`: Storage backend - "local" for filesystem or "s3" for AWS S3
+  (optional, uses configuration default)
 
 #### API Response
+
+**Content-Type**: `application/json`
 ```json
 {
     "message": "Files uploaded successfully",
@@ -223,16 +252,6 @@ $ poetry run python stable_delusion/upscale.py \
 - `--project-id`: Google Cloud Project ID (defaults to value in conf.py)
 - `--location`: Google Cloud region (defaults to value in conf.py)
 
-## Features
-
-- **Image Generation**: Generate images from text prompts using Gemini 2.5 Flash Image Preview
-- **Multi-image Support**: Use multiple reference images for generation
-- **Automatic Upscaling**: Optional 2x or 4x upscaling using Google Cloud Vertex AI
-- **Flexible Output**: Specify custom output directories and filenames
-- **Error Handling**: Comprehensive error logging and diagnostic information
-- **Web API**: RESTful API for integration with other applications
-- **Command Line Interface**: Full-featured CLI for batch processing and automation
-
 ## Error Handling
 
 The application provides detailed error logging when image generation fails:
@@ -241,91 +260,16 @@ The application provides detailed error logging when image generation fails:
 - File upload details with metadata (size, MIME type, expiration times)
 - Comprehensive error messages for troubleshooting
 
-## Testing
-
-Run the comprehensive test suite:
-```bash
-# Run all tests
-$ poetry run pytest tests/ -v
-
-# Run specific test categories
-$ poetry run pytest tests/unit/ -v
-$ poetry run pytest tests/integration/ -v
-```
-
 ## Development
 
-### Code Quality Tools
+For development guidelines, code quality tools, CI/CD pipeline details, and
+security best practices, see [doc/Development.md](doc/Development.md).
 
-This project includes comprehensive code quality and security tools:
+## Documentation
 
-#### Linting and Code Style
-```bash
-# Check code style with flake8
-$ poetry run flake8 stable_delusion tests
-
-# Run pylint for comprehensive code analysis
-$ poetry run pylint stable_delusion/ tests/
-
-# Run mypy for static type checking
-$ poetry run mypy stable_delusion/
-```
-
-#### Security Analysis
-```bash
-# Run security analysis with bandit
-$ poetry run bandit -r stable_delusion/
-
-# Bandit configuration excludes test files automatically
-# See .bandit file for configuration details
-```
-
-### Pre-commit Workflow
-
-Before committing code, run all quality checks:
-```bash
-# 1. Run tests
-$ poetry run pytest
-
-# 2. Check code style
-$ poetry run flake8 stable_delusion tests
-
-# 3. Run pylint analysis
-$ poetry run pylint stable_delusion/ tests/
-
-# 4. Run type checking
-$ poetry run mypy stable_delusion/
-
-# 5. Run security analysis
-$ poetry run bandit -r stable_delusion/
-```
-
-### Configuration Files
-
-- `.pylintrc` - Pylint configuration for code quality standards
-- `.flake8` - Flake8 configuration for PEP 8 compliance
-- `.bandit` - Bandit security scanner configuration
-- `.gitlab-ci.yml` - CI/CD pipeline configuration
-- `CLAUDE.md` - Development guidelines for AI assistance
-
-### CI/CD Pipeline
-
-The GitLab CI/CD pipeline automatically runs on every push and includes:
-
-1. **Setup**: Project structure validation and dependency installation
-2. **Tests**: Complete test suite execution (56 tests)
-3. **Code Quality**:
-   - Flake8 style checking
-   - Pylint comprehensive analysis
-   - MyPy static type checking
-   - Bandit security scanning
-
-All quality gates must pass for the pipeline to succeed, ensuring consistent code quality and security.
-
-### Security Best Practices
-
-- **Flask Debug Mode**: Controlled via `FLASK_DEBUG` environment variable (disabled by default)
-- **Secret Management**: API keys stored in environment variables, never hardcoded
-- **Test Isolation**: Security scanning excludes test files with mock credentials
-- **Dependency Management**: Regular dependency updates via Poetry
-- **Automated Security Scanning**: Bandit security analysis runs on every push via GitLab CI/CD
+- **[Development Guide](doc/Development.md)** - Development practices, CI/CD
+  pipeline, and code quality tools
+- **[Architecture](doc/ARCHITECTURE.md)** - System architecture and design
+  patterns
+- **[API Demo](doc/API_DEMO.md)** - API endpoint examples and usage
+- **[Changelog](CHANGELOG.md)** - Version history and release notes

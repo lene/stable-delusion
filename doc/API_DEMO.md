@@ -1,6 +1,7 @@
 # stable-delusion Enhanced API Demo
 
-The Flask API has been updated to support all CLI functionality. Here are examples of the new capabilities:
+The Flask API has been updated to support all CLI functionality. Here are
+examples of the new capabilities:
 
 ## API Endpoints
 
@@ -153,7 +154,8 @@ Common error scenarios:
 
 ## OpenAPI Specification
 
-The API includes a complete OpenAPI 3.0.3 specification available at `/openapi.json`, which includes:
+The API includes a complete OpenAPI 3.0.3 specification available at
+`/openapi.json`, which includes:
 
 - Complete endpoint documentation
 - Request/response schemas

@@ -1,6 +1,8 @@
 # stable-delusion System Architecture
 
-This document describes the complete enterprise-grade system architecture with clean architecture principles, comprehensive design patterns, and robust quality assurance.
+This document describes the complete enterprise-grade system architecture with
+clean architecture principles, comprehensive design patterns, and robust quality
+assurance.
 
 ## System Overview
 
@@ -190,11 +192,13 @@ class ConfigManager:
 ## Quality Assurance Framework
 
 ### **Testing Strategy**
-- **161 Total Tests** with 100% pass rate
+- **375 Total Tests** with 100% pass rate
 - **Unit Tests**: Individual component validation
 - **Integration Tests**: End-to-end workflow testing
 - **Factory Tests**: Dependency injection validation
 - **Repository Tests**: Data persistence verification
+- **S3 Integration Tests**: AWS S3 storage backend testing
+- **Metadata Tests**: Generation metadata and deduplication testing
 
 ### **Code Quality Tools**
 - **PyLint**: 9.92/10 code quality score
