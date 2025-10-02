@@ -319,8 +319,9 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
                     with patch("pathlib.Path.stat") as mock_stat:
                         mock_stat.return_value.st_size = 1024
                         seedream_client.generate_and_save(
-                            prompt="Test prompt", output_dir=Path("/tmp"),
-                            output_filename="custom_base"
+                            prompt="Test prompt",
+                            output_dir=Path("/tmp"),
+                            output_filename="custom_base",
                         )
 
         mock_timestamp.assert_called_once_with("custom_base", "png")

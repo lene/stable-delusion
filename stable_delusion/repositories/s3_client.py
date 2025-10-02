@@ -100,9 +100,7 @@ class S3ClientManager:
 
         try:
             _, client_kwargs = S3ClientManager._build_s3_client_config(config)
-            return S3ClientManager._create_and_validate_client(
-                client_kwargs, config.s3_bucket
-            )
+            return S3ClientManager._create_and_validate_client(client_kwargs, config.s3_bucket)
 
         except NoCredentialsError as e:
             raise ConfigurationError(

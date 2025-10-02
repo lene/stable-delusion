@@ -28,9 +28,11 @@ def create_image_repository(storage_type: Optional[str] = None) -> ImageReposito
 
     if storage == "s3":
         from stable_delusion.repositories.s3_image_repository import S3ImageRepository
+
         return S3ImageRepository(config)
 
     from stable_delusion.repositories.local_image_repository import LocalImageRepository
+
     return LocalImageRepository()
 
 
@@ -41,9 +43,11 @@ def create_file_repository(storage_type: Optional[str] = None) -> FileRepository
 
     if storage == "s3":
         from stable_delusion.repositories.s3_file_repository import S3FileRepository
+
         return S3FileRepository(config)
 
     from stable_delusion.repositories.local_file_repository import LocalFileRepository
+
     return LocalFileRepository()
 
 
@@ -54,9 +58,11 @@ def create_metadata_repository(storage_type: Optional[str] = None) -> MetadataRe
 
     if storage == "s3":
         from stable_delusion.repositories.s3_metadata_repository import S3MetadataRepository
+
         return S3MetadataRepository(config)
 
     from stable_delusion.repositories.local_metadata_repository import LocalMetadataRepository
+
     return LocalMetadataRepository(config)
 
 
@@ -80,11 +86,13 @@ def create_image_generation_service(
 
     if model == "seedream":
         from stable_delusion.services.seedream_service import SeedreamImageGenerationService
+
         return SeedreamImageGenerationService.create(
             output_dir=output_dir, image_repository=image_repo
         )
 
     from stable_delusion.services.gemini_service import GeminiImageGenerationService
+
     return GeminiImageGenerationService.create(
         project_id=project_id,
         location=location,
@@ -98,6 +106,7 @@ def create_upscaling_service(
 ) -> ImageUpscalingService:
     """Create upscaling service."""
     from stable_delusion.services.upscaling_service import VertexAIUpscalingService
+
     return VertexAIUpscalingService.create(project_id=project_id, location=location)
 
 

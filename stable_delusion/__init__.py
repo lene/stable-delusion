@@ -8,6 +8,7 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 try:
     import importlib.metadata
+
     __version__ = importlib.metadata.version("stable-delusion")
 except importlib.metadata.PackageNotFoundError:
     # Fallback for development environment

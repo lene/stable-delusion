@@ -294,7 +294,7 @@ class TestParseCommandLine:
         with patch("sys.argv", ["generate.py"]):
             args = parse_command_line()
             assert args.prompt is None
-            assert args.output_filename == Path("generated_gemini_image.png")
+            assert args.output_filename is None  # Changed: default is now None
             assert args.image is None
             assert args.gcp_project_id is None
             assert args.gcp_location is None

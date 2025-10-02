@@ -108,29 +108,32 @@ def _validate_and_normalize_output_filename(filename: str) -> str:
         return filename
 
     # Any other extension is not supported
-    print(f"Error: file type not supported for --output-filename: '{extension}'. "
-          "Only PNG files are supported.")
+    print(
+        f"Error: file type not supported for --output-filename: '{extension}'. "
+        "Only PNG files are supported."
+    )
     sys.exit(1)
 
 
 def _setup_cli_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Generate an image using the Gemini API.")
     parser.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Quiet mode - only show warnings and errors."
+        "-q", "--quiet", action="store_true", help="Quiet mode - only show warnings and errors."
     )
     parser.add_argument(
-        "-d", "--debug",
+        "-d",
+        "--debug",
         action="store_true",
-        help="Debug mode - show all log messages including debug details."
+        help="Debug mode - show all log messages including debug details.",
     )
     parser.add_argument("--prompt", type=str, help="The prompt text for image generation.")
     parser.add_argument(
         "--output-filename",
         type=Path,
-        default=Path("generated_gemini_image.png"),
-        help="The output filename for the generated image.",
+        default=None,
+        help="The output filename base (without timestamp/extension). "
+        "If not specified, model-specific defaults are used "
+        "(gemini: 'generated', seedream: 'seedream_image').",
     )
     parser.add_argument(
         "--image",
@@ -271,6 +274,7 @@ def parse_command_line() -> argparse.Namespace:
 
     # Load .env file before validation to ensure environment variables are available
     from dotenv import load_dotenv
+
     load_dotenv(override=False)
 
     _validate_s3_storage_arguments(args, parser)
@@ -482,22 +486,22 @@ class GeminiClient:
         return generated_image_path
 
     def _log_prompt_feedback(self, response: GenerateContentResponse) -> None:
-        if response.prompt_feedback and hasattr(response.prompt_feedback, 'block_reason'):
+        if response.prompt_feedback and hasattr(response.prompt_feedback, "block_reason"):
             logging.warning("Reason: %s", response.prompt_feedback.block_reason)
         if response.prompt_feedback and response.prompt_feedback.safety_ratings:
             logging.warning("Safety Ratings for the blocked prompt:")
             for rating in response.prompt_feedback.safety_ratings:
-                if rating.category and hasattr(rating.category, 'name'):
+                if rating.category and hasattr(rating.category, "name"):
                     logging.warning("  Category: %s", rating.category.name)
-                if rating.probability and hasattr(rating.probability, 'name'):
+                if rating.probability and hasattr(rating.probability, "name"):
                     logging.warning("  Probability: %s", rating.probability.name)
 
     def _log_safety_ratings(self, candidate) -> None:
         logging.warning("Safety Ratings for the blocked candidate:")
         for rating in candidate.safety_ratings or []:
-            if rating.category and hasattr(rating.category, 'name'):
+            if rating.category and hasattr(rating.category, "name"):
                 logging.warning("  Category: %s", rating.category.name)
-            if rating.probability and hasattr(rating.probability, 'name'):
+            if rating.probability and hasattr(rating.probability, "name"):
                 logging.warning("  Probability: %s", rating.probability.name)
 
     def save_response_image(self, response: GenerateContentResponse) -> Optional[Path]:
@@ -527,7 +531,7 @@ class GeminiClient:
 
     def _check_candidate_finish_reason(self, candidate) -> None:
         """Check and log candidate finish reason."""
-        if candidate.finish_reason and hasattr(candidate.finish_reason, 'name'):
+        if candidate.finish_reason and hasattr(candidate.finish_reason, "name"):
             logging.debug("Finish reason: %s", candidate.finish_reason.name)
             if "SAFETY" in candidate.finish_reason.name:
                 logging.warning("Candidate was blocked due to safety policies.")
@@ -641,9 +645,9 @@ def _create_cli_request_dto(
 ) -> "GenerateImageRequest":
     from stable_delusion.models.requests import GenerateImageRequest
 
-    # Validate and normalize output filename if provided
+    # Validate and normalize output filename if provided (None means use model defaults)
     output_filename = getattr(args, "output_filename")
-    if output_filename:
+    if output_filename is not None:
         output_filename = Path(_validate_and_normalize_output_filename(str(output_filename)))
 
     return GenerateImageRequest(
@@ -677,15 +681,23 @@ def _handle_cli_custom_output(
     response: "GenerateImageResponse", request_dto: "GenerateImageRequest"
 ) -> None:
     if response.generated_file and request_dto.output_filename:
-        logging.debug("Custom output: attempting to rename %s to %s",
-                      response.generated_file, request_dto.output_filename)
+        # Generate timestamped filename with .png extension
+        custom_filename = generate_timestamped_filename(
+            str(request_dto.output_filename), extension="png"
+        )
+
+        logging.debug(
+            "Custom output: attempting to rename %s to %s",
+            response.generated_file,
+            custom_filename,
+        )
         logging.debug("Source file exists: %s", response.generated_file.exists())
 
         # If output_dir is specified, use it; otherwise use the same directory as the source file
         if request_dto.output_dir:
-            custom_path = request_dto.output_dir / request_dto.output_filename
+            custom_path = request_dto.output_dir / custom_filename
         else:
-            custom_path = response.generated_file.parent / request_dto.output_filename
+            custom_path = response.generated_file.parent / custom_filename
 
         logging.debug("Target path: %s", custom_path)
 
@@ -699,14 +711,15 @@ def _handle_cli_custom_output(
             logging.debug("Successfully renamed to: %s", custom_path)
         except (OSError, FileNotFoundError, PermissionError, shutil.Error) as e:
             logging.error("Failed to rename file: %s", e)
-            logging.debug("Source path: %s (exists: %s)",
-                          response.generated_file, response.generated_file.exists())
+            logging.debug(
+                "Source path: %s (exists: %s)",
+                response.generated_file,
+                response.generated_file.exists(),
+            )
             logging.debug("Target path: %s", custom_path)
 
 
-def _log_generation_result(
-    response: "GenerateImageResponse", args: argparse.Namespace
-) -> None:
+def _log_generation_result(response: "GenerateImageResponse", args: argparse.Namespace) -> None:
     if response.generated_file:
         if args.scale:
             logging.info("High Res Image saved to %s", response.generated_file)

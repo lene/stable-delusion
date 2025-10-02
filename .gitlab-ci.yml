@@ -121,29 +121,16 @@ bandit:
     - merge_requests
     - multi-image-support
 
-# Version Bump - automatically increment version for deployment
-bump_version:
-  stage: deploy
+# Version Validation - verify version has been updated correctly for merge requests
+validate_version:
+  stage: quality
   script:
-    - echo "🔢 Checking and bumping version..."
-    - poetry version patch
-    - NEW_VERSION=$(poetry version -s)
-    - RELEASE_DATE=$(date +%Y-%m-%d)
-    - echo "📈 Version bumped to $NEW_VERSION"
-    - echo "📅 Release date: $RELEASE_DATE"
-    - echo "📝 Updating CHANGELOG.md..."
-    - sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [$NEW_VERSION] - $RELEASE_DATE/" CHANGELOG.md
-    - sed -i "s|\[Unreleased\]:.*|\[Unreleased\]: https://gitlab.com/lilacashes/stable-delusion/compare/v$NEW_VERSION...HEAD\n[$NEW_VERSION]: https://gitlab.com/lilacashes/stable-delusion/releases/tag/v$NEW_VERSION|" CHANGELOG.md
-    - git config --global user.email "ci@gitlab.com"
-    - git config --global user.name "GitLab CI"
-    - git add pyproject.toml CHANGELOG.md
-    - git commit -m "Bump version to $NEW_VERSION [skip ci]"
-    - git remote set-url origin https://oauth2:${CI_PUSH_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git
-    - git push origin HEAD:main
-    - echo "✅ Version $NEW_VERSION committed and pushed with updated CHANGELOG"
+    - echo "🔍 Validating version update..."
+    - python3 scripts/validate_version.py
+    - echo "✅ Version validation passed!"
   only:
-    - main
-  when: on_success
+    - merge_requests
+  allow_failure: false
 
 # TestPyPI Deployment - upload to TestPyPI for verification
 deploy_testpypi:
@@ -160,8 +147,6 @@ deploy_testpypi:
   only:
     - main
   when: on_success
-  needs:
-    - bump_version
   environment:
     name: testing
     url: https://test.pypi.org/project/stable-delusion/

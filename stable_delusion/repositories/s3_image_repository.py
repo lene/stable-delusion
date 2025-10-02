@@ -37,8 +37,9 @@ class S3ImageRepository(ImageRepository):
         image.save(image_buffer, format=file_format)
         return image_buffer.getvalue()
 
-    def _upload_to_s3(self, s3_key: str, image_bytes: bytes,
-                      file_format: str, file_path: Path) -> None:
+    def _upload_to_s3(
+        self, s3_key: str, image_bytes: bytes, file_format: str, file_path: Path
+    ) -> None:
         self.s3_client.put_object(
             Bucket=self.bucket_name,
             Key=s3_key,
@@ -99,8 +100,7 @@ class S3ImageRepository(ImageRepository):
         image_buffer = io.BytesIO(image_data)
         return Image.open(image_buffer)
 
-    def _handle_load_image_error(self, error: Exception,
-                                 file_path: Path) -> None:
+    def _handle_load_image_error(self, error: Exception, file_path: Path) -> None:
         """Handle errors during image loading."""
         error_code = getattr(error, "response", {}).get("Error", {}).get("Code", None)
         if error_code == "NoSuchKey" or (

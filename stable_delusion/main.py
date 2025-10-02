@@ -84,9 +84,7 @@ def _validate_and_save_uploaded_files() -> List[Path]:
         raise ValueError("Missing 'images' parameter")
 
     images = request.files.getlist("images")
-    return get_file_repository().save_uploaded_files(
-        images, app.config["UPLOAD_FOLDER"]
-    )
+    return get_file_repository().save_uploaded_files(images, app.config["UPLOAD_FOLDER"])
 
 
 def _create_request_dto(saved_files: List[Path]) -> GenerateImageRequest:
@@ -190,23 +188,25 @@ def main():
     import sys
 
     # Check for quiet and debug flags
-    quiet_mode = '-q' in sys.argv or '--quiet' in sys.argv
-    debug_mode = '-d' in sys.argv or '--debug' in sys.argv
+    quiet_mode = "-q" in sys.argv or "--quiet" in sys.argv
+    debug_mode = "-d" in sys.argv or "--debug" in sys.argv
 
     # Setup coloredlogs for better console output
     setup_logging(quiet=quiet_mode, debug=debug_mode)
 
     # Check if --version is requested
-    if len(sys.argv) > 1 and sys.argv[1] in ['--version', '-V']:
+    if len(sys.argv) > 1 and sys.argv[1] in ["--version", "-V"]:
         from stable_delusion import __version__
+
         print(f"stable-delusion {__version__}")
         return
 
     # Check if --help is requested or if there are CLI arguments for image generation
-    cli_flags = {'--help', '-h', '--image', '--prompt', '-q', '--quiet', '-d', '--debug'}
+    cli_flags = {"--help", "-h", "--image", "--prompt", "-q", "--quiet", "-d", "--debug"}
     if len(sys.argv) > 1 and sys.argv[1] in cli_flags:
         # Delegate to the CLI interface in generate.py
         from stable_delusion.generate import main as generate_main
+
         generate_main()
         return
 

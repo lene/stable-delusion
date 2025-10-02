@@ -184,7 +184,7 @@ class S3FileRepository(FileRepository):
         deleted_count = 0
         batch_size = 1000  # S3 batch delete supports up to 1000 objects per request
         for i in range(0, len(files_to_delete), batch_size):
-            batch = files_to_delete[i:i + batch_size]
+            batch = files_to_delete[i : i + batch_size]
             self.s3_client.delete_objects(
                 Bucket=self.bucket_name,
                 Delete={"Objects": batch},  # type: ignore[typeddict-item]

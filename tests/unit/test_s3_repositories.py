@@ -403,9 +403,7 @@ class TestS3RepositoryIntegration:
     """Integration tests for S3 repositories."""
 
     def test_repository_factory_creates_s3_repositories(self):
-        with patch(
-            "stable_delusion.builders.ConfigManager.get_config"
-        ) as mock_config:
+        with patch("stable_delusion.builders.ConfigManager.get_config") as mock_config:
             mock_config.return_value = MagicMock(storage_type="s3")
 
             with patch(

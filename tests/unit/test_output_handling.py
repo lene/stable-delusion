@@ -24,8 +24,8 @@ class TestCustomOutputHandling:
         """Set up test fixtures."""
         # Create a temporary file to simulate generated image
         # pylint: disable=consider-using-with
-        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-        self.temp_file.write(b'fake image content')
+        self.temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        self.temp_file.write(b"fake image content")
         self.temp_file.close()
         self.generated_file_path = Path(self.temp_file.name)
 
@@ -45,10 +45,9 @@ class TestCustomOutputHandling:
         """Create a test response object."""
         return GenerateImageResponse(
             image_config=ImageGenerationConfig(
-                generated_file=generated_file_path,
-                prompt="test prompt"
+                generated_file=generated_file_path, prompt="test prompt"
             ),
-            gcp_config=GCPConfig()
+            gcp_config=GCPConfig(),
         )
 
     def test_handle_custom_output_with_output_dir(self):
@@ -58,43 +57,39 @@ class TestCustomOutputHandling:
             images=[],
             model="seedream",
             output_dir=Path("."),
-            output_filename="test_output.png"
+            output_filename="test_output",  # No extension - will be added automatically
         )
 
         response = self.create_test_response(self.generated_file_path)
 
         _handle_cli_custom_output(response, request)
 
-        # Check that file was renamed
-        assert response.generated_file == Path("test_output.png")
+        # Check that file was renamed with timestamp and extension
+        assert response.generated_file.name.startswith("test_output_")
+        assert response.generated_file.suffix == ".png"
         assert response.generated_file.exists()
-        assert response.image_config.generated_file == Path("test_output.png")
+        assert response.generated_file.parent == Path(".")
 
     def test_handle_custom_output_without_output_dir(self):
         """Test custom output handling without specified output directory."""
         request = GenerateImageRequest(
-            prompt="test",
-            images=[],
-            model="seedream",
-            output_filename="custom.jpg"
+            prompt="test", images=[], model="seedream", output_filename="custom"
         )
 
         response = self.create_test_response(self.generated_file_path)
 
         _handle_cli_custom_output(response, request)
 
-        # Should use same directory as source file
-        expected_path = self.generated_file_path.parent / "custom.jpg"
-        assert response.generated_file == expected_path
+        # Should use same directory as source file, with timestamp and .png extension
+        assert response.generated_file.parent == self.generated_file_path.parent
+        assert response.generated_file.name.startswith("custom_")
+        assert response.generated_file.suffix == ".png"
         assert response.generated_file.exists()
 
     def test_handle_custom_output_no_filename(self):
         """Test that function does nothing when no custom filename is specified."""
         request = GenerateImageRequest(
-            prompt="test",
-            images=[],
-            model="seedream",
-            output_dir=Path(".")
+            prompt="test", images=[], model="seedream", output_dir=Path(".")
         )
 
         response = self.create_test_response(self.generated_file_path)
@@ -113,22 +108,19 @@ class TestCustomOutputHandling:
             images=[],
             model="seedream",
             output_dir=Path("."),
-            output_filename="test_output.png"
+            output_filename="test_output.png",
         )
 
         response = GenerateImageResponse(
-            image_config=ImageGenerationConfig(
-                generated_file=None,
-                prompt="test prompt"
-            ),
-            gcp_config=GCPConfig()
+            image_config=ImageGenerationConfig(generated_file=None, prompt="test prompt"),
+            gcp_config=GCPConfig(),
         )
 
         # Should not raise an exception
         _handle_cli_custom_output(response, request)
 
-    @patch('stable_delusion.generate.logging')
-    @patch('stable_delusion.generate.shutil.move')
+    @patch("stable_delusion.generate.logging")
+    @patch("stable_delusion.generate.shutil.move")
     def test_handle_custom_output_rename_failure(self, mock_move, mock_logging):
         """Test error handling when file rename fails."""
         # Mock shutil.move to raise an exception
@@ -139,7 +131,7 @@ class TestCustomOutputHandling:
             images=[],
             model="seedream",
             output_dir=Path("."),
-            output_filename="test_output.png"
+            output_filename="test_output.png",
         )
 
         response = self.create_test_response(self.generated_file_path)
@@ -162,18 +154,21 @@ class TestCustomOutputHandling:
                 images=[],
                 model="seedream",
                 output_dir=target_dir,
-                output_filename="test_output.png"
+                output_filename="test_output",  # No extension - will be added automatically
             )
 
             response = self.create_test_response(self.generated_file_path)
 
             _handle_cli_custom_output(response, request)
 
-            # Directory should be created and file should exist
+            # Directory should be created and file with timestamp should exist
             assert target_dir.exists()
-            assert (target_dir / "test_output.png").exists()
+            assert response.generated_file.parent == target_dir
+            assert response.generated_file.name.startswith("test_output_")
+            assert response.generated_file.suffix == ".png"
+            assert response.generated_file.exists()
 
-    @patch('stable_delusion.generate.logging')
+    @patch("stable_delusion.generate.logging")
     def test_handle_custom_output_debug_logging(self, mock_logging):
         """Test that debug logging occurs during custom output handling."""
         request = GenerateImageRequest(
@@ -181,7 +176,7 @@ class TestCustomOutputHandling:
             images=[],
             model="seedream",
             output_dir=Path("."),
-            output_filename="renamed_file.png"
+            output_filename="renamed_file.png",
         )
 
         response = self.create_test_response(self.generated_file_path)
@@ -198,14 +193,14 @@ class TestRequestDTOCreation:
     def create_mock_args(self, **kwargs):
         """Create a mock args object with default values."""
         defaults = {
-            'gcp_project_id': None,
-            'gcp_location': None,
-            'output_dir': Path('.'),
-            'output_filename': Path('test.png'),
-            'scale': None,
-            'size': None,
-            'storage_type': None,
-            'model': 'seedream'
+            "gcp_project_id": None,
+            "gcp_location": None,
+            "output_dir": Path("."),
+            "output_filename": Path("test.png"),
+            "scale": None,
+            "size": None,
+            "storage_type": None,
+            "model": "seedream",
         }
         defaults.update(kwargs)
 
@@ -235,8 +230,7 @@ class TestRequestDTOCreation:
     def test_create_cli_request_dto_output_dir_handling(self):
         """Test that output_dir is properly included in request DTO."""
         args = self.create_mock_args(
-            output_filename=Path("test.png"),
-            output_dir=Path("/tmp/custom")
+            output_filename=Path("test.png"), output_dir=Path("/tmp/custom")
         )
 
         request = _create_cli_request_dto("test prompt", [], args)
@@ -260,14 +254,14 @@ class TestPNGValidation:
     def create_mock_args(self, **kwargs):
         """Create a mock args object with default values."""
         defaults = {
-            'gcp_project_id': None,
-            'gcp_location': None,
-            'output_dir': Path('.'),
-            'output_filename': None,
-            'scale': None,
-            'size': None,
-            'storage_type': None,
-            'model': 'seedream'
+            "gcp_project_id": None,
+            "gcp_location": None,
+            "output_dir": Path("."),
+            "output_filename": None,
+            "scale": None,
+            "size": None,
+            "storage_type": None,
+            "model": "seedream",
         }
         defaults.update(kwargs)
 
@@ -288,8 +282,8 @@ class TestPNGValidation:
         request = _create_cli_request_dto("test prompt", [], args)
         assert request.output_filename == Path("my_image")
 
-    @patch('builtins.print')
-    @patch('sys.exit')
+    @patch("builtins.print")
+    @patch("sys.exit")
     def test_unsupported_extension_fails(self, mock_exit, mock_print):
         """Test that unsupported extensions cause system exit."""
         # Make sys.exit actually raise SystemExit to stop execution
@@ -306,8 +300,8 @@ class TestPNGValidation:
         )
         mock_exit.assert_called_with(1)
 
-    @patch('builtins.print')
-    @patch('sys.exit')
+    @patch("builtins.print")
+    @patch("sys.exit")
     def test_multiple_extensions_fail(self, mock_exit, mock_print):
         """Test that files with non-PNG extensions fail validation."""
         # Make sys.exit actually raise SystemExit to stop execution
@@ -349,24 +343,22 @@ class TestOutputParameterIntegration:
 
     def test_output_parameter_flow_with_mocked_service(self):
         """Test the complete flow from CLI args to custom output handling."""
-        with patch('stable_delusion.generate.builders.create_image_generation_service') \
-                as mock_builder:
+        with patch(
+            "stable_delusion.generate.builders.create_image_generation_service"
+        ) as mock_builder:
             # Mock the service and its response
             mock_service = Mock()
             mock_builder.return_value = mock_service
 
             # Create a temporary file for the mock response
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
-                temp_file.write(b'mock image')
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_file:
+                temp_file.write(b"mock image")
                 temp_path = Path(temp_file.name)
 
             try:
                 mock_response = GenerateImageResponse(
-                    image_config=ImageGenerationConfig(
-                        generated_file=temp_path,
-                        prompt="test"
-                    ),
-                    gcp_config=GCPConfig()
+                    image_config=ImageGenerationConfig(generated_file=temp_path, prompt="test"),
+                    gcp_config=GCPConfig(),
                 )
                 mock_service.generate_image.return_value = mock_response
 
@@ -375,24 +367,25 @@ class TestOutputParameterIntegration:
                 args = Mock()
                 args.gcp_project_id = None
                 args.gcp_location = None
-                args.output_dir = Path('.')
-                args.output_filename = Path('integration_test.png')
+                args.output_dir = Path(".")
+                args.output_filename = Path("integration_test.png")
                 args.scale = None
                 args.size = None
                 args.storage_type = None
-                args.model = 'seedream'
+                args.model = "seedream"
 
                 request = _create_cli_request_dto("integration test", [], args)
                 _handle_cli_custom_output(mock_response, request)
 
-                # Verify the output filename was applied (PNG extension stripped)
-                assert mock_response.generated_file == Path('integration_test')
+                # Verify the output filename was applied with timestamp
+                assert mock_response.generated_file.name.startswith("integration_test_")
+                assert mock_response.generated_file.suffix == ".png"
                 assert mock_response.generated_file.exists()
 
             finally:
                 # Cleanup
                 if temp_path.exists():
                     temp_path.unlink()
-                test_output = Path('integration_test')
-                if test_output.exists():
-                    test_output.unlink()
+                # Clean up the timestamped file
+                if mock_response.generated_file.exists():
+                    mock_response.generated_file.unlink()

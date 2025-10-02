@@ -176,8 +176,7 @@ def setup_logging(quiet: bool = False, debug: bool = False) -> None:
         log_level = logging.INFO
 
     coloredlogs.install(
-        level=log_level, fmt='%(asctime)s %(levelname)s: %(message)s',
-        datefmt='%H:%M:%S'
+        level=log_level, fmt="%(asctime)s %(levelname)s: %(message)s", datefmt="%H:%M:%S"
     )
     if quiet and debug:
         logging.warning("Both --quiet and --debug specified. Using --debug mode.")

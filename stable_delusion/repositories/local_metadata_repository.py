@@ -138,8 +138,9 @@ class LocalMetadataRepository(MetadataRepository):
         pattern = f"metadata_{hash_prefix}_*.json"
         return list(self.metadata_dir.glob(pattern))
 
-    def _verify_content_hash_match(self, file_paths: List[Path],
-                                   content_hash: str) -> Optional[str]:
+    def _verify_content_hash_match(
+        self, file_paths: List[Path], content_hash: str
+    ) -> Optional[str]:
         """Verify which file has matching content hash."""
         for file_path in file_paths:
             if self._check_file_hash_match(file_path, content_hash):

@@ -39,9 +39,7 @@ class S3MetadataRepository(MetadataRepository):
 
     def _create_s3_metadata(self, metadata: GenerationMetadata) -> Dict[str, str]:
         prompt_preview = (
-            metadata.prompt[:100] + "..."
-            if len(metadata.prompt) > 100
-            else metadata.prompt
+            metadata.prompt[:100] + "..." if len(metadata.prompt) > 100 else metadata.prompt
         )
         return {
             "content-hash": metadata.content_hash or "",

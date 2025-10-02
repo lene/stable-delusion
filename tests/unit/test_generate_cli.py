@@ -215,7 +215,7 @@ class TestOutputParameterCLI:
         """Test that --output-filename has correct default value."""
         with patch("sys.argv", ["generate.py"]):
             args = parse_command_line()
-            assert args.output_filename == Path("generated_gemini_image.png")
+            assert args.output_filename is None  # Changed: default is now None
 
     def test_cli_output_with_path(self):
         """Test --output-filename parameter with path-like input."""
@@ -225,9 +225,9 @@ class TestOutputParameterCLI:
 
     def test_cli_output_with_output_dir(self):
         """Test --output-filename parameter combined with --output-dir."""
-        with patch("sys.argv", [
-            "generate.py", "--output-dir", "/tmp", "--output-filename", "test.png"
-        ]):
+        with patch(
+            "sys.argv", ["generate.py", "--output-dir", "/tmp", "--output-filename", "test.png"]
+        ):
             args = parse_command_line()
             assert args.output_dir == Path("/tmp")
             assert args.output_filename == Path("test.png")
@@ -290,7 +290,7 @@ class TestOutputParameterEdgeCases:
             ".hidden_image.png",
             "..parent_dir.png",
             "image.with.dots.png",
-            ".png"  # Edge case: only extension
+            ".png",  # Edge case: only extension
         ]
         for filename in test_cases:
             with patch("sys.argv", ["generate.py", "--output-filename", filename]):
@@ -304,7 +304,7 @@ class TestOutputParameterEdgeCases:
             "folder\\image.png",  # Windows-style separator
             "deep/nested/folder/image.png",
             "../relative/path.png",
-            "./current/dir/image.png"
+            "./current/dir/image.png",
         ]
         for filepath in test_cases:
             with patch("sys.argv", ["generate.py", "--output-filename", filepath]):
@@ -316,7 +316,7 @@ class TestOutputParameterEdgeCases:
         test_cases = [
             "/tmp/absolute/path.png",
             "/home/user/image.jpg",
-            "C:\\Windows\\image.png"  # Windows absolute path
+            "C:\\Windows\\image.png",  # Windows absolute path
         ]
         for filepath in test_cases:
             with patch("sys.argv", ["generate.py", "--output-filename", filepath]):
@@ -336,7 +336,7 @@ class TestOutputParameterEdgeCases:
             "image_no_ext",
             "123",
             "image.",  # Ends with dot but no extension
-            "folder/image_no_ext"
+            "folder/image_no_ext",
         ]
         for filename in test_cases:
             with patch("sys.argv", ["generate.py", "--output-filename", filename]):
@@ -352,12 +352,7 @@ class TestOutputParameterEdgeCases:
 
     def test_cli_output_case_sensitivity(self):
         """Test --output-filename parameter case sensitivity."""
-        test_cases = [
-            "Image.PNG",
-            "IMAGE.png",
-            "image.PNG",
-            "MixedCase_File.JpEg"
-        ]
+        test_cases = ["Image.PNG", "IMAGE.png", "image.PNG", "MixedCase_File.JpEg"]
         for filename in test_cases:
             with patch("sys.argv", ["generate.py", "--output-filename", filename]):
                 args = parse_command_line()
@@ -365,15 +360,24 @@ class TestOutputParameterEdgeCases:
 
     def test_cli_output_combined_with_all_other_options(self):
         """Test --output-filename parameter combined with all other CLI options."""
-        with patch("sys.argv", [
-            "generate.py",
-            "--prompt", "test prompt",
-            "--output-filename", "comprehensive_test.png",
-            "--output-dir", "/tmp/test",
-            "--model", "seedream",
-            "--storage-type", "local",
-            "--size", "2K"
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "generate.py",
+                "--prompt",
+                "test prompt",
+                "--output-filename",
+                "comprehensive_test.png",
+                "--output-dir",
+                "/tmp/test",
+                "--model",
+                "seedream",
+                "--storage-type",
+                "local",
+                "--size",
+                "2K",
+            ],
+        ):
             args = parse_command_line()
             assert args.output_filename == Path("comprehensive_test.png")
             assert args.output_dir == Path("/tmp/test")
