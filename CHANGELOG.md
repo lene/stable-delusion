@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2025-10-03
+
+### Added
+- SHA-256 hash-based duplicate detection for S3 file uploads
+- Hash caching for O(1) duplicate lookups (reduced from O(N) per file)
+- S3 deduplication script (`scripts/deduplicate_s3_images.py`)
+- SHA-256 metadata backfill script for existing S3 files
+- Automatic git tag creation in CI pipeline after successful PyPI deployment
+- TestPyPI version validation in `validate_version.py` to prevent duplicate uploads
+
+### Fixed
+- Seedream service now uses HTTPS URLs instead of s3:// for API compatibility
+- Version validation now checks if version already exists on TestPyPI
+- Duplicate uploads to S3 now properly skip and return existing file URL
+- CI pipeline no longer fails when tag is created (uses `[skip ci]`)
+
+### Changed
+- Refactored long functions to improve code readability (avg 9.0 lines/function)
+- S3 duplicate detection uses shared `build_s3_hash_cache()` utility
+- Reduced duplicate code across S3 repositories
+
+### Performance
+- Optimized S3 duplicate checking from O(N*M) to O(N+M) API calls using hash caching
+
 ## [0.1.2] - 2025-10-01
 
 ### Fixed
@@ -71,7 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Poetry dependency management
 - Type annotations throughout codebase
 
-[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.2...HEAD
+[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.3...HEAD
+[0.1.3]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.2...v0.1.3
 [0.1.2]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.1...v0.1.2
 [0.1.1]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.0...v0.1.1
 [0.1.0]: https://gitlab.com/lilacashes/stable-delusion/releases/tag/v0.1.0
