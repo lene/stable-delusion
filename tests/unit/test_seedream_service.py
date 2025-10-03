@@ -283,3 +283,39 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                     urls = service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert len(urls) == 1
+
+    @patch("stable_delusion.config.ConfigManager.get_config")
+    def test_generated_image_uploaded_to_s3(self, mock_config, service_with_s3_repo):
+        """Test that generated images are uploaded to S3 when storage type is s3."""
+        mock_config.return_value.default_output_dir = Path("/tmp")
+        mock_config.return_value.storage_type = "s3"
+
+        # Mock the seedream client to return a local file
+        service_with_s3_repo.client.generate_and_save.return_value = Path(
+            "/tmp/generated_image.png"
+        )
+
+        # Mock PIL Image.open for the upload
+        mock_image = Mock()
+        mock_image.__enter__ = Mock(return_value=mock_image)
+        mock_image.__exit__ = Mock(return_value=None)
+
+        with patch("PIL.Image.open", return_value=mock_image):
+            # Mock S3 repository save_image to return S3 path
+            service_with_s3_repo.image_repository.save_image.return_value = Path(
+                "https://bucket.s3.region.amazonaws.com/output/seedream/generated_image.png"
+            )
+
+            request = GenerateImageRequest(
+                prompt="Test prompt",
+                images=[],
+                model="seedream",
+                storage_type="s3",
+            )
+
+            response = service_with_s3_repo.generate_image(request)
+
+            # Verify the image was uploaded to S3
+            service_with_s3_repo.image_repository.save_image.assert_called_once()
+            # Verify response contains S3 path
+            assert "s3" in str(response.image_config.generated_file).lower()

@@ -103,7 +103,10 @@ class SeedreamImageGenerationService(ImageGenerationService):
                 )
             logging.info("Image generation completed: %s", generated_file)
 
-            return self._create_generation_response(request, generated_file)
+            # Upload generated image to S3 if using S3 storage
+            final_path = self._upload_generated_image_to_s3(generated_file, config)
+
+            return self._create_generation_response(request, final_path)
 
         except ConfigurationError as e:
             logging.error("Configuration error during image generation: %s", e)
@@ -111,6 +114,34 @@ class SeedreamImageGenerationService(ImageGenerationService):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logging.error("Unexpected error during image generation: %s", e)
             return self._create_generation_response(request)
+
+    def _upload_generated_image_to_s3(
+        self, generated_file: Optional[Path], config
+    ) -> Optional[Path]:
+        """Upload generated image to S3 if storage type is S3."""
+        if not generated_file:
+            return None
+
+        if config.storage_type == "s3" and self.image_repository:
+            from PIL import Image
+            from stable_delusion.repositories.s3_image_repository import S3ImageRepository
+
+            # Only upload if we have an S3 repository
+            if isinstance(self.image_repository, S3ImageRepository):
+                logging.info("Uploading generated image to S3: %s", generated_file)
+                try:
+                    with Image.open(generated_file) as img:
+                        # Upload to S3 and get the S3 path
+                        s3_path = self.image_repository.save_image(img, generated_file)
+                        logging.info("Generated image uploaded to S3: %s", s3_path)
+                        return s3_path
+                except (OSError, IOError) as e:
+                    logging.error("Failed to upload generated image to S3: %s", e)
+                    # Return local path as fallback
+                    return generated_file
+
+        # For local storage or if upload fails, return the local path
+        return generated_file
 
     def _validate_s3_repository(self) -> None:
         if not self.image_repository:
