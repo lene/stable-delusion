@@ -92,7 +92,7 @@ class TestS3ImageRepository:
         call_args = s3_image_repo.s3_client.put_object.call_args
 
         assert call_args[1]["Bucket"] == "test-bucket"
-        assert "images/test_image.png" in call_args[1]["Key"]
+        assert "output/gemini/test_image.png" in call_args[1]["Key"]
         assert call_args[1]["ContentType"] == "image/png"
         assert "Body" in call_args[1]
         assert "Metadata" in call_args[1]
@@ -102,7 +102,7 @@ class TestS3ImageRepository:
         result_str = str(result)
         assert result_str.startswith("https:/")
         assert "test-bucket.s3.us-east-1.amazonaws.com" in result_str
-        assert "images/test_image.png" in result_str
+        assert "output/gemini/test_image.png" in result_str
 
     @pytest.mark.parametrize(
         "file_path,expected_content_type",
@@ -141,12 +141,12 @@ class TestS3ImageRepository:
         s3_image_repo.s3_client.get_object.return_value = mock_response
 
         # Execute
-        result = s3_image_repo.load_image(Path("s3://test-bucket/images/test.png"))
+        result = s3_image_repo.load_image(Path("s3://test-bucket/output/gemini/test.png"))
 
         # Verify - currently _extract_s3_key has a bug and returns the full URL as key
         s3_image_repo.s3_client.get_object.assert_called_once_with(
             Bucket="test-bucket",
-            Key="s3:/test-bucket/images/test.png",  # Bug: should be 'images/test.png'
+            Key="s3:/test-bucket/output/gemini/test.png",  # Bug: should be 'output/gemini/test.png'
         )
         assert isinstance(result, Image.Image)
         assert result.size == (50, 50)
@@ -193,12 +193,12 @@ class TestS3ImageRepository:
         result = s3_image_repo.generate_image_path("test_image.png", Path("outputs"))
 
         # Path normalizes URLs
-        assert str(result) == "s3:/test-bucket/images/outputs/test_image.png"
+        assert str(result) == "s3:/test-bucket/output/gemini/outputs/test_image.png"
 
     def test_generate_image_path_current_dir(self, s3_image_repo):
         result = s3_image_repo.generate_image_path("test.png", Path("."))
 
-        assert str(result) == "s3:/test-bucket/images/test.png"  # Path normalizes URLs
+        assert str(result) == "s3:/test-bucket/output/gemini/test.png"  # Path normalizes URLs
 
     # Private method tests removed - functionality tested indirectly through public methods
 
@@ -245,7 +245,7 @@ class TestS3FileRepository:
         call_args = s3_file_repo.s3_client.put_object.call_args
 
         assert call_args[1]["Bucket"] == "test-bucket"
-        assert call_args[1]["Key"] == "files/test_dir/"
+        assert call_args[1]["Key"] == "input/test_dir/"
         assert call_args[1]["Body"] == b""
         assert call_args[1]["ContentType"] == "application/x-directory"
 
@@ -308,9 +308,9 @@ class TestS3FileRepository:
         mock_pages = [
             {
                 "Contents": [
-                    {"Key": "files/test_dir/file1.txt"},
-                    {"Key": "files/test_dir/file2.txt"},
-                    {"Key": "files/test_dir/subdir/"},  # Directory marker - should be skipped
+                    {"Key": "input/test_dir/file1.txt"},
+                    {"Key": "input/test_dir/file2.txt"},
+                    {"Key": "input/test_dir/subdir/"},  # Directory marker - should be skipped
                 ]
             }
         ]
@@ -319,8 +319,8 @@ class TestS3FileRepository:
         result = s3_file_repo.list_files(Path("test_dir"))
 
         assert len(result) == 2
-        assert str(result[0]) == "s3:/test-bucket/files/test_dir/file1.txt"  # Path normalizes URLs
-        assert str(result[1]) == "s3:/test-bucket/files/test_dir/file2.txt"
+        assert str(result[0]) == "s3:/test-bucket/input/test_dir/file1.txt"  # Path normalizes URLs
+        assert str(result[1]) == "s3:/test-bucket/input/test_dir/file2.txt"
 
     def test_list_files_with_pattern(self, s3_file_repo):
         mock_paginator = MagicMock()
@@ -329,9 +329,9 @@ class TestS3FileRepository:
         mock_pages = [
             {
                 "Contents": [
-                    {"Key": "files/test_dir/file1.txt"},
-                    {"Key": "files/test_dir/file2.log"},
-                    {"Key": "files/test_dir/file3.txt"},
+                    {"Key": "input/test_dir/file1.txt"},
+                    {"Key": "input/test_dir/file2.log"},
+                    {"Key": "input/test_dir/file3.txt"},
                 ]
             }
         ]
@@ -379,9 +379,9 @@ class TestS3FileRepository:
         mock_pages = [
             {
                 "Contents": [
-                    {"Key": "files/old_dir/old_file.txt", "LastModified": old_time},
-                    {"Key": "files/old_dir/new_file.txt", "LastModified": new_time},
-                    {"Key": "files/old_dir/another_old.txt", "LastModified": old_time},
+                    {"Key": "input/old_dir/old_file.txt", "LastModified": old_time},
+                    {"Key": "input/old_dir/new_file.txt", "LastModified": new_time},
+                    {"Key": "input/old_dir/another_old.txt", "LastModified": old_time},
                 ]
             }
         ]
@@ -425,9 +425,9 @@ class TestS3RepositoryIntegration:
         with patch(
             "stable_delusion.repositories.s3_image_repository.S3ClientManager.create_s3_client"
         ):
-            repo = S3ImageRepository(s3_config)
+            repo = S3ImageRepository(s3_config, model="gemini")
             assert repo.bucket_name == "test-bucket"
-            assert repo.key_prefix == "images/"
+            assert repo.key_prefix == "output/gemini/"
 
     @patch("stable_delusion.repositories.s3_image_repository.logging")
     def test_repositories_log_operations(self, mock_logging, s3_image_repo, test_image):

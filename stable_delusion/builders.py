@@ -21,7 +21,9 @@ from stable_delusion.services.interfaces import (
 )
 
 
-def create_image_repository(storage_type: Optional[str] = None) -> ImageRepository:
+def create_image_repository(
+    storage_type: Optional[str] = None, model: str = "gemini"
+) -> ImageRepository:
     """Create image repository based on storage type."""
     config = ConfigManager.get_config()
     storage = storage_type or config.storage_type
@@ -29,7 +31,7 @@ def create_image_repository(storage_type: Optional[str] = None) -> ImageReposito
     if storage == "s3":
         from stable_delusion.repositories.s3_image_repository import S3ImageRepository
 
-        return S3ImageRepository(config)
+        return S3ImageRepository(config, model=model)
 
     from stable_delusion.repositories.local_image_repository import LocalImageRepository
 
@@ -74,8 +76,8 @@ def create_image_generation_service(
     model: Optional[str] = None,
 ) -> ImageGenerationService:
     """Create image generation service based on model."""
-    image_repo = create_image_repository(storage_type)
     model = model or "gemini"  # Default to gemini for backward compatibility
+    image_repo = create_image_repository(storage_type, model=model)
 
     log_service_creation(
         "image generation service",

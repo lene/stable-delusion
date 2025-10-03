@@ -9,7 +9,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
-from PIL import Image
 
 from stable_delusion.services.seedream_service import SeedreamImageGenerationService
 from stable_delusion.seedream import SeedreamClient
@@ -26,35 +25,40 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
     """Test error handling across the Seedream S3 integration."""
 
     @pytest.fixture
-    def mock_seedream_client(self):
-        return Mock(spec=SeedreamClient)
-
-    @pytest.fixture
-    def mock_s3_repository(self):
-        from stable_delusion.repositories.s3_image_repository import S3ImageRepository
-
-        return Mock(spec=S3ImageRepository)
-
-    @pytest.fixture
     def mock_local_repository(self):
         return Mock()
 
-    def test_seedream_s3_upload_failure(self, mock_seedream_client, mock_s3_repository):
+    def test_seedream_s3_upload_failure(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        mock_seedream_client,
+        mock_s3_repository,
+        mock_pil_image_context_manager,
+        mock_config_with_s3,
+        mock_s3_file_repository,
+    ):
         service = SeedreamImageGenerationService(
             seedream_client=mock_seedream_client, image_repository=mock_s3_repository
         )
 
-        # Mock S3 upload failure
-        mock_s3_repository.save_image.side_effect = Exception("S3 connection timeout")
-
         test_images = [Path("/tmp/test.jpg")]
+        mock_pil_image_context_manager.format = "JPEG"
 
-        mock_img = Mock(spec=Image.Image)
-        mock_img.__enter__ = Mock(return_value=mock_img)
-        mock_img.__exit__ = Mock(return_value=None)
-        with patch("PIL.Image.open", return_value=mock_img):
-            with pytest.raises(ConfigurationError) as exc_info:
-                service.upload_images_to_s3(test_images)
+        mock_s3_file_repository.s3_client.put_object.side_effect = Exception(
+            "S3 connection timeout"
+        )
+
+        with patch("PIL.Image.open", return_value=mock_pil_image_context_manager):
+            with patch(
+                "stable_delusion.services.seedream_service.ConfigManager.get_config",
+                return_value=mock_config_with_s3,
+            ):
+                with patch(
+                    "stable_delusion.repositories.s3_file_repository.S3FileRepository",
+                    return_value=mock_s3_file_repository,
+                ):
+                    with pytest.raises(ConfigurationError) as exc_info:
+                        service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "S3 connection timeout" in str(exc_info.value)
@@ -112,22 +116,41 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
         assert "S3 storage required for Seedream image uploads" in str(exc_info.value)
         assert exc_info.value.config_key == "storage_type"
 
-    def test_file_operation_error_invalid_image(self, mock_seedream_client, mock_s3_repository):
+    def test_file_operation_error_invalid_image(
+        self,
+        mock_seedream_client,
+        mock_s3_repository,
+        mock_config_with_s3,
+        mock_s3_file_repository,
+    ):
         service = SeedreamImageGenerationService(
             seedream_client=mock_seedream_client, image_repository=mock_s3_repository
         )
 
         test_images = [Path("/tmp/corrupted.jpg")]
 
-        # Mock PIL Image.open failure
         with patch("PIL.Image.open", side_effect=Exception("Image file is corrupted")):
-            with pytest.raises(ConfigurationError) as exc_info:
-                service.upload_images_to_s3(test_images)
+            with patch(
+                "stable_delusion.services.seedream_service.ConfigManager.get_config",
+                return_value=mock_config_with_s3,
+            ):
+                with patch(
+                    "stable_delusion.repositories.s3_file_repository.S3FileRepository",
+                    return_value=mock_s3_file_repository,
+                ):
+                    with pytest.raises(ConfigurationError) as exc_info:
+                        service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "Image file is corrupted" in str(exc_info.value)
 
-    def test_file_operation_error_nonexistent_file(self, mock_seedream_client, mock_s3_repository):
+    def test_file_operation_error_nonexistent_file(
+        self,
+        mock_seedream_client,
+        mock_s3_repository,
+        mock_config_with_s3,
+        mock_s3_file_repository,
+    ):
         service = SeedreamImageGenerationService(
             seedream_client=mock_seedream_client, image_repository=mock_s3_repository
         )
@@ -135,8 +158,16 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
         test_images = [Path("/nonexistent/file.jpg")]
 
         with patch("PIL.Image.open", side_effect=FileNotFoundError("No such file or directory")):
-            with pytest.raises(ConfigurationError) as exc_info:
-                service.upload_images_to_s3(test_images)
+            with patch(
+                "stable_delusion.services.seedream_service.ConfigManager.get_config",
+                return_value=mock_config_with_s3,
+            ):
+                with patch(
+                    "stable_delusion.repositories.s3_file_repository.S3FileRepository",
+                    return_value=mock_s3_file_repository,
+                ):
+                    with pytest.raises(ConfigurationError) as exc_info:
+                        service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "No such file or directory" in str(exc_info.value)
@@ -289,44 +320,70 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
         # Should return response with None generated_file (indicating failure)
         assert response.image_config.generated_file is None
 
-    def test_error_message_details_preserved(self, mock_seedream_client, mock_s3_repository):
+    def test_error_message_details_preserved(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        mock_seedream_client,
+        mock_s3_repository,
+        mock_pil_image_context_manager,
+        mock_config_with_s3,
+        mock_s3_file_repository,
+    ):
         service = SeedreamImageGenerationService(
             seedream_client=mock_seedream_client, image_repository=mock_s3_repository
         )
 
         original_error = "S3 bucket 'test-bucket' access denied: insufficient permissions"
-        mock_s3_repository.save_image.side_effect = Exception(original_error)
-
         test_images = [Path("/tmp/test.jpg")]
+        mock_pil_image_context_manager.format = "JPEG"
 
-        mock_img = Mock(spec=Image.Image)
-        mock_img.__enter__ = Mock(return_value=mock_img)
-        mock_img.__exit__ = Mock(return_value=None)
-        with patch("PIL.Image.open", return_value=mock_img):
-            with pytest.raises(ConfigurationError) as exc_info:
-                service.upload_images_to_s3(test_images)
+        mock_s3_file_repository.s3_client.put_object.side_effect = Exception(original_error)
 
-        # Error should preserve the original error message
+        with patch("PIL.Image.open", return_value=mock_pil_image_context_manager):
+            with patch(
+                "stable_delusion.services.seedream_service.ConfigManager.get_config",
+                return_value=mock_config_with_s3,
+            ):
+                with patch(
+                    "stable_delusion.repositories.s3_file_repository.S3FileRepository",
+                    return_value=mock_s3_file_repository,
+                ):
+                    with pytest.raises(ConfigurationError) as exc_info:
+                        service.upload_images_to_s3(test_images)
+
         error_str = str(exc_info.value)
         assert "Failed to upload image /tmp/test.jpg to S3" in error_str
         assert original_error in error_str
 
-    def test_chained_exception_preservation(self, mock_seedream_client, mock_s3_repository):
+    def test_chained_exception_preservation(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        mock_seedream_client,
+        mock_s3_repository,
+        mock_pil_image_context_manager,
+        mock_config_with_s3,
+        mock_s3_file_repository,
+    ):
         service = SeedreamImageGenerationService(
             seedream_client=mock_seedream_client, image_repository=mock_s3_repository
         )
 
         original_exception = FileNotFoundError("File not found")
-        mock_s3_repository.save_image.side_effect = original_exception
-
         test_images = [Path("/tmp/test.jpg")]
+        mock_pil_image_context_manager.format = "JPEG"
 
-        mock_img = Mock(spec=Image.Image)
-        mock_img.__enter__ = Mock(return_value=mock_img)
-        mock_img.__exit__ = Mock(return_value=None)
-        with patch("PIL.Image.open", return_value=mock_img):
-            with pytest.raises(ConfigurationError) as exc_info:
-                service.upload_images_to_s3(test_images)
+        mock_s3_file_repository.s3_client.put_object.side_effect = original_exception
 
-        # Original exception should be preserved in the chain
+        with patch("PIL.Image.open", return_value=mock_pil_image_context_manager):
+            with patch(
+                "stable_delusion.services.seedream_service.ConfigManager.get_config",
+                return_value=mock_config_with_s3,
+            ):
+                with patch(
+                    "stable_delusion.repositories.s3_file_repository.S3FileRepository",
+                    return_value=mock_s3_file_repository,
+                ):
+                    with pytest.raises(ConfigurationError) as exc_info:
+                        service.upload_images_to_s3(test_images)
+
         assert exc_info.value.__cause__ == original_exception

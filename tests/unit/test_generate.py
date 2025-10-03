@@ -40,14 +40,14 @@ class TestGeminiClient:
                 GeminiClient(GeminiClientConfig())
 
     def test_init_successful(self, base_env, mock_gemini_setup):
-        with patch.dict(os.environ, base_env):
+        with patch.dict(os.environ, base_env, clear=True):
             client = GeminiClient(GeminiClientConfig())
             assert client.project_id == DEFAULT_PROJECT_ID
             assert client.location == DEFAULT_LOCATION
             assert client.output_dir == Path(".")
 
     def test_init_with_custom_params(self, base_env, mock_gemini_setup):
-        with patch.dict(os.environ, base_env):
+        with patch.dict(os.environ, base_env, clear=True):
             custom_project = "custom-project"
             custom_location = "custom-location"
             custom_output_dir = Path("custom/output")
@@ -62,7 +62,9 @@ class TestGeminiClient:
             assert client.output_dir == custom_output_dir
 
     def test_upload_files_success(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client") as mock_client_class:
                 with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
@@ -100,7 +102,9 @@ class TestGeminiClient:
                         assert mock_client.files.upload.call_count == 2
 
     def test_upload_files_nonexistent(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client"):
                 with patch("stable_delusion.generate.aiplatform.init"):
                     client = GeminiClient(GeminiClientConfig())
@@ -111,7 +115,9 @@ class TestGeminiClient:
                         client.upload_files([nonexistent_file])
 
     def test_generate_from_images_success(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client") as mock_client_class:
                 with patch("stable_delusion.generate.aiplatform.init"):
                     # Set up mocks
@@ -146,7 +152,9 @@ class TestGeminiClient:
                                 mock_image.save.assert_called_once()
 
     def test_generate_from_images_no_candidates(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client") as mock_client_class:
                 with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
@@ -170,7 +178,9 @@ class TestGeminiClient:
                             client.generate_from_images("test prompt", [test_file])
 
     def test_generate_hires_image_without_scale(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client") as mock_client_class:
                 with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()
@@ -194,7 +204,9 @@ class TestGeminiClient:
                             assert result == Path("generated_image.png")
 
     def test_generate_hires_image_with_scale(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
+        ):
             with patch("stable_delusion.generate.genai.Client") as mock_client_class:
                 with patch("stable_delusion.generate.aiplatform.init"):
                     mock_client = MagicMock()

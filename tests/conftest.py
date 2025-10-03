@@ -848,3 +848,27 @@ def mock_service_factory():
         mock_builders.create_upscaling_service.return_value = MagicMock()
 
         yield mock_builders
+
+
+@pytest.fixture
+def mock_s3_file_repository():
+    mock_repo = MagicMock()
+    mock_repo.key_prefix = "input/"
+    mock_repo.bucket_name = "test-bucket"
+    mock_repo.s3_client = MagicMock()
+    mock_repo.s3_client.put_object.return_value = {}
+    mock_repo.s3_client.head_object.return_value = {"ContentLength": 1024}
+    mock_repo.s3_client.get_object.return_value = {"Body": MagicMock()}
+    return mock_repo
+
+
+@pytest.fixture
+def mock_config_with_s3():
+    config = MagicMock()
+    config.s3_bucket = "test-bucket"
+    config.s3_region = "us-east-1"
+    config.aws_access_key_id = "test-key"
+    config.aws_secret_access_key = "test-secret"
+    config.storage_type = "s3"
+    config.default_output_dir = Path("/tmp")
+    return config

@@ -58,21 +58,21 @@ class TestS3ImageRepositoryURL:
 
         with patch(
             "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="images/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
         ):
             result = s3_repository.save_image(mock_image, file_path)
 
         # Should return HTTPS URL, not S3 URL (Path normalization may affect slashes)
         result_str = str(result)
         assert result_str.startswith("https:/")
-        assert "test-bucket.s3.us-east-1.amazonaws.com/images/test_image.jpg" in result_str
+        assert "test-bucket.s3.us-east-1.amazonaws.com/output/gemini/test_image.jpg" in result_str
 
     def test_save_image_without_acl(self, s3_repository, mock_image, mock_s3_client):
         file_path = Path("test_image.jpg")
 
         with patch(
             "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="images/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
         ):
             s3_repository.save_image(mock_image, file_path)
 
@@ -85,14 +85,14 @@ class TestS3ImageRepositoryURL:
 
         with patch(
             "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="images/subfolder/image.png",
+            return_value="output/gemini/subfolder/image.png",
         ):
             result = s3_repository.save_image(mock_image, file_path)
 
         result_str = str(result)
         assert result_str.startswith("https:/")
         assert "test-bucket.s3.us-east-1.amazonaws.com" in result_str
-        assert result_str.endswith("images/subfolder/image.png")
+        assert result_str.endswith("output/gemini/subfolder/image.png")
 
     def test_https_url_different_regions(self, mock_image, mock_s3_client):
         regions = ["eu-central-1", "ap-southeast-1", "us-west-2"]
@@ -115,26 +115,26 @@ class TestS3ImageRepositoryURL:
 
             with patch(
                 "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value="images/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+                return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
             ):
                 result = repository.save_image(mock_image, Path("test.jpg"))
 
             result_str = str(result)
             assert result_str.startswith("https:/")
-            assert f"test-bucket.s3.{region}.amazonaws.com/images/test.jpg" in result_str
+            assert f"test-bucket.s3.{region}.amazonaws.com/output/gemini/test.jpg" in result_str
 
     def test_path_object_url_preservation(self, s3_repository, mock_image):
         file_path = Path("test.jpg")
 
         with patch(
             "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="images/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
         ):
             result_path = s3_repository.save_image(mock_image, file_path)
 
         # Convert back to string and verify URL is intact
         result_str = str(result_path)
-        assert "test-bucket.s3.us-east-1.amazonaws.com/images/test.jpg" in result_str
+        assert "test-bucket.s3.us-east-1.amazonaws.com/output/gemini/test.jpg" in result_str
 
         # Verify this is a valid HTTPS URL (Path normalization affects slashes)
         assert result_str.startswith("https:/")
@@ -155,7 +155,7 @@ class TestS3ImageRepositoryURL:
 
             with patch(
                 "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value=f"images/{filename}",  # noqa: E501  # pylint: disable=line-too-long
+                return_value=f"output/gemini/{filename}",  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, file_path)
 
@@ -173,7 +173,7 @@ class TestS3ImageRepositoryURL:
 
         with patch(
             "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="images/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
         ):
             s3_repository.save_image(mock_image, file_path)
 
@@ -189,7 +189,7 @@ class TestS3ImageRepositoryURL:
         with pytest.raises(FileOperationError) as exc_info:
             with patch(
                 "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value="images/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+                return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, Path("test.jpg"))
 
@@ -204,7 +204,7 @@ class TestS3ImageRepositoryURL:
         with pytest.raises(FileOperationError) as exc_info:
             with patch(
                 "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value="images/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+                return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
             ):
                 s3_repository.save_image(mock_image, Path("test.jpg"))
 
@@ -217,18 +217,18 @@ class TestS3ImageRepositoryURL:
         result_str = str(result)
         assert result_str.startswith("s3:/")
         assert "test-bucket" in result_str
-        assert "images/subfolder/" in result_str
+        assert "output/gemini/subfolder/" in result_str
         assert result_str.endswith(".jpg")
 
     def test_generate_image_path_root_directory(self, s3_repository):
         result = s3_repository.generate_image_path("test_image.jpg", Path("."))
 
         result_str = str(result)
-        assert "images/test_image" in result_str
-        assert "images/./test_image" not in result_str  # Should not include "./"
+        assert "output/gemini/test_image" in result_str
+        assert "output/gemini/./test_image" not in result_str  # Should not include "./"
 
     def test_validate_image_file_s3_url(self, s3_repository, mock_s3_client):
-        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/images/test.jpg"
+        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/output/gemini/test.jpg"
 
         result = s3_repository.validate_image_file(Path(s3_url))
 
@@ -250,13 +250,13 @@ class TestS3ImageRepositoryURL:
             "MockExceptions", (), {"NoSuchKey": mock_no_such_key, "ClientError": mock_client_error}
         )
 
-        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/images/nonexistent.jpg"
+        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/output/gemini/nonexistent.jpg"
         result = s3_repository.validate_image_file(Path(s3_url))
 
         assert result is False
 
     def test_load_image_from_s3_url(self, s3_repository, mock_s3_client):
-        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/images/test.jpg"
+        s3_url = "https://test-bucket.s3.us-east-1.amazonaws.com/output/gemini/test.jpg"
 
         # Mock S3 response with image data
         mock_body = Mock()
@@ -271,19 +271,21 @@ class TestS3ImageRepositoryURL:
         assert mock_image_open.called
 
     def test_extract_s3_key_from_https_url(self, s3_repository):
-        https_url = "https://test-bucket.s3.us-east-1.amazonaws.com/images/subfolder/test.jpg"
+        https_url = (
+            "https://test-bucket.s3.us-east-1.amazonaws.com/output/gemini/subfolder/test.jpg"
+        )
 
         # This is a private method, but we need to test the URL parsing logic
         # We'll test it indirectly through validate_image_file
         with patch.object(
-            s3_repository, "_extract_s3_key", return_value="images/subfolder/test.jpg"
+            s3_repository, "_extract_s3_key", return_value="output/gemini/subfolder/test.jpg"
         ) as mock_extract:
             s3_repository.validate_image_file(Path(https_url))
 
         mock_extract.assert_called_once_with(Path(https_url))
 
     def test_bucket_name_mismatch_validation(self, s3_repository, mock_s3_client):
-        wrong_bucket_url = "https://wrong-bucket.s3.us-east-1.amazonaws.com/images/test.jpg"
+        wrong_bucket_url = "https://wrong-bucket.s3.us-east-1.amazonaws.com/output/gemini/test.jpg"
 
         # The bucket mismatch should be detected during URL parsing in _extract_s3_key
         # This should raise ValidationError due to bucket mismatch

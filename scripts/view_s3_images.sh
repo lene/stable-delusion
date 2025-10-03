@@ -8,14 +8,20 @@ S3_BUCKET="${AWS_S3_BUCKET:-}"
 
 if [ -z "$S3_BUCKET" ]; then
     echo "Error: AWS_S3_BUCKET environment variable not set"
-    echo "Usage: AWS_S3_BUCKET=your-bucket-name $0 [prefix]"
+    echo "Usage: AWS_S3_BUCKET=your-bucket-name $0 [folder]"
+    echo ""
+    echo "Available folders:"
+    echo "  input/           - Input images"
+    echo "  output/gemini/   - Gemini-generated images"
+    echo "  output/seedream/ - Seedream-generated images"
+    echo "  metadata/        - Generation metadata"
     exit 1
 fi
 
-# Optional prefix/path within bucket
-PREFIX="${1:-}"
+# Optional folder within bucket (default: view all outputs)
+FOLDER="${1:-output/}"
 
-echo "📦 Listing images from S3 bucket: s3://${S3_BUCKET}/${PREFIX}"
+echo "📦 Viewing images from S3: s3://${S3_BUCKET}/${FOLDER}"
 echo ""
 
 # Create temporary directory for downloads
@@ -23,10 +29,10 @@ TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
 # Bulk download all images from S3
-echo "⬇️  Downloading all images from s3://${S3_BUCKET}/${PREFIX}..."
+echo "⬇️  Downloading images from s3://${S3_BUCKET}/${FOLDER}..."
 echo ""
 
-if aws s3 cp "s3://${S3_BUCKET}/${PREFIX}" "$TEMP_DIR/" --recursive \
+if aws s3 cp "s3://${S3_BUCKET}/${FOLDER}" "$TEMP_DIR/" --recursive \
     --exclude "*" \
     --include "*.png" \
     --include "*.jpg" \

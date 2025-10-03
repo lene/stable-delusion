@@ -131,22 +131,38 @@ class SeedreamImageGenerationService(ImageGenerationService):
 
         from PIL import Image
         from stable_delusion.utils import generate_timestamped_filename
+        from stable_delusion.repositories.s3_file_repository import S3FileRepository
 
-        # This method is only called after _validate_s3_repository()
-        # ensures image_repository is not None
-        if self.image_repository is None:
-            raise ConfigurationError(
-                "Image repository not configured for S3 uploads", config_key="image_repository"
-            )
+        # Upload input images using S3FileRepository which uses input/ prefix
+        config = ConfigManager.get_config()
+        file_repo = S3FileRepository(config)
 
         with Image.open(image_path) as img:
             s3_filename = generate_timestamped_filename(
-                f"seedream_input_{image_path.stem}", image_path.suffix.lstrip(".")
+                image_path.stem, image_path.suffix.lstrip(".")
             )
-            s3_path = Path("seedream/inputs") / s3_filename
+            s3_path = Path(s3_filename)  # Will be saved to input/ by S3FileRepository
 
-            s3_url_path = self.image_repository.save_image(img, s3_path)
-            s3_url = str(s3_url_path)
+            # Use file repository to save to input/ folder
+            # We need to convert Image to bytes and upload directly
+            import io
+
+            img_bytes = io.BytesIO()
+            img.save(img_bytes, format=img.format or "PNG")
+            img_bytes.seek(0)
+
+            # Create S3 key with input/ prefix
+            from stable_delusion.repositories.s3_client import generate_s3_key, build_s3_url
+
+            s3_key = generate_s3_key(str(s3_path), file_repo.key_prefix)
+            file_repo.s3_client.put_object(
+                Bucket=file_repo.bucket_name,
+                Key=s3_key,
+                Body=img_bytes.getvalue(),
+                ContentType=f"image/{img.format or 'png'}".lower(),
+            )
+
+            s3_url = build_s3_url(file_repo.bucket_name, s3_key)
 
             # Fix URL normalization issue with Path objects
             if s3_url.startswith("https:/") and not s3_url.startswith("https://"):

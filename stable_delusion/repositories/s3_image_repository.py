@@ -24,12 +24,13 @@ if TYPE_CHECKING:
 class S3ImageRepository(ImageRepository):
     """S3-based implementation of ImageRepository interface."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, model: str = "gemini"):
         self.config = config
         self.s3_client: "S3Client" = S3ClientManager.create_s3_client(config)
         # S3ClientManager validation ensures bucket_name is not None
         self.bucket_name: str = config.s3_bucket  # type: ignore[assignment]
-        self.key_prefix = "images/"
+        self.model = model
+        self.key_prefix = f"output/{model}/"
 
     def _convert_image_to_bytes(self, image: Image.Image, file_path: Path) -> bytes:
         image_buffer = io.BytesIO()

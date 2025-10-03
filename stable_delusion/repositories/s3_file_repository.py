@@ -36,7 +36,7 @@ class S3FileRepository(FileRepository):
         self.s3_client: "S3Client" = S3ClientManager.create_s3_client(config)
         # S3ClientManager validation ensures bucket_name is not None
         self.bucket_name: str = config.s3_bucket  # type: ignore[assignment]
-        self.key_prefix = "files/"
+        self.key_prefix = "input/"
 
     def exists(self, file_path: Path) -> bool:
         try:

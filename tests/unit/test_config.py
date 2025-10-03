@@ -74,13 +74,13 @@ class TestConfigManager:
         ConfigManager.reset_config()
 
     def test_config_manager_singleton(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=True):
             config1 = ConfigManager.get_config()
             config2 = ConfigManager.get_config()
             assert config1 is config2
 
     def test_config_manager_reset(self):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=True):
             config1 = ConfigManager.get_config()
             ConfigManager.reset_config()
             config2 = ConfigManager.get_config()
@@ -96,6 +96,7 @@ class TestConfigManager:
             "DEFAULT_OUTPUT_DIR": "custom_output",
             "FLASK_DEBUG": "true",
         },
+        clear=True,
     )
     def test_config_from_environment_variables(self):
         config = ConfigManager.get_config()
@@ -107,7 +108,7 @@ class TestConfigManager:
         assert config.default_output_dir == Path("custom_output")
         assert config.flask_debug is True
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"})
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}, clear=True)
     def test_config_with_defaults(self):
         config = ConfigManager.get_config()
 
@@ -133,7 +134,9 @@ class TestConfigManager:
         ],
     )
     def test_flask_debug_parsing(self, debug_value, expected):
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "FLASK_DEBUG": debug_value}):
+        with patch.dict(
+            os.environ, {"GEMINI_API_KEY": "test-key", "FLASK_DEBUG": debug_value}, clear=True
+        ):
             ConfigManager.reset_config()
             config = ConfigManager.get_config()
             assert config.flask_debug is expected
@@ -154,6 +157,7 @@ class TestConfigManager:
             "AWS_S3_BUCKET": "test-bucket",
             "AWS_S3_REGION": "us-west2",
         },
+        clear=True,
     )
     def test_config_s3_storage_valid(self):
         ConfigManager.reset_config()
@@ -164,7 +168,7 @@ class TestConfigManager:
         assert config.s3_region == "us-west2"
         # Local directories should not be created for S3 storage
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "s3"})
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "s3"}, clear=True)
     def test_config_s3_missing_bucket(self):
         ConfigManager.reset_config()
         with pytest.raises(ConfigurationError, match="AWS_S3_BUCKET.*required"):
@@ -173,13 +177,14 @@ class TestConfigManager:
     @patch.dict(
         os.environ,
         {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "s3", "AWS_S3_BUCKET": "test-bucket"},
+        clear=True,
     )
     def test_config_s3_missing_region(self):
         ConfigManager.reset_config()
         with pytest.raises(ConfigurationError, match="AWS_S3_REGION.*required"):
             ConfigManager.get_config()
 
-    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"})
+    @patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True)
     def test_config_local_storage_default(self):
         ConfigManager.reset_config()
         config = ConfigManager.get_config()
