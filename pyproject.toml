@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "stable-delusion"
-version = "0.1.2"
+version = "0.1.3"
 description = "Helps you hallucinate by providing an interface for AI generation models (Nano Banana, Seedream 4.0)"
 authors = ["Lene Preuss <lene.preuss@gmail.com>"]
 readme = "README.md"
