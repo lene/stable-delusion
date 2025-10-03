@@ -78,12 +78,15 @@ class TestLocalMetadataRepository:
         # Save metadata
         local_repo.save_metadata(sample_metadata)
 
-        # List by hash prefix
+        # List by hash prefix - should find files with matching content_hash
         hash_prefix = sample_metadata.content_hash[:4]
         matching_files = local_repo.list_metadata_by_hash_prefix(hash_prefix)
 
         assert len(matching_files) >= 1
-        assert any(hash_prefix in str(f) for f in matching_files)
+        # Verify the returned file contains metadata with matching hash
+        for file_path in matching_files:
+            loaded_metadata = local_repo.load_metadata(file_path)
+            assert loaded_metadata.content_hash.startswith(hash_prefix)
 
     def test_load_nonexistent_metadata(self, local_repo):
         with pytest.raises(FileOperationError):
@@ -202,24 +205,45 @@ class TestS3MetadataRepository:
         mock_paginator = MagicMock()
         mock_s3_client.get_paginator.return_value = mock_paginator
 
-        # Mock pages
+        # Create mock metadata objects with different content hashes
+        metadata1 = GenerationMetadata(
+            prompt="test1", images=[], generated_image="", content_hash="abc12345" + "0" * 56
+        )
+        metadata2 = GenerationMetadata(
+            prompt="test2", images=[], generated_image="", content_hash="abc67890" + "0" * 56
+        )
+        metadata3 = GenerationMetadata(
+            prompt="test3", images=[], generated_image="", content_hash="def12345" + "0" * 56
+        )
+
+        # Mock pages with new-style filenames (no hash prefix)
         mock_pages = [
             {
                 "Contents": [
-                    {"Key": "metadata/metadata_abc12345_test1.json"},
-                    {"Key": "metadata/metadata_abc67890_test2.json"},
-                    {"Key": "metadata/metadata_def12345_test3.json"},
+                    {"Key": "metadata/metadata_20250101_120000.json"},
+                    {"Key": "metadata/metadata_20250101_120001.json"},
+                    {"Key": "metadata/metadata_20250101_120002.json"},
                 ]
             }
         ]
         mock_paginator.paginate.return_value = mock_pages
 
-        # List metadata
-        matching_keys = s3_repo.list_metadata_by_hash_prefix("abc")
+        # Mock load_metadata to return appropriate metadata for each file
+        def mock_load(key):
+            if "120000" in key:
+                return metadata1
+            if "120001" in key:
+                return metadata2
+            return metadata3
 
-        # Should find 2 matching keys
-        assert len(matching_keys) == 2
-        assert all("metadata_abc" in key for key in matching_keys)
+        with patch.object(s3_repo, "load_metadata", side_effect=mock_load):
+            # List metadata
+            matching_keys = s3_repo.list_metadata_by_hash_prefix("abc")
+
+            # Should find 2 matching keys (abc12345 and abc67890)
+            assert len(matching_keys) == 2
+            # Verify returned keys are valid metadata files
+            assert all("metadata_" in key and key.endswith(".json") for key in matching_keys)
 
     def test_save_metadata_s3_error(self, s3_repo, mock_s3_client, sample_metadata):
         from botocore.exceptions import ClientError

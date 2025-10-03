@@ -133,9 +133,9 @@ class LocalMetadataRepository(MetadataRepository):
             return None
 
     def _find_potential_metadata_files(self, content_hash: str) -> List[Path]:
-        """Find metadata files with matching hash prefix."""
-        hash_prefix = content_hash[:8]
-        pattern = f"metadata_{hash_prefix}_*.json"
+        """Find all metadata files to check for hash match."""
+        # Since we removed hash_prefix from filename, search all metadata files
+        pattern = "metadata_*.json"
         return list(self.metadata_dir.glob(pattern))
 
     def _verify_content_hash_match(
@@ -167,9 +167,21 @@ class LocalMetadataRepository(MetadataRepository):
             List of file paths matching prefix
         """
         try:
-            pattern = f"metadata_{hash_prefix}*.json"
-            matching_files = list(self.metadata_dir.glob(pattern))
-            return [str(f) for f in matching_files]
+            # Search all metadata files and check their content_hash
+            pattern = "metadata_*.json"
+            all_files = list(self.metadata_dir.glob(pattern))
+            matching_files = []
+
+            for file_path in all_files:
+                try:
+                    metadata = self.load_metadata(str(file_path))
+                    if metadata.content_hash and metadata.content_hash.startswith(hash_prefix):
+                        matching_files.append(str(file_path))
+                except FileOperationError:
+                    # Skip corrupted or inaccessible files
+                    continue
+
+            return matching_files
 
         except (OSError, IOError, PermissionError) as e:
             logging.warning("Error listing metadata by hash prefix: %s", e)

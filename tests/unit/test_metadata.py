@@ -139,15 +139,12 @@ class TestGenerationMetadata:
 
         filename = metadata.get_metadata_filename()
 
-        # Should follow format: metadata_{hash_prefix}_{date}.json
+        # Should follow format: metadata_{date}.json (no hash prefix)
         assert filename.startswith("metadata_")
         assert filename.endswith(".json")
         assert "20240101_123045" in filename
-
-        # Hash prefix should be 8 characters
-        parts = filename.replace(".json", "").split("_")
-        assert len(parts) >= 3  # metadata, hash, date parts (may be split by underscores)
-        assert len(parts[1]) == 8  # hash prefix length
+        # Verify format is metadata_YYYYMMDD_HHMMSS.json
+        assert filename == "metadata_20240101_123045.json"
 
     def test_metadata_filename_with_invalid_timestamp(self):
         metadata = GenerationMetadata(
@@ -162,3 +159,70 @@ class TestGenerationMetadata:
         # Should handle invalid timestamp gracefully
         assert "unknown" in filename
         assert filename.endswith(".json")
+
+    def test_metadata_with_api_details(self):
+        """Test that API request details are properly stored and included in hash."""
+        api_params = {
+            "prompt": "Test prompt",
+            "images": ["image1.jpg"],
+            "model": "test-model",
+            "temperature": 0.7,
+        }
+
+        metadata = GenerationMetadata(
+            prompt="Test prompt",
+            images=["image1.jpg"],
+            generated_image="output.png",
+            api_endpoint="https://api.example.com/v1/generate",
+            api_model="test-model-v1.0",
+            api_params=api_params,
+        )
+
+        assert metadata.api_endpoint == "https://api.example.com/v1/generate"
+        assert metadata.api_model == "test-model-v1.0"
+        assert metadata.api_params == api_params
+        assert metadata.content_hash is not None
+
+    def test_content_hash_includes_api_details(self):
+        """Test that content hash changes when API details change."""
+        metadata1 = GenerationMetadata(
+            prompt="Same prompt",
+            images=["image1.jpg"],
+            generated_image="output.png",
+            api_endpoint="https://api.example.com/v1/generate",
+            api_model="model-v1",
+            api_params={"temperature": 0.5},
+        )
+
+        metadata2 = GenerationMetadata(
+            prompt="Same prompt",
+            images=["image1.jpg"],
+            generated_image="output.png",
+            api_endpoint="https://api.example.com/v1/generate",
+            api_model="model-v1",
+            api_params={"temperature": 0.7},  # Different parameter
+        )
+
+        # Hash should be different because API params differ
+        assert metadata1.content_hash != metadata2.content_hash
+
+    def test_api_details_serialization(self):
+        """Test that API details are preserved through JSON serialization."""
+        api_params = {"model": "test-model", "temperature": 0.8, "max_tokens": 100}
+
+        original = GenerationMetadata(
+            prompt="Test",
+            images=["image.jpg"],
+            generated_image="output.png",
+            api_endpoint="https://api.test.com/generate",
+            api_model="test-model-v2",
+            api_params=api_params,
+        )
+
+        # Serialize and deserialize
+        json_str = original.to_json()
+        restored = GenerationMetadata.from_json(json_str)
+
+        assert restored.api_endpoint == original.api_endpoint
+        assert restored.api_model == original.api_model
+        assert restored.api_params == original.api_params

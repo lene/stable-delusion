@@ -319,3 +319,84 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
             service_with_s3_repo.image_repository.save_image.assert_called_once()
             # Verify response contains S3 path
             assert "s3" in str(response.image_config.generated_file).lower()
+
+    @patch("stable_delusion.config.ConfigManager.get_config")
+    def test_metadata_creation_for_seedream(self, mock_config, service_with_s3_repo):
+        """Test that Seedream service creates metadata with API details."""
+        mock_config.return_value.default_output_dir = Path("/tmp")
+        mock_config.return_value.storage_type = "s3"
+
+        request = GenerateImageRequest(
+            prompt="Test prompt",
+            images=[Path("/tmp/input.jpg")],
+            model="seedream",
+            storage_type="s3",
+            image_size="4K",  # Use image_size for Seedream (not scale)
+        )
+
+        # Create metadata
+        metadata = service_with_s3_repo._create_generation_metadata(request)
+
+        # Verify basic fields
+        assert metadata.prompt == "Test prompt"
+        assert metadata.scale is None  # Seedream doesn't use scale
+        assert metadata.model == service_with_s3_repo.client.model
+
+        # Verify API details are populated
+        assert (
+            metadata.api_endpoint == "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+        )
+        assert metadata.api_model == service_with_s3_repo.client.model
+        assert metadata.api_params is not None
+        assert metadata.api_params["prompt"] == "Test prompt"
+        assert metadata.api_params["size"] == "4K"
+        assert metadata.api_params["model"] == service_with_s3_repo.client.model
+
+    @patch("stable_delusion.config.ConfigManager.get_config")
+    def test_metadata_saved_after_generation(self, mock_config, service_with_s3_repo):
+        """Test that metadata is saved after successful image generation."""
+        mock_config.return_value.default_output_dir = Path("/tmp")
+        mock_config.return_value.storage_type = "s3"
+
+        # Mock metadata repository
+        mock_metadata_repo = Mock()
+        service_with_s3_repo.metadata_repository = mock_metadata_repo
+
+        service_with_s3_repo.client.generate_and_save.return_value = Path(
+            "/tmp/generated_image.png"
+        )
+
+        request = GenerateImageRequest(
+            prompt="Test prompt",
+            images=[],
+            model="seedream",
+            storage_type="s3",
+        )
+
+        with patch.object(service_with_s3_repo, "_upload_generated_image_to_s3") as mock_upload:
+            mock_upload.return_value = Path("https://bucket.s3.region.amazonaws.com/image.png")
+            service_with_s3_repo.generate_image(request)
+
+        # Verify metadata was saved
+        mock_metadata_repo.save_metadata.assert_called_once()
+        saved_metadata = mock_metadata_repo.save_metadata.call_args[0][0]
+        assert saved_metadata.prompt == "Test prompt"
+        # Path object may normalize URL, so check that it contains the key parts
+        assert "bucket.s3.region.amazonaws.com/image.png" in saved_metadata.generated_image
+
+    @patch("stable_delusion.config.ConfigManager.get_config")
+    def test_metadata_not_saved_when_no_repository(self, mock_config, service_no_repo):
+        """Test that metadata saving is skipped when no repository is configured."""
+        mock_config.return_value.default_output_dir = Path("/tmp")
+
+        service_no_repo.client.generate_and_save.return_value = Path("/tmp/generated_image.png")
+
+        request = GenerateImageRequest(
+            prompt="Test prompt",
+            images=[],
+            model="seedream",
+        )
+
+        # Should not raise an error even without metadata repository
+        response = service_no_repo.generate_image(request)
+        assert response is not None

@@ -25,6 +25,10 @@ class GenerationMetadata:
     model: Optional[str] = None
     timestamp: Optional[str] = None
     content_hash: Optional[str] = None
+    # API request details for reproducibility
+    api_endpoint: Optional[str] = None  # Full API endpoint URL
+    api_model: Optional[str] = None  # Specific model/version used by API
+    api_params: Optional[Dict[str, Any]] = None  # All API parameters used
 
     def __post_init__(self):
         if self.timestamp is None:
@@ -41,6 +45,9 @@ class GenerationMetadata:
             "gcp_location": self.gcp_location,
             "scale": self.scale,
             "model": self.model,
+            "api_endpoint": self.api_endpoint,
+            "api_model": self.api_model,
+            "api_params": self.api_params,
         }
 
         # Convert to JSON string with sorted keys for consistency
@@ -74,7 +81,4 @@ class GenerationMetadata:
         else:
             date_str = "unknown"
 
-        # Use first 8 characters of hash for brevity
-        hash_prefix = self.content_hash[:8] if self.content_hash else "nohash"
-
-        return f"metadata_{hash_prefix}_{date_str}.json"
+        return f"metadata_{date_str}.json"

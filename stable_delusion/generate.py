@@ -14,7 +14,7 @@ import sys
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Any, Tuple, TYPE_CHECKING
+from typing import List, Optional, Any, Dict, Tuple, TYPE_CHECKING
 
 # Coloredlogs handled in setup_logging() from utils
 
@@ -397,6 +397,25 @@ class GeminiClient:
         self, prompt_text: str, image_paths: List[Path], scale: Optional[int]
     ) -> GenerationMetadata:
         image_urls = [str(path) for path in image_paths]  # Convert to strings for hashing
+
+        # Construct API endpoint URL for Vertex AI Gemini
+        api_endpoint = (
+            f"https://{self.location}-aiplatform.googleapis.com/v1/"
+            f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/"
+            f"{DEFAULT_GEMINI_MODEL}:generateContent"
+        )
+
+        # Capture all API parameters for reproducibility
+        api_params: Dict[str, Any] = {
+            "contents": {
+                "prompt": prompt_text,
+                "images": image_urls,
+            },
+            "generation_config": {},
+        }
+        if scale:
+            api_params["generation_config"]["scale"] = scale  # type: ignore[index]
+
         return GenerationMetadata(
             prompt=prompt_text,
             images=image_urls,
@@ -405,6 +424,9 @@ class GeminiClient:
             gcp_location=self.location,
             scale=scale,
             model=DEFAULT_GEMINI_MODEL,
+            api_endpoint=api_endpoint,
+            api_model=DEFAULT_GEMINI_MODEL,
+            api_params=api_params,
         )
 
     def _check_existing_generation(self, metadata: GenerationMetadata) -> Optional[Path]:

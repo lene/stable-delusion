@@ -176,11 +176,10 @@ class S3MetadataRepository(MetadataRepository):
         self, response: "ListObjectsV2OutputTypeDef", content_hash: str
     ) -> Optional[str]:
         """Find metadata key with matching content hash."""
-        hash_prefix = content_hash[:8]
-
+        # Since we removed hash_prefix from filename, check all metadata files
         for obj in response["Contents"]:
             key = obj["Key"]
-            if f"metadata_{hash_prefix}" in key:
+            if "metadata_" in key and key.endswith(".json"):
                 if self._verify_metadata_hash_match(key, content_hash):
                     return key
 
@@ -229,11 +228,17 @@ class S3MetadataRepository(MetadataRepository):
     ) -> List[str]:
         """Extract keys matching hash prefix from a single page."""
         matching_keys = []
-        target_pattern = f"metadata_{hash_prefix}"
 
+        # Since we removed hash_prefix from filename, check content_hash in each file
         for obj in page["Contents"]:
             key = obj["Key"]
-            if target_pattern in key:
-                matching_keys.append(key)
+            if "metadata_" in key and key.endswith(".json"):
+                try:
+                    metadata = self.load_metadata(key)
+                    if metadata.content_hash and metadata.content_hash.startswith(hash_prefix):
+                        matching_keys.append(key)
+                except FileOperationError:
+                    # Skip corrupted or inaccessible files
+                    continue
 
         return matching_keys

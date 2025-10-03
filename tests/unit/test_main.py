@@ -417,10 +417,18 @@ class TestFlaskAppConfiguration:
     """Test cases for Flask app configuration and setup."""
 
     def test_app_configuration(self):
+        # Initialize config to set UPLOAD_FOLDER
+        from stable_delusion.main import get_config
+
+        get_config()
         assert app.config["UPLOAD_FOLDER"] is not None
         assert isinstance(app.config["UPLOAD_FOLDER"], Path)
 
     def test_upload_folder_exists(self):
+        # Initialize config to set UPLOAD_FOLDER
+        from stable_delusion.main import get_config
+
+        get_config()
         assert app.config["UPLOAD_FOLDER"].exists()
 
     def test_flask_app_debug_mode(self):

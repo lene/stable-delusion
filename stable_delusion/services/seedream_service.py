@@ -13,20 +13,25 @@ from stable_delusion.config import ConfigManager
 from stable_delusion.models.requests import GenerateImageRequest
 from stable_delusion.models.responses import GenerateImageResponse
 from stable_delusion.models.client_config import GCPConfig, ImageGenerationConfig
-from stable_delusion.repositories.interfaces import ImageRepository
+from stable_delusion.models.metadata import GenerationMetadata
+from stable_delusion.repositories.interfaces import ImageRepository, MetadataRepository
 from stable_delusion.services.interfaces import ImageGenerationService
 from stable_delusion.seedream import SeedreamClient
-from stable_delusion.exceptions import ConfigurationError
+from stable_delusion.exceptions import ConfigurationError, FileOperationError
 
 
 class SeedreamImageGenerationService(ImageGenerationService):
     """Concrete implementation of image generation using Seedream 4.0."""
 
     def __init__(
-        self, seedream_client: SeedreamClient, image_repository: Optional[ImageRepository] = None
+        self,
+        seedream_client: SeedreamClient,
+        image_repository: Optional[ImageRepository] = None,
+        metadata_repository: Optional[MetadataRepository] = None,
     ) -> None:
         self.client = seedream_client
         self.image_repository = image_repository
+        self.metadata_repository = metadata_repository
 
     @classmethod
     def create(
@@ -34,6 +39,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
         api_key: Optional[str] = None,
         output_dir: Optional[Path] = None,
         image_repository: Optional[ImageRepository] = None,
+        metadata_repository: Optional[MetadataRepository] = None,
     ) -> "SeedreamImageGenerationService":
         logging.debug("Creating SeedreamImageGenerationService with output dir: %s", output_dir)
 
@@ -47,7 +53,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
             raise ConfigurationError(
                 f"Failed to create Seedream client: {str(e)}", config_key="SEEDREAM_API_KEY"
             ) from e
-        return cls(client, image_repository)
+        return cls(client, image_repository, metadata_repository)
 
     def _log_generation_request(
         self, request: GenerateImageRequest, effective_output_dir: Path
@@ -72,10 +78,58 @@ class SeedreamImageGenerationService(ImageGenerationService):
             gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
         )
 
+    def _create_generation_metadata(self, request: GenerateImageRequest) -> GenerationMetadata:
+        # Convert image paths to URLs (S3 URLs if uploaded, local paths otherwise)
+        image_urls = [str(path) for path in request.images]
+
+        # Seedream API endpoint (BytePlus Ark API)
+        api_endpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+
+        # Capture all API parameters for reproducibility
+        api_params = {
+            "model": self.client.model,
+            "prompt": request.prompt,
+            "size": request.image_size or "2K",
+            "sequential_image_generation": "disabled",
+            "response_format": "url",
+            "watermark": False,
+        }
+        if request.images:
+            api_params["image"] = image_urls
+
+        return GenerationMetadata(
+            prompt=request.prompt,
+            images=image_urls,
+            generated_image="",  # Will be set after generation
+            gcp_project_id=None,  # Seedream doesn't use GCP
+            gcp_location=None,
+            scale=request.scale,
+            model=self.client.model,
+            api_endpoint=api_endpoint,
+            api_model=self.client.model,
+            api_params=api_params,
+        )
+
+    def _save_generation_metadata(
+        self, metadata: GenerationMetadata, generated_image_path: Optional[Path]
+    ) -> None:
+        if not self.metadata_repository or not generated_image_path:
+            return
+
+        metadata.generated_image = str(generated_image_path)
+        try:
+            metadata_key = self.metadata_repository.save_metadata(metadata)
+            logging.info("Saved generation metadata: %s", metadata_key)
+        except FileOperationError as e:
+            logging.warning("Failed to save metadata: %s", e)
+
     def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
         config = ConfigManager.get_config()
         effective_output_dir = request.output_dir or config.default_output_dir
         self._log_generation_request(request, effective_output_dir)
+
+        # Create metadata for tracking
+        metadata = self._create_generation_metadata(request)
 
         try:
             # Handle image uploads to S3 if images are provided
@@ -105,6 +159,9 @@ class SeedreamImageGenerationService(ImageGenerationService):
 
             # Upload generated image to S3 if using S3 storage
             final_path = self._upload_generated_image_to_s3(generated_file, config)
+
+            # Save metadata after successful generation
+            self._save_generation_metadata(metadata, final_path)
 
             return self._create_generation_response(request, final_path)
 

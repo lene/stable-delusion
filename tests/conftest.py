@@ -570,8 +570,10 @@ def mock_s3_client():
 @pytest.fixture
 def mock_seedream_client():
     from stable_delusion.seedream import SeedreamClient
+    from stable_delusion.config import DEFAULT_SEEDREAM_MODEL
 
     mock_client = MagicMock(spec=SeedreamClient)
+    mock_client.model = DEFAULT_SEEDREAM_MODEL
 
     # Mock successful API response
     mock_client.generate_image.return_value = [
