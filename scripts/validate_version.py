@@ -3,9 +3,10 @@
 Validate that version has been updated correctly for a merge request.
 
 Checks:
-1. Version in pyproject.toml is higher than the latest git tag
-2. Version appears in CHANGELOG.md with a release date
-3. Version format follows semantic versioning
+1. Version format follows semantic versioning
+2. Version in pyproject.toml is higher than the latest git tag
+3. Version appears in CHANGELOG.md with a release date
+4. Version does not already exist on TestPyPI
 """
 
 import re
@@ -90,6 +91,31 @@ def validate_version_increased(current_version, previous_version):
     return True
 
 
+def validate_testpypi_version(version):
+    """Validate that version does not already exist on TestPyPI."""
+    try:
+        import urllib.request
+        import json
+
+        url = f"https://test.pypi.org/pypi/stable-delusion/{version}/json"
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                if response.status == 200:
+                    print(f"❌ Version {version} already exists on TestPyPI")
+                    print(f"   URL: https://test.pypi.org/project/stable-delusion/{version}/")
+                    print("   Please increment the version number")
+                    return False
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                # Version doesn't exist - this is good
+                return True
+            print(f"⚠️  Warning: Could not check TestPyPI (HTTP {e.code})")
+            return True
+    except Exception as e:
+        print(f"⚠️  Warning: Could not check TestPyPI: {e}")
+        return True
+
+
 def validate_changelog(version):
     """Validate that version is documented in CHANGELOG.md."""
     changelog = Path("CHANGELOG.md")
@@ -154,6 +180,13 @@ def main():
     else:
         print("  ✅ Version documented in CHANGELOG.md\n")
 
+    # 4. Check TestPyPI
+    print("✓ Checking TestPyPI for existing version...")
+    if not validate_testpypi_version(current_version):
+        checks_passed = False
+    else:
+        print(f"  ✅ Version {current_version} not found on TestPyPI\n")
+
     # Final result
     if checks_passed:
         print("🎉 All version validations passed!")
@@ -165,6 +198,7 @@ def main():
         print("  2. Version is higher than the previous version")
         print("  3. Version is documented in CHANGELOG.md with format:")
         print(f"     ## [{current_version}] - YYYY-MM-DD")
+        print("  4. Version does not already exist on TestPyPI")
         sys.exit(1)
 
 

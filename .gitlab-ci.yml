@@ -191,3 +191,22 @@ deploy_pypi:
   environment:
     name: production
     url: https://pypi.org/project/stable-delusion/
+
+# Create Git Tag - tag the release after successful PyPI deployment
+create_release_tag:
+  stage: publish
+  script:
+    - echo "🏷️ Creating release tag..."
+    - VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+    - echo "📦 Version $VERSION"
+    - git config user.name "GitLab CI"
+    - git config user.email "ci@gitlab.com"
+    - git remote set-url origin https://oauth2:${CI_PUSH_TOKEN}@gitlab.com/${CI_PROJECT_PATH}.git
+    - git tag -a "v${VERSION}" -m "Release version ${VERSION} [skip ci]"
+    - git push origin "v${VERSION}"
+    - echo "✅ Tag v${VERSION} created and pushed successfully!"
+  only:
+    - main
+  when: on_success
+  needs:
+    - deploy_pypi
