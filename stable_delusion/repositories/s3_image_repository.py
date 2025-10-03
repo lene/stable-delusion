@@ -60,9 +60,33 @@ class S3ImageRepository(ImageRepository):
             result_path = Path(result_str)
         return result_path
 
+    def file_exists(self, file_path: Path) -> bool:
+        try:
+            from botocore.exceptions import ClientError
+
+            s3_key = generate_s3_key(str(file_path), self.key_prefix)
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+            logging.debug("File exists in S3: %s", s3_key)
+            return True
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "404":
+                logging.debug("File does not exist in S3: %s", s3_key)
+                return False
+            logging.warning("Error checking file existence in S3: %s", e)
+            return False
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logging.warning("Error checking file existence in S3: %s", e)
+            return False
+
     def save_image(self, image: Image.Image, file_path: Path) -> Path:
         try:
             s3_key = generate_s3_key(str(file_path), self.key_prefix)
+
+            # Check if file already exists in S3
+            if self.file_exists(file_path):
+                logging.info("File already exists in S3, skipping upload: %s", s3_key)
+                return self._build_result_path(s3_key)
+
             image_bytes = self._convert_image_to_bytes(image, file_path)
             file_format = self._get_image_format(file_path)
             self._upload_to_s3(s3_key, image_bytes, file_format, file_path)

@@ -84,8 +84,10 @@ class TestS3ImageRepository:
     def test_save_image_success(self, s3_image_repo, test_image):
         file_path = Path("test_image.png")
 
-        # Execute
-        result = s3_image_repo.save_image(test_image, file_path)
+        # Mock file_exists to return False so upload happens
+        with patch.object(s3_image_repo, "file_exists", return_value=False):
+            # Execute
+            result = s3_image_repo.save_image(test_image, file_path)
 
         # Verify S3 upload was called
         s3_image_repo.s3_client.put_object.assert_called_once()
@@ -118,15 +120,19 @@ class TestS3ImageRepository:
     def test_save_image_content_types(
         self, s3_image_repo, test_image, file_path, expected_content_type
     ):
-        s3_image_repo.save_image(test_image, file_path)
+        # Mock file_exists to return False so upload happens
+        with patch.object(s3_image_repo, "file_exists", return_value=False):
+            s3_image_repo.save_image(test_image, file_path)
         call_args = s3_image_repo.s3_client.put_object.call_args
         assert call_args[1]["ContentType"] == expected_content_type
 
     def test_save_image_failure(self, s3_image_repo, test_image):
         s3_image_repo.s3_client.put_object.side_effect = Exception("S3 error")
 
-        with pytest.raises(FileOperationError, match="Failed to save image to S3"):
-            s3_image_repo.save_image(test_image, Path("test.png"))
+        # Mock file_exists to return False so upload is attempted
+        with patch.object(s3_image_repo, "file_exists", return_value=False):
+            with pytest.raises(FileOperationError, match="Failed to save image to S3"):
+                s3_image_repo.save_image(test_image, Path("test.png"))
 
     def test_load_image_success(self, s3_image_repo):
         # Create mock image data

@@ -70,11 +70,13 @@ class TestS3ImageRepositoryURL:
     def test_save_image_without_acl(self, s3_repository, mock_image, mock_s3_client):
         file_path = Path("test_image.jpg")
 
-        with patch(
-            "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
-        ):
-            s3_repository.save_image(mock_image, file_path)
+        # Mock file_exists to return False so upload happens
+        with patch.object(s3_repository, "file_exists", return_value=False):
+            with patch(
+                "stable_delusion.repositories.s3_client.generate_s3_key",
+                return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            ):
+                s3_repository.save_image(mock_image, file_path)
 
         # Verify put_object was called without ACL parameter
         put_object_call = mock_s3_client.put_object.call_args
@@ -153,11 +155,13 @@ class TestS3ImageRepositoryURL:
         for filename, expected_format, expected_content_type in test_cases:
             file_path = Path(filename)
 
-            with patch(
-                "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value=f"output/gemini/{filename}",  # noqa: E501  # pylint: disable=line-too-long
-            ):
-                s3_repository.save_image(mock_image, file_path)
+            # Mock file_exists to return False so upload happens
+            with patch.object(s3_repository, "file_exists", return_value=False):
+                with patch(
+                    "stable_delusion.repositories.s3_client.generate_s3_key",
+                    return_value=f"output/gemini/{filename}",  # noqa: E501  # pylint: disable=line-too-long
+                ):
+                    s3_repository.save_image(mock_image, file_path)
 
             # Check that save was called with correct format
             mock_image.save.assert_called()
@@ -171,11 +175,13 @@ class TestS3ImageRepositoryURL:
     def test_metadata_included_in_upload(self, s3_repository, mock_image, mock_s3_client):
         file_path = Path("test_image.jpg")
 
-        with patch(
-            "stable_delusion.repositories.s3_client.generate_s3_key",
-            return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
-        ):
-            s3_repository.save_image(mock_image, file_path)
+        # Mock file_exists to return False so upload happens
+        with patch.object(s3_repository, "file_exists", return_value=False):
+            with patch(
+                "stable_delusion.repositories.s3_client.generate_s3_key",
+                return_value="output/gemini/test_image.jpg",  # noqa: E501  # pylint: disable=line-too-long
+            ):
+                s3_repository.save_image(mock_image, file_path)
 
         put_object_call = mock_s3_client.put_object.call_args
         metadata = put_object_call[1]["Metadata"]
@@ -186,12 +192,14 @@ class TestS3ImageRepositoryURL:
     def test_s3_upload_error_handling(self, s3_repository, mock_image, mock_s3_client):
         mock_s3_client.put_object.side_effect = Exception("S3 upload failed")
 
-        with pytest.raises(FileOperationError) as exc_info:
-            with patch(
-                "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
-            ):
-                s3_repository.save_image(mock_image, Path("test.jpg"))
+        # Mock file_exists to return False so upload is attempted
+        with patch.object(s3_repository, "file_exists", return_value=False):
+            with pytest.raises(FileOperationError) as exc_info:
+                with patch(
+                    "stable_delusion.repositories.s3_client.generate_s3_key",
+                    return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+                ):
+                    s3_repository.save_image(mock_image, Path("test.jpg"))
 
         assert "Failed to save image to S3" in str(exc_info.value)
         assert "S3 upload failed" in str(exc_info.value)
@@ -201,12 +209,14 @@ class TestS3ImageRepositoryURL:
         mock_image = Mock(spec=Image.Image)
         mock_image.save.side_effect = Exception("Image save failed")
 
-        with pytest.raises(FileOperationError) as exc_info:
-            with patch(
-                "stable_delusion.repositories.s3_client.generate_s3_key",
-                return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
-            ):
-                s3_repository.save_image(mock_image, Path("test.jpg"))
+        # Mock file_exists to return False so upload is attempted
+        with patch.object(s3_repository, "file_exists", return_value=False):
+            with pytest.raises(FileOperationError) as exc_info:
+                with patch(
+                    "stable_delusion.repositories.s3_client.generate_s3_key",
+                    return_value="output/gemini/test.jpg",  # noqa: E501  # pylint: disable=line-too-long
+                ):
+                    s3_repository.save_image(mock_image, Path("test.jpg"))
 
         assert "Failed to save image to S3" in str(exc_info.value)
         assert "Image save failed" in str(exc_info.value)
@@ -293,3 +303,104 @@ class TestS3ImageRepositoryURL:
             s3_repository.load_image(Path(wrong_bucket_url))
 
         assert "S3 bucket mismatch" in str(exc_info.value)
+
+    def test_file_exists_returns_true_when_file_exists(self, s3_repository, mock_s3_client):
+        """Test file_exists returns True when file exists in S3."""
+        file_path = Path("test_image.jpg")
+
+        # Mock head_object to succeed (file exists)
+        mock_s3_client.head_object.return_value = {"ContentLength": 12345}
+
+        with patch(
+            "stable_delusion.repositories.s3_client.generate_s3_key",
+            return_value="output/gemini/test_image.jpg",
+        ):
+            result = s3_repository.file_exists(file_path)
+
+        assert result is True
+        mock_s3_client.head_object.assert_called_once_with(
+            Bucket="test-bucket", Key="output/gemini/test_image.jpg"
+        )
+
+    def test_file_exists_returns_false_when_file_not_found(self, s3_repository, mock_s3_client):
+        """Test file_exists returns False when file doesn't exist in S3."""
+        from botocore.exceptions import ClientError
+
+        file_path = Path("nonexistent.jpg")
+
+        # Mock 404 ClientError
+        error_response = {"Error": {"Code": "404"}}
+        mock_s3_client.head_object.side_effect = ClientError(error_response, "HeadObject")
+
+        with patch(
+            "stable_delusion.repositories.s3_client.generate_s3_key",
+            return_value="output/gemini/nonexistent.jpg",
+        ):
+            result = s3_repository.file_exists(file_path)
+
+        assert result is False
+
+    def test_file_exists_returns_false_on_error(self, s3_repository, mock_s3_client):
+        """Test file_exists returns False on unexpected errors."""
+        file_path = Path("test.jpg")
+
+        # Mock unexpected error
+        mock_s3_client.head_object.side_effect = Exception("Unexpected S3 error")
+
+        with patch(
+            "stable_delusion.repositories.s3_client.generate_s3_key",
+            return_value="output/gemini/test.jpg",
+        ):
+            result = s3_repository.file_exists(file_path)
+
+        assert result is False
+
+    def test_save_image_skips_upload_if_file_exists(
+        self, s3_repository, mock_image, mock_s3_client
+    ):
+        """Test save_image skips upload when file already exists in S3."""
+        file_path = Path("existing_image.jpg")
+
+        # Mock file_exists to return True
+        with patch.object(s3_repository, "file_exists", return_value=True):
+            with patch(
+                "stable_delusion.repositories.s3_client.generate_s3_key",
+                return_value="output/gemini/existing_image.jpg",
+            ):
+                result = s3_repository.save_image(mock_image, file_path)
+
+        # Should return S3 URL without uploading
+        result_str = str(result)
+        assert (
+            "test-bucket.s3.us-east-1.amazonaws.com/output/gemini/existing_image.jpg" in result_str
+        )
+
+        # Verify put_object was NOT called (no upload)
+        mock_s3_client.put_object.assert_not_called()
+
+        # Verify save was NOT called on the image (no conversion)
+        mock_image.save.assert_not_called()
+
+    def test_save_image_uploads_if_file_does_not_exist(
+        self, s3_repository, mock_image, mock_s3_client
+    ):
+        """Test save_image uploads when file doesn't exist in S3."""
+        file_path = Path("new_image.jpg")
+
+        # Mock file_exists to return False
+        with patch.object(s3_repository, "file_exists", return_value=False):
+            with patch(
+                "stable_delusion.repositories.s3_client.generate_s3_key",
+                return_value="output/gemini/new_image.jpg",
+            ):
+                result = s3_repository.save_image(mock_image, file_path)
+
+        # Should return S3 URL after uploading
+        result_str = str(result)
+        assert "test-bucket.s3.us-east-1.amazonaws.com/output/gemini/new_image.jpg" in result_str
+
+        # Verify put_object WAS called (upload happened)
+        mock_s3_client.put_object.assert_called_once()
+
+        # Verify save WAS called on the image (conversion happened)
+        mock_image.save.assert_called()
