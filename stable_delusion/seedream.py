@@ -17,36 +17,41 @@ from stable_delusion.exceptions import ImageGenerationError, AuthenticationError
 from stable_delusion.utils import generate_timestamped_filename
 
 
-def _is_valid_url(url_string: str) -> bool:
-    # Fix Path normalization
+def _normalize_url_protocol(url_string: str) -> str:
     if url_string.startswith("https:/") and not url_string.startswith("https://"):
-        url_string = url_string.replace("https:/", "https://", 1)
-    elif url_string.startswith("http:/") and not url_string.startswith("http://"):
-        url_string = url_string.replace("http:/", "http://", 1)
+        return url_string.replace("https:/", "https://", 1)
+    if url_string.startswith("http:/") and not url_string.startswith("http://"):
+        return url_string.replace("http:/", "http://", 1)
+    return url_string
 
-    # Basic validation - must start with http/https and have more content
+
+def _has_valid_url_format(url_string: str) -> bool:
     if not url_string.startswith(("http://", "https://")):
         return False
-
-    # Must have more than just the protocol
     if url_string in ("http://", "https://"):
         return False
+    return True
 
-    # Must have at least a domain part
+
+def _has_valid_domain(url_string: str) -> bool:
     try:
-        # Remove protocol and check if there's a valid domain
         without_protocol = url_string.split("://", 1)[1]
         if not without_protocol or without_protocol.startswith("/"):
             return False
 
-        # Basic domain validation - must have at least one dot or be localhost
         domain_part = without_protocol.split("/")[0]
         if not domain_part or ("." not in domain_part and domain_part != "localhost"):
             return False
-
         return True
     except (IndexError, AttributeError):
         return False
+
+
+def _is_valid_url(url_string: str) -> bool:
+    url_string = _normalize_url_protocol(url_string)
+    if not _has_valid_url_format(url_string):
+        return False
+    return _has_valid_domain(url_string)
 
 
 class SeedreamClient:

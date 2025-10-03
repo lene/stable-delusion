@@ -16,7 +16,7 @@ from stable_delusion.config import Config
 from stable_delusion.exceptions import FileOperationError, ValidationError
 
 
-class TestS3ImageRepositoryURL:
+class TestS3ImageRepositoryURL:  # pylint: disable=too-many-public-methods
     """Test S3ImageRepository URL handling functionality."""
 
     @pytest.fixture
@@ -358,11 +358,13 @@ class TestS3ImageRepositoryURL:
     def test_save_image_skips_upload_if_file_exists(
         self, s3_repository, mock_image, mock_s3_client
     ):
-        """Test save_image skips upload when file already exists in S3."""
+        """Test save_image skips upload when file with same hash already exists in S3."""
         file_path = Path("existing_image.jpg")
 
-        # Mock file_exists to return True
-        with patch.object(s3_repository, "file_exists", return_value=True):
+        # Mock _find_file_by_hash to return an existing key
+        with patch.object(
+            s3_repository, "_find_file_by_hash", return_value="output/gemini/existing_image.jpg"
+        ):
             with patch(
                 "stable_delusion.repositories.s3_client.generate_s3_key",
                 return_value="output/gemini/existing_image.jpg",
@@ -378,8 +380,8 @@ class TestS3ImageRepositoryURL:
         # Verify put_object was NOT called (no upload)
         mock_s3_client.put_object.assert_not_called()
 
-        # Verify save was NOT called on the image (no conversion)
-        mock_image.save.assert_not_called()
+        # Verify save WAS called to compute the hash but upload was skipped
+        mock_image.save.assert_called_once()
 
     def test_save_image_uploads_if_file_does_not_exist(
         self, s3_repository, mock_image, mock_s3_client

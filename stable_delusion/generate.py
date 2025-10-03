@@ -393,19 +393,16 @@ class GeminiClient:
         # Initialize the Vertex AI client
         aiplatform.init(project=self.project_id, location=self.location)
 
-    def _create_generation_metadata(
-        self, prompt_text: str, image_paths: List[Path], scale: Optional[int]
-    ) -> GenerationMetadata:
-        image_urls = [str(path) for path in image_paths]  # Convert to strings for hashing
-
-        # Construct API endpoint URL for Vertex AI Gemini
-        api_endpoint = (
+    def _build_gemini_api_endpoint(self) -> str:
+        return (
             f"https://{self.location}-aiplatform.googleapis.com/v1/"
             f"projects/{self.project_id}/locations/{self.location}/publishers/google/models/"
             f"{DEFAULT_GEMINI_MODEL}:generateContent"
         )
 
-        # Capture all API parameters for reproducibility
+    def _build_gemini_api_params(
+        self, prompt_text: str, image_urls: List[str], scale: Optional[int]
+    ) -> Dict[str, Any]:
         api_params: Dict[str, Any] = {
             "contents": {
                 "prompt": prompt_text,
@@ -415,11 +412,19 @@ class GeminiClient:
         }
         if scale:
             api_params["generation_config"]["scale"] = scale  # type: ignore[index]
+        return api_params
+
+    def _create_generation_metadata(
+        self, prompt_text: str, image_paths: List[Path], scale: Optional[int]
+    ) -> GenerationMetadata:
+        image_urls = [str(path) for path in image_paths]
+        api_endpoint = self._build_gemini_api_endpoint()
+        api_params = self._build_gemini_api_params(prompt_text, image_urls, scale)
 
         return GenerationMetadata(
             prompt=prompt_text,
             images=image_urls,
-            generated_image="",  # Will be set after generation
+            generated_image="",
             gcp_project_id=self.project_id,
             gcp_location=self.location,
             scale=scale,

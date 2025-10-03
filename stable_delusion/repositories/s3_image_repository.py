@@ -8,14 +8,20 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 import io
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PIL import Image
 
 from stable_delusion.config import Config
 from stable_delusion.exceptions import FileOperationError, ValidationError
 from stable_delusion.repositories.interfaces import ImageRepository
-from stable_delusion.repositories.s3_client import S3ClientManager, generate_s3_key, build_s3_url
+from stable_delusion.repositories.s3_client import (
+    S3ClientManager,
+    generate_s3_key,
+    build_s3_url,
+    build_s3_hash_cache,
+)
+from stable_delusion.utils import calculate_file_sha256
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -31,6 +37,7 @@ class S3ImageRepository(ImageRepository):
         self.bucket_name: str = config.s3_bucket  # type: ignore[assignment]
         self.model = model
         self.key_prefix = f"output/{model}/"
+        self._s3_hash_cache: Optional[dict] = None  # Cache for SHA-256 -> S3 key mappings
 
     def _convert_image_to_bytes(self, image: Image.Image, file_path: Path) -> bytes:
         image_buffer = io.BytesIO()
@@ -38,20 +45,23 @@ class S3ImageRepository(ImageRepository):
         image.save(image_buffer, format=file_format)
         return image_buffer.getvalue()
 
-    def _upload_to_s3(
-        self, s3_key: str, image_bytes: bytes, file_format: str, file_path: Path
+    def _upload_to_s3(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, s3_key: str, image_bytes: bytes, file_format: str, file_path: Path, file_hash: str
     ) -> None:
         self.s3_client.put_object(
             Bucket=self.bucket_name,
             Key=s3_key,
             Body=image_bytes,
             ContentType=f"image/{file_format.lower()}",
-            Metadata={"original_filename": file_path.name, "uploaded_by": "stable-delusion"},
+            Metadata={
+                "original_filename": file_path.name,
+                "uploaded_by": "stable-delusion",
+                "sha256": file_hash,
+            },
         )
 
     def _build_result_path(self, s3_key: str) -> Path:
         https_url = f"https://{self.bucket_name}.s3.{self.config.s3_region}.amazonaws.com/{s3_key}"
-        logging.debug("Image saved to S3: %s", https_url)
         result_path = Path(https_url)
         # Fix URL normalization issue with Path objects
         result_str = str(result_path)
@@ -59,6 +69,17 @@ class S3ImageRepository(ImageRepository):
             result_str = result_str.replace("https:/", "https://", 1)
             result_path = Path(result_str)
         return result_path
+
+    def _find_file_by_hash(self, file_hash: str) -> Optional[str]:
+        """Find S3 file with matching hash using cached hash map."""
+        # Build cache if not already built
+        if self._s3_hash_cache is None:
+            self._s3_hash_cache = build_s3_hash_cache(
+                self.s3_client, self.bucket_name, self.key_prefix
+            )
+
+        # O(1) lookup in cache
+        return self._s3_hash_cache.get(file_hash)
 
     def file_exists(self, file_path: Path) -> bool:
         try:
@@ -81,16 +102,21 @@ class S3ImageRepository(ImageRepository):
     def save_image(self, image: Image.Image, file_path: Path) -> Path:
         try:
             s3_key = generate_s3_key(str(file_path), self.key_prefix)
-
-            # Check if file already exists in S3
-            if self.file_exists(file_path):
-                logging.info("File already exists in S3, skipping upload: %s", s3_key)
-                return self._build_result_path(s3_key)
-
             image_bytes = self._convert_image_to_bytes(image, file_path)
+            file_hash = calculate_file_sha256(image_bytes)
+            existing_key = self._find_file_by_hash(file_hash)
+            if existing_key:
+                existing_url = self._build_result_path(existing_key)
+                logging.info(
+                    "Skipping upload - file with same content already exists in S3: %s",
+                    existing_url,
+                )
+                return existing_url
             file_format = self._get_image_format(file_path)
-            self._upload_to_s3(s3_key, image_bytes, file_format, file_path)
-            return self._build_result_path(s3_key)
+            self._upload_to_s3(s3_key, image_bytes, file_format, file_path, file_hash)
+            result_path = self._build_result_path(s3_key)
+            logging.info("Uploaded to S3: %s", result_path)
+            return result_path
         except Exception as e:
             raise FileOperationError(
                 f"Failed to save image to S3: {str(e)}",

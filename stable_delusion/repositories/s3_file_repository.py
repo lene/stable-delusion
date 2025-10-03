@@ -22,7 +22,7 @@ from stable_delusion.repositories.s3_client import (
     build_s3_url,
     parse_s3_url,
 )
-from stable_delusion.utils import get_current_timestamp
+from stable_delusion.utils import get_current_timestamp, calculate_file_sha256
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -239,47 +239,53 @@ class S3FileRepository(FileRepository):
 
         return fnmatch.fnmatch(filename, pattern)
 
+    def _generate_upload_s3_key(self, upload_dir: Path, filename: str) -> str:
+        upload_path = f"{str(upload_dir).strip('/')}/{filename}"
+        return generate_s3_key(upload_path, self.key_prefix)
+
+    def _upload_file_content_to_s3(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, s3_key: str, file_content: bytes, content_type: str, filename: str, timestamp: str
+    ) -> None:
+        file_hash = calculate_file_sha256(file_content)
+        self.s3_client.put_object(
+            Bucket=self.bucket_name,
+            Key=s3_key,
+            Body=file_content,
+            ContentType=content_type,
+            Metadata={
+                "original_filename": filename,
+                "uploaded_by": "stable-delusion",
+                "upload_timestamp": timestamp,
+                "sha256": file_hash,
+            },
+        )
+
+    def _process_single_uploaded_file(self, file: FileStorage, upload_dir: Path) -> Optional[Path]:
+        if not self.validate_uploaded_file(file):
+            return None
+
+        timestamp = get_current_timestamp("compact")
+        filename = self.generate_secure_filename(file.filename, timestamp)
+        s3_key = self._generate_upload_s3_key(upload_dir, filename)
+        content_type = file.content_type or "application/octet-stream"
+
+        file.stream.seek(0)
+        file_content = file.stream.read()
+        self._upload_file_content_to_s3(s3_key, file_content, content_type, filename, timestamp)
+
+        s3_url = build_s3_url(self.bucket_name, s3_key)
+        logging.info("File uploaded to S3: %s", s3_key)
+        return Path(s3_url)
+
     def save_uploaded_files(self, files: List[FileStorage], upload_dir: Path) -> List[Path]:
         try:
-            # Create upload directory marker if needed
             self.create_directory(upload_dir)
-
             saved_files = []
             for file in files:
-                # Validate the uploaded file
-                if not self.validate_uploaded_file(file):
-                    continue
-
-                # Generate secure filename
-                timestamp = get_current_timestamp("compact")
-                filename = self.generate_secure_filename(file.filename, timestamp)
-
-                # Create S3 key
-                upload_path = f"{str(upload_dir).strip('/')}/{filename}"
-                s3_key = generate_s3_key(upload_path, self.key_prefix)
-
-                # Determine content type
-                content_type = file.content_type or "application/octet-stream"
-
-                # Upload to S3
-                file.stream.seek(0)  # Reset stream position
-                self.s3_client.put_object(
-                    Bucket=self.bucket_name,
-                    Key=s3_key,
-                    Body=file.stream.read(),
-                    ContentType=content_type,
-                    Metadata={
-                        "original_filename": filename,
-                        "uploaded_by": "stable-delusion",
-                        "upload_timestamp": timestamp,
-                    },
-                )
-
-                # Return S3 URL
-                s3_url = build_s3_url(self.bucket_name, s3_key)
-                saved_files.append(Path(s3_url))
-                logging.info("File uploaded to S3: %s", s3_key)
-
+                result = self._process_single_uploaded_file(file, upload_dir)
+                if result:
+                    saved_files.append(result)
             return saved_files
         except Exception as e:
             raise FileOperationError(

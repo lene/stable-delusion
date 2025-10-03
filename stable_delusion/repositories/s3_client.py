@@ -292,3 +292,82 @@ def build_s3_url(bucket_name: str, object_key: str) -> str:
         S3 URL in format s3://bucket/key
     """
     return f"s3://{bucket_name}/{object_key}"
+
+
+def build_https_s3_url(bucket_name: str, object_key: str, region: str = "us-east-1") -> str:
+    """
+    Build HTTPS S3 URL from bucket and key components.
+
+    Args:
+        bucket_name: S3 bucket name
+        object_key: S3 object key
+        region: AWS region (default: us-east-1)
+
+    Returns:
+        HTTPS S3 URL in format https://bucket.s3.region.amazonaws.com/key
+    """
+    return f"https://{bucket_name}.s3.{region}.amazonaws.com/{object_key}"
+
+
+def _get_object_hash_from_metadata(
+    s3_client: "S3Client", bucket_name: str, key: str
+) -> Optional[str]:
+    try:
+        head = s3_client.head_object(Bucket=bucket_name, Key=key)
+        return head.get("Metadata", {}).get("sha256")
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.warning("Error reading metadata for %s: %s", key, e)
+        return None
+
+
+def _process_s3_objects_for_cache(
+    s3_client: "S3Client", bucket_name: str, pages
+) -> tuple[Dict[str, str], int]:
+    hash_cache: Dict[str, str] = {}
+    object_count = 0
+
+    for page in pages:
+        if "Contents" not in page:
+            continue
+        for obj in page["Contents"]:
+            key = obj["Key"]
+            if key.endswith("/"):
+                continue
+
+            object_count += 1
+            stored_hash = _get_object_hash_from_metadata(s3_client, bucket_name, key)
+            if stored_hash and stored_hash not in hash_cache:
+                hash_cache[stored_hash] = key
+
+    return hash_cache, object_count
+
+
+def build_s3_hash_cache(s3_client: "S3Client", bucket_name: str, prefix: str) -> Dict[str, str]:
+    """
+    Build a cache of SHA-256 hash -> S3 key mappings for efficient duplicate detection.
+
+    Args:
+        s3_client: Configured S3 client
+        bucket_name: S3 bucket name
+        prefix: S3 key prefix to search within
+
+    Returns:
+        Dictionary mapping SHA-256 hashes to S3 object keys
+    """
+    try:
+        logging.debug("Building S3 hash cache for prefix: %s", prefix)
+        paginator = s3_client.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+
+        hash_cache, object_count = _process_s3_objects_for_cache(s3_client, bucket_name, pages)
+
+        logging.debug(
+            "Built S3 hash cache for %s: %d objects, %d unique hashes",
+            prefix,
+            object_count,
+            len(hash_cache),
+        )
+        return hash_cache
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logging.warning("Error building S3 hash cache: %s", e)
+        return {}

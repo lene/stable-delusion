@@ -5,10 +5,11 @@ Provides common functionality for date formatting, error handling, and file oper
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
+import hashlib
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Union
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
 
@@ -180,3 +181,14 @@ def setup_logging(quiet: bool = False, debug: bool = False) -> None:
     )
     if quiet and debug:
         logging.warning("Both --quiet and --debug specified. Using --debug mode.")
+
+
+def calculate_file_sha256(file_content: Union[bytes, Path]) -> str:
+    hash_sha256 = hashlib.sha256()
+    if isinstance(file_content, bytes):
+        hash_sha256.update(file_content)
+    else:
+        with open(file_content, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()

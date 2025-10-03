@@ -440,6 +440,6 @@ class TestS3RepositoryIntegration:
         s3_image_repo.save_image(test_image, Path("test.png"))
 
         # Verify logging was called
-        mock_logging.debug.assert_called()
-        log_message = mock_logging.debug.call_args[0][0]
-        assert "Image saved to S3" in log_message
+        mock_logging.info.assert_called()
+        log_message = mock_logging.info.call_args[0][0]
+        assert "Uploaded to S3" in log_message

@@ -32,6 +32,7 @@ class SeedreamImageGenerationService(ImageGenerationService):
         self.client = seedream_client
         self.image_repository = image_repository
         self.metadata_repository = metadata_repository
+        self._s3_hash_cache: Optional[dict] = None  # Cache for SHA-256 -> S3 key mappings
 
     @classmethod
     def create(
@@ -78,14 +79,9 @@ class SeedreamImageGenerationService(ImageGenerationService):
             gcp_config=GCPConfig(project_id=request.project_id, location=request.location),
         )
 
-    def _create_generation_metadata(self, request: GenerateImageRequest) -> GenerationMetadata:
-        # Convert image paths to URLs (S3 URLs if uploaded, local paths otherwise)
-        image_urls = [str(path) for path in request.images]
-
-        # Seedream API endpoint (BytePlus Ark API)
-        api_endpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
-
-        # Capture all API parameters for reproducibility
+    def _build_seedream_api_params(
+        self, request: GenerateImageRequest, image_urls: List[str]
+    ) -> dict:
         api_params = {
             "model": self.client.model,
             "prompt": request.prompt,
@@ -96,12 +92,18 @@ class SeedreamImageGenerationService(ImageGenerationService):
         }
         if request.images:
             api_params["image"] = image_urls
+        return api_params
+
+    def _create_generation_metadata(self, request: GenerateImageRequest) -> GenerationMetadata:
+        image_urls = [str(path) for path in request.images]
+        api_endpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
+        api_params = self._build_seedream_api_params(request, image_urls)
 
         return GenerationMetadata(
             prompt=request.prompt,
             images=image_urls,
-            generated_image="",  # Will be set after generation
-            gcp_project_id=None,  # Seedream doesn't use GCP
+            generated_image="",
+            gcp_project_id=None,
             gcp_location=None,
             scale=request.scale,
             model=self.client.model,
@@ -123,54 +125,59 @@ class SeedreamImageGenerationService(ImageGenerationService):
         except FileOperationError as e:
             logging.warning("Failed to save metadata: %s", e)
 
+    def _upload_input_images_to_s3(self, request: GenerateImageRequest) -> List[str]:
+        if not request.images:
+            return []
+        logging.info("Uploading %d images to S3 for Seedream", len(request.images))
+        return self.upload_images_to_s3(request.images)
+
+    def _generate_with_seedream_client(
+        self, request: GenerateImageRequest, effective_output_dir: Path, image_urls: List[str]
+    ) -> Optional[Path]:
+        if request.output_filename:
+            generated_file = self.client.generate_and_save(
+                prompt=request.prompt,
+                output_dir=effective_output_dir,
+                output_filename=str(request.output_filename),
+                image_urls=image_urls,
+                image_size=request.image_size or "2K",
+            )
+        else:
+            generated_file = self.client.generate_and_save(
+                prompt=request.prompt,
+                output_dir=effective_output_dir,
+                image_urls=image_urls,
+                image_size=request.image_size or "2K",
+            )
+        logging.info("Image generation completed: %s", generated_file)
+        return generated_file
+
+    def _handle_generation_error(
+        self, error: Exception, request: GenerateImageRequest
+    ) -> GenerateImageResponse:
+        if isinstance(error, ConfigurationError):
+            logging.error("Configuration error during image generation: %s", error)
+        else:
+            logging.error("Unexpected error during image generation: %s", error)
+        return self._create_generation_response(request)
+
     def generate_image(self, request: GenerateImageRequest) -> GenerateImageResponse:
         config = ConfigManager.get_config()
         effective_output_dir = request.output_dir or config.default_output_dir
         self._log_generation_request(request, effective_output_dir)
 
-        # Create metadata for tracking
         metadata = self._create_generation_metadata(request)
 
         try:
-            # Handle image uploads to S3 if images are provided
-            image_urls = []
-            if request.images:
-                logging.info("Uploading %d images to S3 for Seedream", len(request.images))
-                image_urls = self.upload_images_to_s3(request.images)
-
-            # Generate the image using Seedream with S3 URLs
-            # Use custom output filename if provided, otherwise use default
-            if request.output_filename:
-                generated_file = self.client.generate_and_save(
-                    prompt=request.prompt,
-                    output_dir=effective_output_dir,
-                    output_filename=str(request.output_filename),
-                    image_urls=image_urls,  # Use S3 URLs instead of local paths
-                    image_size=request.image_size or "2K",
-                )
-            else:
-                generated_file = self.client.generate_and_save(
-                    prompt=request.prompt,
-                    output_dir=effective_output_dir,
-                    image_urls=image_urls,  # Use S3 URLs instead of local paths
-                    image_size=request.image_size or "2K",
-                )
-            logging.info("Image generation completed: %s", generated_file)
-
-            # Upload generated image to S3 if using S3 storage
+            image_urls = self._upload_input_images_to_s3(request)
+            generated_file = self._generate_with_seedream_client(
+                request, effective_output_dir, image_urls
+            )
             final_path = self._upload_generated_image_to_s3(generated_file, config)
-
-            # Save metadata after successful generation
             self._save_generation_metadata(metadata, final_path)
-
             return self._create_generation_response(request, final_path)
-
-        except ConfigurationError as e:
-            logging.error("Configuration error during image generation: %s", e)
-            return self._create_generation_response(request)
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logging.error("Unexpected error during image generation: %s", e)
-            return self._create_generation_response(request)
+        except (ConfigurationError, Exception) as e:  # pylint: disable=broad-exception-caught
+            return self._handle_generation_error(e, request)
 
     def _upload_generated_image_to_s3(
         self, generated_file: Optional[Path], config
@@ -214,50 +221,91 @@ class SeedreamImageGenerationService(ImageGenerationService):
                 config_key="storage_type",
             )
 
-    def _upload_single_image_to_s3(self, image_path: Path) -> str:
-        logging.info("Uploading image to S3: %s", image_path)
+    def _find_file_by_hash_in_s3(self, file_repo, file_hash: str) -> Optional[str]:
+        """Find S3 file with matching hash using cached hash map."""
+        # Build cache if not already built
+        if self._s3_hash_cache is None:
+            from stable_delusion.repositories.s3_client import build_s3_hash_cache
 
+            self._s3_hash_cache = build_s3_hash_cache(
+                file_repo.s3_client, file_repo.bucket_name, file_repo.key_prefix
+            )
+
+        # O(1) lookup in cache
+        return self._s3_hash_cache.get(file_hash)
+
+    def _convert_image_to_bytes(self, image_path: Path) -> tuple[bytes, str]:
         from PIL import Image
+        import io
+
+        with Image.open(image_path) as img:
+            img_bytes = io.BytesIO()
+            img_format = img.format or "PNG"
+            img.save(img_bytes, format=img_format)
+            return img_bytes.getvalue(), img_format
+
+    def _check_for_duplicate_in_s3(self, file_repo, file_hash: str, config) -> Optional[str]:
+        from stable_delusion.repositories.s3_client import build_https_s3_url
+
+        existing_key = self._find_file_by_hash_in_s3(file_repo, file_hash)
+        if existing_key:
+            https_url = build_https_s3_url(file_repo.bucket_name, existing_key, config.s3_region)
+            logging.info(
+                "Skipping upload - file with same content already exists in S3: %s",
+                https_url,
+            )
+            return https_url
+        return None
+
+    def _upload_image_bytes_to_s3(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        file_repo,
+        image_path: Path,
+        img_bytes: bytes,
+        file_hash: str,
+        img_format: str,
+        config,
+    ) -> str:
         from stable_delusion.utils import generate_timestamped_filename
+        from stable_delusion.repositories.s3_client import generate_s3_key, build_https_s3_url
+
+        s3_filename = generate_timestamped_filename(image_path.stem, image_path.suffix.lstrip("."))
+        s3_key = generate_s3_key(str(Path(s3_filename)), file_repo.key_prefix)
+
+        file_repo.s3_client.put_object(
+            Bucket=file_repo.bucket_name,
+            Key=s3_key,
+            Body=img_bytes,
+            ContentType=f"image/{img_format.lower()}",
+            Metadata={
+                "original_filename": image_path.name,
+                "uploaded_by": "stable-delusion",
+                "sha256": file_hash,
+            },
+        )
+
+        https_url = build_https_s3_url(file_repo.bucket_name, s3_key, config.s3_region)
+        logging.info("Uploaded to S3: %s", https_url)
+        return https_url
+
+    def _upload_single_image_to_s3(self, image_path: Path) -> str:
+        from stable_delusion.utils import calculate_file_sha256
         from stable_delusion.repositories.s3_file_repository import S3FileRepository
 
-        # Upload input images using S3FileRepository which uses input/ prefix
         config = ConfigManager.get_config()
         file_repo = S3FileRepository(config)
 
-        with Image.open(image_path) as img:
-            s3_filename = generate_timestamped_filename(
-                image_path.stem, image_path.suffix.lstrip(".")
-            )
-            s3_path = Path(s3_filename)  # Will be saved to input/ by S3FileRepository
+        img_bytes, img_format = self._convert_image_to_bytes(image_path)
+        file_hash = calculate_file_sha256(img_bytes)
 
-            # Use file repository to save to input/ folder
-            # We need to convert Image to bytes and upload directly
-            import io
+        duplicate_url = self._check_for_duplicate_in_s3(file_repo, file_hash, config)
+        if duplicate_url:
+            return duplicate_url
 
-            img_bytes = io.BytesIO()
-            img.save(img_bytes, format=img.format or "PNG")
-            img_bytes.seek(0)
-
-            # Create S3 key with input/ prefix
-            from stable_delusion.repositories.s3_client import generate_s3_key, build_s3_url
-
-            s3_key = generate_s3_key(str(s3_path), file_repo.key_prefix)
-            file_repo.s3_client.put_object(
-                Bucket=file_repo.bucket_name,
-                Key=s3_key,
-                Body=img_bytes.getvalue(),
-                ContentType=f"image/{img.format or 'png'}".lower(),
-            )
-
-            s3_url = build_s3_url(file_repo.bucket_name, s3_key)
-
-            # Fix URL normalization issue with Path objects
-            if s3_url.startswith("https:/") and not s3_url.startswith("https://"):
-                s3_url = s3_url.replace("https:/", "https://", 1)
-
-            logging.info("Uploaded to S3: %s", s3_url)
-            return s3_url
+        return self._upload_image_bytes_to_s3(
+            file_repo, image_path, img_bytes, file_hash, img_format, config
+        )
 
     def upload_images_to_s3(self, image_paths: List[Path]) -> List[str]:
         self._validate_s3_repository()
