@@ -57,8 +57,12 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    with pytest.raises(ConfigurationError) as exc_info:
-                        service.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        with pytest.raises(ConfigurationError) as exc_info:
+                            service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "S3 connection timeout" in str(exc_info.value)
@@ -138,8 +142,12 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    with pytest.raises(ConfigurationError) as exc_info:
-                        service.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        with pytest.raises(ConfigurationError) as exc_info:
+                            service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "Image file is corrupted" in str(exc_info.value)
@@ -170,7 +178,8 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
                         service.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
-        assert "No such file or directory" in str(exc_info.value)
+        error_msg = str(exc_info.value)
+        assert "No such file or directory" in error_msg or "Image file not found" in error_msg
 
     def test_authentication_error_invalid_api_key(self):
         with patch("stable_delusion.seedream.Ark") as mock_ark:
@@ -348,8 +357,12 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    with pytest.raises(ConfigurationError) as exc_info:
-                        service.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        with pytest.raises(ConfigurationError) as exc_info:
+                            service.upload_images_to_s3(test_images)
 
         error_str = str(exc_info.value)
         assert "Failed to upload image /tmp/test.jpg to S3" in error_str
@@ -383,7 +396,11 @@ class TestErrorHandling:  # pylint: disable=too-many-public-methods
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    with pytest.raises(ConfigurationError) as exc_info:
-                        service.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        with pytest.raises(ConfigurationError) as exc_info:
+                            service.upload_images_to_s3(test_images)
 
         assert exc_info.value.__cause__ == original_exception

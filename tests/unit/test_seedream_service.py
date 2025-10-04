@@ -56,7 +56,11 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    urls = service_with_s3_repo.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        urls = service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert len(urls) == 2
         assert all(url.startswith("https://") or url.startswith("s3://") for url in urls)
@@ -74,7 +78,11 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    urls = service_with_s3_repo.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        urls = service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert len(urls) == 1
         assert urls[0].startswith("https://") or urls[0].startswith("s3://")
@@ -131,8 +139,12 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                         "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                         return_value=mock_s3_file_repository,
                     ):
-                        with pytest.raises(ConfigurationError) as exc_info:
-                            service_with_s3_repo.upload_images_to_s3(test_images)
+                        with patch(
+                            "stable_delusion.utils.optimize_image_size",
+                            side_effect=lambda path, **kwargs: path,
+                        ):
+                            with pytest.raises(ConfigurationError) as exc_info:
+                                service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert "Failed to upload image" in str(exc_info.value)
         assert "S3 upload failed" in str(exc_info.value)
@@ -263,7 +275,11 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    service_with_s3_repo.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        service_with_s3_repo.upload_images_to_s3(test_images)
 
         mock_timestamp.assert_called_once_with("base", "jpg")
 
@@ -280,7 +296,11 @@ class TestSeedreamImageGenerationService:  # pylint: disable=too-many-public-met
                     "stable_delusion.repositories.s3_file_repository.S3FileRepository",
                     return_value=mock_s3_file_repository,
                 ):
-                    urls = service_with_s3_repo.upload_images_to_s3(test_images)
+                    with patch(
+                        "stable_delusion.utils.optimize_image_size",
+                        side_effect=lambda path, **kwargs: path,
+                    ):
+                        urls = service_with_s3_repo.upload_images_to_s3(test_images)
 
         assert len(urls) == 1
 

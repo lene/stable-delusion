@@ -591,12 +591,21 @@ class GeminiClient:
         return self.image_repository.save_image(image, filepath)
 
     def upload_files(self, image_paths: List[Path]) -> List[Any]:
+        from stable_delusion.utils import optimize_image_size
+
         uploaded_files = []
         for image_path in image_paths:
             validate_image_file(image_path)
-            uploaded_file = self.client.files.upload(file=str(image_path))
-            log_upload_info(image_path, uploaded_file)
+
+            optimized_path = optimize_image_size(image_path, max_size_mb=7.0)
+
+            uploaded_file = self.client.files.upload(file=str(optimized_path))
+            log_upload_info(optimized_path, uploaded_file)
             uploaded_files.append(uploaded_file)
+
+            if optimized_path != image_path:
+                optimized_path.unlink(missing_ok=True)
+
         return uploaded_files
 
     def generate_hires_image_in_one_shot(

@@ -290,22 +290,31 @@ class SeedreamImageGenerationService(ImageGenerationService):
         return https_url
 
     def _upload_single_image_to_s3(self, image_path: Path) -> str:
-        from stable_delusion.utils import calculate_file_sha256
+        from stable_delusion.utils import calculate_file_sha256, optimize_image_size
         from stable_delusion.repositories.s3_file_repository import S3FileRepository
 
         config = ConfigManager.get_config()
         file_repo = S3FileRepository(config)
 
-        img_bytes, img_format = self._convert_image_to_bytes(image_path)
+        optimized_path = optimize_image_size(image_path, max_size_mb=7.0)
+
+        img_bytes, img_format = self._convert_image_to_bytes(optimized_path)
         file_hash = calculate_file_sha256(img_bytes)
 
         duplicate_url = self._check_for_duplicate_in_s3(file_repo, file_hash, config)
         if duplicate_url:
+            if optimized_path != image_path:
+                optimized_path.unlink(missing_ok=True)
             return duplicate_url
 
-        return self._upload_image_bytes_to_s3(
-            file_repo, image_path, img_bytes, file_hash, img_format, config
+        result = self._upload_image_bytes_to_s3(
+            file_repo, optimized_path, img_bytes, file_hash, img_format, config
         )
+
+        if optimized_path != image_path:
+            optimized_path.unlink(missing_ok=True)
+
+        return result
 
     def upload_images_to_s3(self, image_paths: List[Path]) -> List[str]:
         self._validate_s3_repository()

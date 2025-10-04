@@ -7,11 +7,14 @@ __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 import hashlib
 import logging
+import tempfile
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Optional, Tuple, Any, Union
 from flask import jsonify, Response
 from werkzeug.utils import secure_filename
+from PIL import Image
 
 import coloredlogs  # type: ignore[import-untyped]
 
@@ -192,3 +195,76 @@ def calculate_file_sha256(file_content: Union[bytes, Path]) -> str:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_sha256.update(chunk)
     return hash_sha256.hexdigest()
+
+
+def _get_file_size_mb(file_path: Path) -> float:
+    return file_path.stat().st_size / (1024 * 1024)
+
+
+def _convert_to_jpeg_with_quality(img: Image.Image, quality: int) -> bytes:
+    output = BytesIO()
+    rgb_img = img.convert("RGB")
+    rgb_img.save(output, format="JPEG", quality=quality, optimize=True)
+    return output.getvalue()
+
+
+def _find_optimal_jpeg_quality(img: Image.Image, max_size_mb: float) -> bytes:
+    for quality in range(95, 0, -5):
+        jpeg_bytes = _convert_to_jpeg_with_quality(img, quality)
+        size_mb = len(jpeg_bytes) / (1024 * 1024)
+
+        logging.debug("Testing quality %d%% -> %.2f MB", quality, size_mb)
+
+        if size_mb < max_size_mb:
+            logging.info("Found optimal quality: %d%% (%.2f MB)", quality, size_mb)
+            return jpeg_bytes
+
+    return jpeg_bytes
+
+
+def optimize_image_size(image_path: Path, max_size_mb: float = 7.0) -> Path:
+    if not image_path.exists():
+        raise FileOperationError(
+            f"Image file not found: {image_path}", file_path=str(image_path), operation="optimize"
+        )
+
+    current_size_mb = _get_file_size_mb(image_path)
+
+    if current_size_mb <= max_size_mb:
+        logging.debug("Image size %.2f MB is within limit (%.2f MB)", current_size_mb, max_size_mb)
+        return image_path
+
+    logging.info(
+        "Image size %.2f MB exceeds limit (%.2f MB), optimizing...", current_size_mb, max_size_mb
+    )
+
+    try:
+        with Image.open(image_path) as img:
+            optimized_bytes = _find_optimal_jpeg_quality(img, max_size_mb)
+    except Exception as e:
+        raise FileOperationError(
+            f"Failed to open image for optimization: {str(e)}",
+            file_path=str(image_path),
+            operation="optimize",
+        ) from e
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", prefix="optimized_") as temp_file:
+        temp_path = Path(temp_file.name)
+
+    try:
+        temp_path.write_bytes(optimized_bytes)
+        final_size_mb = _get_file_size_mb(temp_path)
+        logging.info(
+            "Image optimized: %.2f MB -> %.2f MB (saved %.2f MB)",
+            current_size_mb,
+            final_size_mb,
+            current_size_mb - final_size_mb,
+        )
+        return temp_path
+    except Exception as e:
+        temp_path.unlink(missing_ok=True)
+        raise FileOperationError(
+            f"Failed to save optimized image: {str(e)}",
+            file_path=str(image_path),
+            operation="optimize",
+        ) from e

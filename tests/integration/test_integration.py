@@ -400,10 +400,13 @@ class TestPerformanceIntegration:
             large_file_list = [Path(f"image_{i}.png") for i in range(10)]
 
             with patch.object(Path, "is_file", return_value=True):
-                with patch.object(client.client.files, "upload") as mock_upload:
-                    mock_upload.return_value = MagicMock()
+                with patch.object(Path, "exists", return_value=True):
+                    with patch.object(Path, "stat") as mock_stat:
+                        mock_stat.return_value.st_size = 1024 * 1024
+                        with patch.object(client.client.files, "upload") as mock_upload:
+                            mock_upload.return_value = MagicMock()
 
-                    result = client.upload_files(large_file_list)
+                            result = client.upload_files(large_file_list)
 
-                    assert len(result) == 10
-                    assert mock_upload.call_count == 10
+                            assert len(result) == 10
+                            assert mock_upload.call_count == 10

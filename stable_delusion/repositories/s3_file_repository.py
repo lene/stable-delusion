@@ -245,7 +245,12 @@ class S3FileRepository(FileRepository):
 
     def _upload_file_content_to_s3(
         # pylint: disable=too-many-arguments,too-many-positional-arguments
-        self, s3_key: str, file_content: bytes, content_type: str, filename: str, timestamp: str
+        self,
+        s3_key: str,
+        file_content: bytes,
+        content_type: str,
+        filename: str,
+        timestamp: str,
     ) -> None:
         file_hash = calculate_file_sha256(file_content)
         self.s3_client.put_object(
