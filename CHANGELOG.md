@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2025-10-04
+
+### Added
+- Automatic image size optimization for files exceeding 7MB
+- JPEG conversion with progressive quality reduction (95% → 5% in 5% decrements)
+- Support for optimizing PNG, WebP, grayscale, and RGBA images
+- Temporary file management with automatic cleanup after upload
+- 17 comprehensive tests for image optimization (all programmatically generated)
+
+### Changed
+- Image uploads to Gemini API now automatically optimized if >7MB
+- Image uploads to Seedream API now automatically optimized if >7MB
+- Images converted to optimized JPEG format when size reduction needed
+
+### Performance
+- Ensures compatibility with API size limits (Gemini: 7MB, Seedream: 10MB)
+- Reduced upload failures due to file size constraints
+
 ## [0.1.3] - 2025-10-03
 
 ### Added
@@ -95,7 +113,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Poetry dependency management
 - Type annotations throughout codebase
 
-[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.3...HEAD
+[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.4...HEAD
+[0.1.4]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.3...v0.1.4
 [0.1.3]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.2...v0.1.3
 [0.1.2]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.1...v0.1.2
 [0.1.1]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.0...v0.1.1
