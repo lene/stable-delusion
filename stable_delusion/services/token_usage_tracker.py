@@ -12,7 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-from stable_delusion.models.token_usage import TokenUsageEntry, TokenUsageStats
+from stable_delusion.models.token_usage_entry import TokenUsageEntry
+from stable_delusion.models.token_usage_stats import TokenUsageStats
 
 
 class TokenUsageTracker:
