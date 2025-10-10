@@ -65,7 +65,7 @@ def reset_config_manager():
     from stable_delusion.config import ConfigManager
 
     # Patch load_dotenv to prevent .env file loading during tests
-    with patch("stable_delusion.config.load_dotenv"):
+    with patch("stable_delusion.config.config_manager.load_dotenv"):
         ConfigManager.reset_config()
         yield
         ConfigManager.reset_config()
