@@ -252,6 +252,43 @@ $ poetry run python stable_delusion/upscale.py \
 - `--project-id`: Google Cloud Project ID (defaults to value in conf.py)
 - `--location`: Google Cloud region (defaults to value in conf.py)
 
+## Token Usage Tracking
+
+The application automatically tracks API token usage for all image generation operations. You can view statistics and history using either the CLI tool or the web API.
+
+### CLI Tool
+
+View token usage statistics:
+```bash
+# Display overall statistics (total tokens, breakdown by model and operation)
+$ poetry run python stable_delusion/token_stats.py
+
+# Show the last 10 token usage entries
+$ poetry run python stable_delusion/token_stats.py --history 10
+
+# Clear all token usage history
+$ poetry run python stable_delusion/token_stats.py --clear
+
+# Use a custom storage file
+$ poetry run python stable_delusion/token_stats.py --storage-file /path/to/token_usage.json
+```
+
+### Web API Endpoints
+
+Query token usage via the REST API:
+```bash
+# Get token usage statistics
+$ curl http://127.0.0.1:5000/token-usage
+
+# Get token usage history (all entries)
+$ curl http://127.0.0.1:5000/token-usage/history
+
+# Get token usage history (last 20 entries)
+$ curl http://127.0.0.1:5000/token-usage/history?limit=20
+```
+
+Token usage data is stored in `~/.stable-delusion/token_usage.json` by default.
+
 ## Error Handling
 
 The application provides detailed error logging when image generation fails:

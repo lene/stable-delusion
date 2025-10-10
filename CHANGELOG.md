@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-10-10
+
+### Changed
+- Major code refactoring to one-class-per-file architecture for improved maintainability
+- Split `config.py` into separate files in `config/` directory (Config, ConfigManager, constants)
+- Split `exceptions.py` into separate files in `exceptions/` directory (one file per exception type)
+- Split `models/client_config.py` into separate files in `models/client_config/` directory
+- Split `models/responses.py` into separate files in `models/responses/` directory
+- Split `repositories/interfaces.py` into separate files in `repositories/interfaces/` directory
+- Split `services/interfaces.py` into separate files in `services/interfaces/` directory
+- Reorganized client code with cleaner separation of concerns
+
+### Added
+- Token usage tracking and reporting system for API calls
+- `TokenUsageTracker` service for monitoring API token consumption
+- `token_stats.py` module for detailed token usage statistics
+- Token usage models (`TokenUsage`, `TokenUsageEntry`, `TokenUsageStats`)
+- Utility scripts for codebase analysis and maintenance
+- Enhanced OpenAPI specification with 176 new lines of documentation
+
+### Fixed
+- Test imports updated to work with new file structure
+- Code quality issues resolved after file reorganization
+
+### Performance
+- Improved code modularity and reusability through better separation of concerns
+- Reduced file size and complexity for easier navigation and maintenance
+
 ## [0.1.4] - 2025-10-04
 
 ### Added
@@ -113,7 +141,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Poetry dependency management
 - Type annotations throughout codebase
 
-[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.4...HEAD
+[Unreleased]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.5...HEAD
+[0.1.5]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.4...v0.1.5
 [0.1.4]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.3...v0.1.4
 [0.1.3]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.2...v0.1.3
 [0.1.2]: https://gitlab.com/lilacashes/stable-delusion/compare/v0.1.1...v0.1.2

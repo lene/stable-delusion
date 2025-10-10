@@ -123,7 +123,7 @@ bandit:
 
 # Version Validation - verify version has been updated correctly for merge requests
 validate_version:
-  stage: quality
+  stage: setup
   script:
     - echo "🔍 Validating version update..."
     - python3 scripts/validate_version.py
