@@ -124,6 +124,79 @@
           }
         }
       }
+    },
+    "/token-usage": {
+      "get": {
+        "summary": "Get token usage statistics",
+        "description": "Returns aggregate statistics about API token usage across all image generation requests",
+        "operationId": "getTokenUsage",
+        "tags": ["Token Usage"],
+        "responses": {
+          "200": {
+            "description": "Token usage statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenUsageStats"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/token-usage/history": {
+      "get": {
+        "summary": "Get token usage history",
+        "description": "Returns detailed history of individual API token usage entries",
+        "operationId": "getTokenUsageHistory",
+        "tags": ["Token Usage"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of history entries to return. If not specified, returns all entries.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token usage history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenUsageHistory"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -289,6 +362,105 @@
           }
         },
         "required": ["error"]
+      },
+      "TokenUsageStats": {
+        "type": "object",
+        "properties": {
+          "total_tokens": {
+            "type": "integer",
+            "description": "Total number of tokens used across all requests",
+            "example": 156789
+          },
+          "total_requests": {
+            "type": "integer",
+            "description": "Total number of API requests made",
+            "example": 42
+          },
+          "tokens_by_model": {
+            "type": "object",
+            "description": "Token usage grouped by AI model",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "gemini-2.5-flash": 89432,
+              "seedream-4-0-250828": 67357
+            }
+          },
+          "requests_by_model": {
+            "type": "object",
+            "description": "Request count grouped by AI model",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "gemini-2.5-flash": 25,
+              "seedream-4-0-250828": 17
+            }
+          },
+          "tokens_by_operation": {
+            "type": "object",
+            "description": "Token usage grouped by operation type",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "generate": 156789
+            }
+          }
+        },
+        "required": ["total_tokens", "total_requests", "tokens_by_model", "requests_by_model", "tokens_by_operation"]
+      },
+      "TokenUsageEntry": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when the token usage was recorded",
+            "example": "2025-01-10T12:34:56.789Z"
+          },
+          "model": {
+            "type": "string",
+            "description": "AI model that was used",
+            "example": "gemini-2.5-flash"
+          },
+          "tokens": {
+            "type": "integer",
+            "description": "Number of tokens used in this request",
+            "example": 3742
+          },
+          "operation": {
+            "type": "string",
+            "description": "Type of operation performed",
+            "example": "generate"
+          },
+          "prompt_hash": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA-256 hash (first 16 chars) of the prompt used",
+            "example": "a7f3d8e9b2c4f5e1"
+          }
+        },
+        "required": ["timestamp", "model", "tokens", "operation"]
+      },
+      "TokenUsageHistory": {
+        "type": "object",
+        "properties": {
+          "total_entries": {
+            "type": "integer",
+            "description": "Number of history entries returned",
+            "example": 100
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TokenUsageEntry"
+            },
+            "description": "List of token usage entries"
+          }
+        },
+        "required": ["total_entries", "history"]
       }
     }
   },
@@ -300,6 +472,10 @@
     {
       "name": "API Management",
       "description": "Operations for API information and health checks"
+    },
+    {
+      "name": "Token Usage",
+      "description": "Operations for tracking and viewing API token usage statistics"
     }
   ]
 }

@@ -161,6 +161,13 @@ class SeedreamClient:
             logging.debug("Making API request with params: %s", list(api_params.keys()))
 
             response = self.client.images.generate(**api_params)
+
+            # Track token usage
+            from stable_delusion.services.token_usage_tracker import TokenUsageTracker
+
+            tracker = TokenUsageTracker()
+            tracker.record_from_seedream_response(response, prompt, "generate")
+
             return self._parse_api_response(response)
 
         except ImageGenerationError:

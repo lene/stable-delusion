@@ -183,6 +183,45 @@ def get_metadata(hash_prefix: str) -> Tuple[Response, int]:
         return jsonify(error_response.to_dict()), 500
 
 
+@app.route("/token-usage", methods=["GET"])
+def get_token_usage() -> Tuple[Response, int]:
+    try:
+        from stable_delusion.services.token_usage_tracker import TokenUsageTracker
+
+        tracker = TokenUsageTracker()
+        stats = tracker.get_statistics()
+
+        return jsonify(stats.to_dict()), 200
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        error_response = ErrorResponse(f"Failed to retrieve token usage: {str(e)}")
+        return jsonify(error_response.to_dict()), 500
+
+
+@app.route("/token-usage/history", methods=["GET"])
+def get_token_usage_history() -> Tuple[Response, int]:
+    try:
+        from stable_delusion.services.token_usage_tracker import TokenUsageTracker
+
+        limit = request.args.get("limit", type=int)
+        tracker = TokenUsageTracker()
+        history = tracker.get_usage_history(limit=limit)
+
+        return (
+            jsonify(
+                {
+                    "total_entries": len(history),
+                    "history": [entry.to_dict() for entry in history],
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        error_response = ErrorResponse(f"Failed to retrieve token usage history: {str(e)}")
+        return jsonify(error_response.to_dict()), 500
+
+
 def main():
     """Main entry point for the stable-delusion application."""
     import sys

@@ -25,6 +25,15 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
         mock_response = Mock()
         mock_response.data = [Mock()]
         mock_response.data[0].url = "https://generated-image.com/result.jpg"
+        mock_response.model = "seedream-4-0-250828"
+
+        # Mock usage data
+        mock_usage = Mock()
+        mock_usage.total_tokens = 16896
+        mock_usage.output_tokens = 16896
+        mock_usage.generated_images = 1
+        mock_response.usage = mock_usage
+
         mock_client.images.generate.return_value = mock_response
 
         return mock_client
@@ -32,8 +41,9 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
     @pytest.fixture
     def seedream_client(self, mock_ark_client):
         with patch("stable_delusion.seedream.Ark", return_value=mock_ark_client):
-            client = SeedreamClient("test-api-key")
-            client.client = mock_ark_client  # Ensure the mock is used
+            with patch("stable_delusion.services.token_usage_tracker.TokenUsageTracker"):
+                client = SeedreamClient("test-api-key")
+                client.client = mock_ark_client  # Ensure the mock is used
         return client
 
     def test_generate_image_with_https_urls(self, seedream_client, mock_ark_client):
@@ -236,6 +246,8 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
         mock_response.data = [Mock(), Mock()]
         mock_response.data[0].url = "https://result1.jpg"
         mock_response.data[1].url = "https://result2.jpg"
+        mock_response.model = "seedream-4-0-250828"
+        mock_response.usage = Mock(total_tokens=16896)
         mock_ark_client.images.generate.return_value = mock_response
 
         result = seedream_client.generate_image("Test prompt")
@@ -247,6 +259,8 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
     def test_response_parsing_no_images(self, seedream_client, mock_ark_client):
         mock_response = Mock()
         mock_response.data = []
+        mock_response.model = "seedream-4-0-250828"
+        mock_response.usage = Mock(total_tokens=100)
         mock_ark_client.images.generate.return_value = mock_response
 
         with pytest.raises(ImageGenerationError) as exc_info:
@@ -257,6 +271,8 @@ class TestSeedreamClient:  # pylint: disable=too-many-public-methods
     def test_response_parsing_no_data_attribute(self, seedream_client, mock_ark_client):
         mock_response = Mock()
         del mock_response.data  # No data attribute
+        mock_response.model = "seedream-4-0-250828"
+        mock_response.usage = Mock(total_tokens=100)
         mock_ark_client.images.generate.return_value = mock_response
 
         with pytest.raises(ImageGenerationError) as exc_info:

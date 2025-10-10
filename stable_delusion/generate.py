@@ -480,6 +480,13 @@ class GeminiClient:
             response.candidates[0].finish_reason,
             response.usage_metadata.total_token_count if response.usage_metadata else 0,
         )
+
+        # Track token usage
+        from stable_delusion.services.token_usage_tracker import TokenUsageTracker
+
+        tracker = TokenUsageTracker()
+        tracker.record_from_gemini_response(response, prompt_text, "generate")
+
         return response
 
     def _save_generation_results(
