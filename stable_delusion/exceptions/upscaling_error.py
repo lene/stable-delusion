@@ -1,6 +1,6 @@
 """Image upscaling exception class."""
 
-__author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+__author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from stable_delusion.exceptions.nano_api_error import NanoAPIError
 

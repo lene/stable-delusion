@@ -1,6 +1,6 @@
 """Base exception class for NanoAPI-related errors."""
 
-__author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+__author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 
 class NanoAPIError(Exception):

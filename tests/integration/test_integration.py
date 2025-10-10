@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from stable_delusion.generate import GeminiClient, parse_command_line
+from stable_delusion.hallucinate import parse_command_line
+from stable_delusion.client.gemini_client import GeminiClient
 from stable_delusion.main import app
 from stable_delusion.config import DEFAULT_PROJECT_ID, DEFAULT_LOCATION
 from stable_delusion.models.client_config import GeminiClientConfig, GCPConfig
@@ -62,8 +63,8 @@ def temp_images():
 class TestEndToEndWorkflow:
     """Test complete workflows from input to output."""
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_complete_image_generation_workflow(self, _mock_init, mock_client, temp_images):
         # Mock the Gemini API response
         mock_response = MagicMock()
@@ -86,7 +87,7 @@ class TestEndToEndWorkflow:
         mock_client.return_value = mock_client_instance
 
         # Mock PIL Image operations
-        with patch("stable_delusion.generate.Image.open") as mock_image_open:
+        with patch("stable_delusion.client.gemini_client.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
@@ -105,9 +106,9 @@ class TestEndToEndWorkflow:
                     assert result == expected_result
                     mock_image.save.assert_called_once()
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
-    @patch("stable_delusion.generate.upscale_image")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.upscale_image")
     def test_complete_upscaling_workflow(self, mock_upscale, _mock_init, mock_client, temp_images):
         # Mock the Gemini API response
         mock_response = MagicMock()
@@ -134,7 +135,7 @@ class TestEndToEndWorkflow:
         mock_upscale.return_value = mock_upscaled_image
 
         # Mock PIL Image operations
-        with patch("stable_delusion.generate.Image.open") as mock_image_open:
+        with patch("stable_delusion.client.gemini_client.Image.open") as mock_image_open:
             mock_image = MagicMock()
             mock_image_open.return_value = mock_image
 
@@ -260,8 +261,8 @@ class TestFlaskAPIIntegration:
 class TestCommandLineIntegration:
     """Test command-line interface integration."""
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_command_line_execution_simulation(self, _mock_init, mock_client, temp_image_file):
         # This simulates what would happen when running the script from command line
         mock_response = MagicMock()
@@ -293,7 +294,7 @@ class TestCommandLineIntegration:
                     with patch(
                         "sys.argv",
                         [
-                            "generate.py",
+                            "hallucinate.py",
                             "--prompt",
                             "Test prompt",
                             "--image",
@@ -334,8 +335,8 @@ class TestErrorHandlingIntegration:
             ):
                 GeminiClient(GeminiClientConfig())
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_file_not_found_integration(self, _mock_init, mock_client):
         from stable_delusion.exceptions import FileOperationError
 
@@ -345,8 +346,8 @@ class TestErrorHandlingIntegration:
             with pytest.raises(FileOperationError, match="Image file not found: nonexistent.png"):
                 client.upload_files([Path("nonexistent.png")])
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_api_error_integration(self, _mock_init, mock_client, temp_images):
         mock_client_instance = MagicMock()
         mock_client_instance.files.upload.side_effect = Exception("API Error")
@@ -369,8 +370,8 @@ class TestConfigurationIntegration:
         assert isinstance(DEFAULT_PROJECT_ID, str)
         assert isinstance(DEFAULT_LOCATION, str)
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_custom_configuration_override(self, mock_init, mock_client):
         custom_project = "test-project-override"
         custom_location = "test-location-override"
@@ -390,8 +391,8 @@ class TestConfigurationIntegration:
 class TestPerformanceIntegration:
     """Test performance-related integration scenarios."""
 
-    @patch("stable_delusion.generate.genai.Client")
-    @patch("stable_delusion.generate.aiplatform.init")
+    @patch("stable_delusion.client.gemini_client.genai.Client")
+    @patch("stable_delusion.client.gemini_client.aiplatform.init")
     def test_large_file_handling_simulation(self, _mock_init, _mock_client):
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}):
             client = GeminiClient(GeminiClientConfig())

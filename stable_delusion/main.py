@@ -243,7 +243,7 @@ def main():
     # Check if --help is requested or if there are CLI arguments for image generation
     cli_flags = {"--help", "-h", "--image", "--prompt", "-q", "--quiet", "-d", "--debug"}
     if len(sys.argv) > 1 and sys.argv[1] in cli_flags:
-        # Delegate to the CLI interface in generate.py
+        # Delegate to the CLI interface in hallucinate.py
         from stable_delusion.generate import main as generate_main
 
         generate_main()

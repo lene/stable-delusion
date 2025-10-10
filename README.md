@@ -104,14 +104,14 @@ export AWS_PROFILE="your-profile"
 
 #### Basic usage
 ```bash
-$ poetry run python stable_delusion/generate.py \
+$ poetry run python stable_delusion/hallucinate.py \
     --prompt "please make the women in the provided image look affectionately at each other" \
     --image samples/base.png
 ```
 
 #### Advanced usage with all parameters
 ```bash
-$ poetry run python stable_delusion/generate.py \
+$ poetry run python stable_delusion/hallucinate.py \
     --prompt "a futuristic cityscape with flying cars" \
     --image samples/base.png \
     --image samples/reference.png \
@@ -125,14 +125,14 @@ $ poetry run python stable_delusion/generate.py \
 #### S3 storage examples
 ```bash
 # Use S3 storage (requires S3 environment variables to be set)
-$ poetry run python stable_delusion/generate.py \
+$ poetry run python stable_delusion/hallucinate.py \
     --prompt "a beautiful landscape" \
     --image samples/base.png \
     --storage-type s3 \
     --output-dir generated-images
 
 # Force local storage (override S3 configuration)
-$ poetry run python stable_delusion/generate.py \
+$ poetry run python stable_delusion/hallucinate.py \
     --prompt "a city at night" \
     --image samples/base.png \
     --storage-type local \

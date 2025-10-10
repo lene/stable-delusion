@@ -1,6 +1,6 @@
 """Exception classes for NanoAPIClient."""
 
-__author__ = 'Lene Preuss <lene.preuss@gmail.com>'
+__author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
 from stable_delusion.exceptions.api_error import APIError
 from stable_delusion.exceptions.authentication_error import AuthenticationError

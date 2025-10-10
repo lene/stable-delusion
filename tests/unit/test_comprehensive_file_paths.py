@@ -442,7 +442,7 @@ class TestModelSpecificDefaults:
 
     def test_gemini_default_filename_is_generated(self, temp_image):
         """Verify Gemini uses 'generated' as default base filename."""
-        # The default is verified in generate.py:562 and generate.py:628
+        # The default is verified in hallucinate.py:562 and hallucinate.py:628
         # When output_filename is None, it generates: "generated_YYYY-MM-DD-HH:MM:SS.png"
         request = GenerateImageRequest(
             prompt="test", images=[temp_image], output_filename=None, model="gemini"

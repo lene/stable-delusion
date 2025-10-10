@@ -207,14 +207,16 @@ class TestGeminiClient:
         with patch.dict(
             os.environ, {"GEMINI_API_KEY": "test-key", "STORAGE_TYPE": "local"}, clear=True
         ):
-            with patch("stable_delusion.generate.genai.Client") as mock_client_class:
-                with patch("stable_delusion.generate.aiplatform.init"):
+            with patch("stable_delusion.client.gemini_client.genai.Client") as mock_client_class:
+                with patch("stable_delusion.client.gemini_client.aiplatform.init"):
                     mock_client = MagicMock()
                     mock_client_class.return_value = mock_client
 
                     # Mock successful generation and upscaling
                     with patch.object(GeminiClient, "generate_from_images") as mock_generate:
-                        with patch("stable_delusion.generate.upscale_image") as mock_upscale:
+                        with patch(
+                            "stable_delusion.client.gemini_client.upscale_image"
+                        ) as mock_upscale:
                             mock_generate.return_value = Path("generated_image.png")
                             mock_upscaled_image = MagicMock()
                             mock_upscale.return_value = mock_upscaled_image
@@ -303,7 +305,7 @@ class TestParseCommandLine:
     """Test cases for command line argument parsing."""
 
     def test_parse_command_line_defaults(self):
-        with patch("sys.argv", ["generate.py"]):
+        with patch("sys.argv", ["hallucinate.py"]):
             args = parse_command_line()
             assert args.prompt is None
             assert args.output_filename is None  # Changed: default is now None
@@ -315,7 +317,7 @@ class TestParseCommandLine:
 
     def test_parse_command_line_all_args(self):
         test_args = [
-            "generate.py",
+            "hallucinate.py",
             "--prompt",
             "test prompt",
             "--output-filename",
@@ -345,7 +347,7 @@ class TestParseCommandLine:
             assert args.output_dir == Path("/custom/output")
 
     def test_parse_command_line_scale_validation(self):
-        with patch("sys.argv", ["generate.py", "--scale", "3"]):
+        with patch("sys.argv", ["hallucinate.py", "--scale", "3"]):
             with pytest.raises(SystemExit):  # argparse raises SystemExit on invalid choice
                 parse_command_line()
 
@@ -354,46 +356,58 @@ class TestGenerateFromImagesFunction:
     """Test cases for the standalone generate_from_images function."""
 
     def test_generate_from_images_function(self):
-        with patch("stable_delusion.generate.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_from_images.return_value = Path("test_result.png")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create actual temp file so validation passes
+            test_file = Path(temp_dir) / "test_image.png"
+            test_file.write_bytes(b"test image data")
 
-            from stable_delusion.generate import GenerationConfig
+            with patch(
+                "stable_delusion.generate._generate_module.GeminiClient"
+            ) as mock_client_class:
+                mock_client = MagicMock()
+                mock_client_class.return_value = mock_client
+                mock_client.generate_from_images.return_value = Path("test_result.png")
 
-            config = GenerationConfig(
-                project_id="test-project",
-                location="test-location",
-                output_dir=Path("./test_output"),
-            )
-            result = generate_from_images("test prompt", [Path("test_image.png")], config=config)
+                from stable_delusion.generate import GenerationConfig
 
-            # Check that GeminiClient was called with the correct config
-            mock_client_class.assert_called_once()
-            call_args = mock_client_class.call_args[0][0]  # Get config
-            assert call_args.gcp.project_id == "test-project"
-            assert call_args.gcp.location == "test-location"
-            assert call_args.storage.output_dir == Path("./test_output")
-            assert call_args.storage.storage_type is None
-            mock_client.generate_from_images.assert_called_once_with(
-                "test prompt", [Path("test_image.png")]
-            )
-            assert result == Path("test_result.png")
+                config = GenerationConfig(
+                    project_id="test-project",
+                    location="us-east1",
+                    output_dir=Path("./test_output"),
+                )
+                result = generate_from_images("test prompt", [test_file], config=config)
+
+                # Check that GeminiClient was called with the correct config
+                mock_client_class.assert_called_once()
+                call_args = mock_client_class.call_args[0][0]  # Get config
+                assert call_args.gcp.project_id == "test-project"
+                assert call_args.gcp.location == "us-east1"
+                assert call_args.storage.output_dir == Path("./test_output")
+                assert call_args.storage.storage_type is None
+                mock_client.generate_from_images.assert_called_once_with(
+                    "test prompt", [test_file]
+                )
+                assert result == Path("test_result.png")
 
     def test_generate_from_images_function_defaults(self):
-        with patch("stable_delusion.generate.GeminiClient") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client_class.return_value = mock_client
-            mock_client.generate_from_images.return_value = "test_result.png"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create actual temp file so validation passes
+            test_file = Path(temp_dir) / "test_image.png"
+            test_file.write_bytes(b"test image data")
+            custom_output_dir = Path(temp_dir) / "custom"
 
-            with tempfile.TemporaryDirectory() as temp_dir:
-                custom_output_dir = Path(temp_dir) / "custom"
+            with patch(
+                "stable_delusion.generate._generate_module.GeminiClient"
+            ) as mock_client_class:
+                mock_client = MagicMock()
+                mock_client_class.return_value = mock_client
+                mock_client.generate_from_images.return_value = "test_result.png"
 
                 from stable_delusion.generate import GenerationConfig
 
                 config = GenerationConfig(output_dir=custom_output_dir)
                 result = generate_from_images(
-                    "test prompt", [Path("test_image.png")], config=config
+                    "test prompt", [test_file], config=config
                 )
 
                 # Check that GeminiClient was called with the correct config
@@ -403,4 +417,4 @@ class TestGenerateFromImagesFunction:
                 assert call_args.gcp.location == DEFAULT_LOCATION
                 assert call_args.storage.output_dir == custom_output_dir
                 assert call_args.storage.storage_type is None
-            assert result == "test_result.png"
+                assert result == "test_result.png"

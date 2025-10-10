@@ -1,7 +1,4 @@
-"""
-Service interface definitions for NanoAPIClient.
-Defines abstract base classes for external service integrations.
-"""
+"""Abstract service interface for image generation."""
 
 __author__ = "Lene Preuss <lene.preuss@gmail.com>"
 
@@ -9,8 +6,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List
 
-from stable_delusion.models.requests import GenerateImageRequest, UpscaleImageRequest
-from stable_delusion.models.responses import GenerateImageResponse, UpscaleImageResponse
+from stable_delusion.models.requests import GenerateImageRequest
+from stable_delusion.models.responses import GenerateImageResponse
 
 
 class ImageGenerationService(ABC):
@@ -45,24 +42,4 @@ class ImageGenerationService(ABC):
 
         Raises:
             FileOperationError: If file upload fails
-        """
-
-
-class ImageUpscalingService(ABC):
-    """Abstract service interface for image upscaling."""
-
-    @abstractmethod
-    def upscale_image(self, request: UpscaleImageRequest) -> UpscaleImageResponse:
-        """
-        Upscale an image based on the provided request.
-
-        Args:
-            request: Upscaling request containing image and scale parameters
-
-        Returns:
-            Response containing upscaled image and metadata
-
-        Raises:
-            UpscalingError: If upscaling fails
-            AuthenticationError: If authentication fails
         """

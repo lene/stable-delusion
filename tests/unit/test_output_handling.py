@@ -1,5 +1,5 @@
 """
-Unit tests for custom output filename handling in generate.py.
+Unit tests for custom output filename handling in hallucinate.py.
 Tests the _handle_cli_custom_output function and related logic.
 """
 
@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from stable_delusion.generate import _handle_cli_custom_output, _create_cli_request_dto
+from stable_delusion.hallucinate import _handle_cli_custom_output, _create_cli_request_dto
 from stable_delusion.models.requests import GenerateImageRequest
 from stable_delusion.models.responses import GenerateImageResponse
 from stable_delusion.models.client_config import ImageGenerationConfig, GCPConfig
@@ -52,23 +52,24 @@ class TestCustomOutputHandling:
 
     def test_handle_custom_output_with_output_dir(self):
         """Test custom output handling with specified output directory."""
-        request = GenerateImageRequest(
-            prompt="test",
-            images=[],
-            model="seedream",
-            output_dir=Path("."),
-            output_filename="test_output",  # No extension - will be added automatically
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = GenerateImageRequest(
+                prompt="test",
+                images=[],
+                model="seedream",
+                output_dir=Path(temp_dir),
+                output_filename="test_output",  # No extension - will be added automatically
+            )
 
-        response = self.create_test_response(self.generated_file_path)
+            response = self.create_test_response(self.generated_file_path)
 
-        _handle_cli_custom_output(response, request)
+            _handle_cli_custom_output(response, request)
 
-        # Check that file was renamed with timestamp and extension
-        assert response.generated_file.name.startswith("test_output_")
-        assert response.generated_file.suffix == ".png"
-        assert response.generated_file.exists()
-        assert response.generated_file.parent == Path(".")
+            # Check that file was renamed with timestamp and extension
+            assert response.generated_file.name.startswith("test_output_")
+            assert response.generated_file.suffix == ".png"
+            assert response.generated_file.exists()
+            assert response.generated_file.parent == Path(temp_dir)
 
     def test_handle_custom_output_without_output_dir(self):
         """Test custom output handling without specified output directory."""
@@ -119,9 +120,9 @@ class TestCustomOutputHandling:
         # Should not raise an exception
         _handle_cli_custom_output(response, request)
 
-    @patch("stable_delusion.generate.logging")
-    @patch("stable_delusion.generate.shutil.move")
-    def test_handle_custom_output_rename_failure(self, mock_move, mock_logging):
+    @patch("logging.error")
+    @patch("shutil.move")
+    def test_handle_custom_output_rename_failure(self, mock_move, mock_error):
         """Test error handling when file rename fails."""
         # Mock shutil.move to raise an exception
         mock_move.side_effect = OSError("Permission denied")
@@ -140,7 +141,7 @@ class TestCustomOutputHandling:
         _handle_cli_custom_output(response, request)
 
         # Check that error was logged
-        mock_logging.error.assert_called()
+        mock_error.assert_called()
         # Verify shutil.move was called
         mock_move.assert_called_once()
 
@@ -168,23 +169,24 @@ class TestCustomOutputHandling:
             assert response.generated_file.suffix == ".png"
             assert response.generated_file.exists()
 
-    @patch("stable_delusion.generate.logging")
-    def test_handle_custom_output_debug_logging(self, mock_logging):
+    @patch("logging.debug")
+    def test_handle_custom_output_debug_logging(self, mock_debug):
         """Test that debug logging occurs during custom output handling."""
-        request = GenerateImageRequest(
-            prompt="test",
-            images=[],
-            model="seedream",
-            output_dir=Path("."),
-            output_filename="renamed_file.png",
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            request = GenerateImageRequest(
+                prompt="test",
+                images=[],
+                model="seedream",
+                output_dir=Path(temp_dir),
+                output_filename="renamed_file.png",
+            )
 
-        response = self.create_test_response(self.generated_file_path)
+            response = self.create_test_response(self.generated_file_path)
 
-        _handle_cli_custom_output(response, request)
+            _handle_cli_custom_output(response, request)
 
-        # Check that debug logging was called
-        assert mock_logging.debug.call_count >= 3  # Should have multiple debug calls
+            # Check that debug logging was called
+            assert mock_debug.call_count >= 3  # Should have multiple debug calls
 
 
 class TestRequestDTOCreation:
